@@ -1,0 +1,26 @@
+{
+  "name": "cognigy-demo-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cognigy Demo Studio — local companion app + browser extension for SE demo experiences",
+  "main": "apps/studio/main.js",
+  "scripts": {
+    "start": "electron .",
+    "service": "node apps/studio/service/standalone.js",
+    "build:templates": "node apps/studio/service/build-templates.js"
+  },
+  "dependencies": {
+    "@cognigy/click-to-call-sdk": "0.0.7",
+    "@cognigy/socket-client": "^4.9.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "chokidar": "^3.6.0",
+    "events": "^3.3.0",
+    "express": "^4.21.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.11"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}

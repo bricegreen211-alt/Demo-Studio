@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      display: flex; flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #fff;
+    }
+    header {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: #0f172a; color: #fff;
+    }
+    #title { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    button {
+      border: 0; background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
+      width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
+    }
+    button:hover { background: rgba(255,255,255,.25); }
+    iframe { flex: 1; border: 0; width: 100%; }
+    #err {
+      display: none; padding: 24px; color: #64748b; font-size: 13px; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="title">Demo Experience</div>
+    <button id="min" title="Minimize">–</button>
+    <button id="full" title="Full screen">⛶</button>
+    <button id="close" title="Close">✕</button>
+  </header>
+  <iframe id="demo" allow="microphone; autoplay; clipboard-write"></iframe>
+  <div id="err"><b>Cognigy Demo Studio isn't running.</b><br />Start the Demo Studio app, then close and reopen this panel.</div>
+  <script src="panel.js"></script>
+</body>
+</html>

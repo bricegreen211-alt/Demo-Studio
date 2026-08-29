@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cognigy Demo Studio</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-orb"></span>
+      <h1>COGNIGY <b>DEMO STUDIO</b></h1>
+    </div>
+    <label class="presentation" title="Serve locked demo versions and hide development controls">
+      <input type="checkbox" id="presentationMode" />
+      <span>Presentation Mode</span>
+    </label>
+  </header>
+
+  <main id="listView">
+    <div class="list-head">
+      <h2>My Demo Experiences</h2>
+      <div class="list-actions">
+        <button class="ghost" id="importBtn" title="Import demos from Cognigy Injector or another machine">Import</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+        <button class="primary" id="newDemoBtn">+ New Demo</button>
+      </div>
+    </div>
+    <div id="demoList" class="demo-list"></div>
+    <div id="emptyState" class="empty" hidden>
+      <p>No demos yet.</p>
+      <p class="soft">Create your first Demo Experience — pick a template, paste your Cognigy endpoints, and you're ready to present.</p>
+    </div>
+  </main>
+
+  <main id="editView" hidden>
+    <div class="edit-cols">
+      <section class="form-col">
+        <button class="ghost back" id="backBtn">← All demos</button>
+        <h2 id="formTitle">New Demo Experience</h2>
+
+        <label>Customer <input id="f-name" placeholder="ABC Airlines" /></label>
+        <label>Customer Website <input id="f-website" placeholder="https://www.abcairlines.com" /></label>
+
+        <fieldset id="f-template-set">
+          <legend>Template</legend>
+          <label class="radio"><input type="radio" name="template" value="webchat" /> Webchat Only</label>
+          <label class="radio"><input type="radio" name="template" value="webrtc" /> WebRTC Only</label>
+          <label class="radio"><input type="radio" name="template" value="webchat-webrtc" checked /> Webchat + WebRTC</label>
+        </fieldset>
+
+        <label id="l-chat">Cognigy Chat Endpoint <input id="f-chat" placeholder="Paste your Webchat endpoint or hosted URL" /></label>
+        <label id="l-voice">Cognigy Voice Endpoint <input id="f-voice" placeholder="Paste your Click-to-Call link or endpoint" /></label>
+
+        <fieldset>
+          <legend>Launcher</legend>
+          <label class="radio"><input type="radio" name="launcher" value="ai-orb" checked /> AI Orb</label>
+          <label class="radio"><input type="radio" name="launcher" value="ai-spark" /> AI Spark</label>
+          <label class="radio"><input type="radio" name="launcher" value="voice-wave" /> Voice Wave</label>
+        </fieldset>
+
+        <div class="grid2">
+          <fieldset>
+            <legend>Panel Side</legend>
+            <label class="radio"><input type="radio" name="side" value="left" /> Left</label>
+            <label class="radio"><input type="radio" name="side" value="right" checked /> Right</label>
+          </fieldset>
+          <label>Panel Width
+            <select id="f-width">
+              <option value="0">Template default</option>
+              <option value="360">Compact — 360px</option>
+              <option value="420">Standard — 420px</option>
+              <option value="520">Wide — 520px</option>
+              <option value="650">Extra Wide — 650px</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>AI Agent Name <input id="f-agent" placeholder="Ava" /></label>
+          <label>Launcher Label <input id="f-label" placeholder="Ask Ava" /></label>
+        </div>
+        <label class="check"><input type="checkbox" id="f-showlabel" checked /> Show launcher label</label>
+        <label>Welcome Message <input id="f-welcome" placeholder="Hi! I'm Ava. How can I help?" /></label>
+
+        <div class="grid2">
+          <label>Primary Color <input type="color" id="f-primary" value="#0284c7" /></label>
+          <label>Secondary Color <input type="color" id="f-secondary" value="#f1f5f9" /></label>
+        </div>
+        <label>Logo URL <input id="f-logo" placeholder="https://…/logo.png (optional)" /></label>
+
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <label>Forced User ID <input id="f-userid" placeholder="Optional — for Live Follow testing" /></label>
+          <div id="folderRow" class="folder-row" hidden>
+            <button class="ghost" id="openFolderBtn">Open project folder</button>
+            <span class="soft">Vibe-code this demo with your AI tool — saves rebuild automatically.</span>
+          </div>
+          <div class="folder-row"><code id="demoPath" class="soft"></code></div>
+        </details>
+
+        <div class="form-actions">
+          <button class="primary" id="saveBtn">Create Demo</button>
+          <span id="saveStatus" class="soft"></span>
+        </div>
+      </section>
+
+      <section class="preview-col">
+        <div class="preview-head">
+          <h3>Preview &amp; test</h3>
+          <div>
+            <button class="ghost" id="reloadPreviewBtn">Reload</button>
+            <button class="ghost" id="rebuildBtn">Rebuild</button>
+          </div>
+        </div>
+        <div class="preview-frame-wrap">
+          <iframe id="previewFrame" title="Demo preview"></iframe>
+          <div id="previewEmpty" class="preview-empty">Save the demo to see a live preview — open the chat or place a real test call right here.</div>
+        </div>
+        <div id="buildStatus" class="soft"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions"><button class="primary" id="modalClose">Close</button></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
