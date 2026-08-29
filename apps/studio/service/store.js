@@ -22,6 +22,7 @@ function readDemo(slug) {
   demo.id = slug;
   demo.hasLocked = fs.existsSync(path.join(demoDir(slug), "locked", "dist", "index.html"));
   demo.built = fs.existsSync(path.join(demoDir(slug), "dist", "index.html"));
+  demo.path = demoDir(slug); // shown in the dashboard's vibe-coding row
   return demo;
 }
 

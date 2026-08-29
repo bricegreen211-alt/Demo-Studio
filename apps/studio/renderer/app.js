@@ -26,32 +26,96 @@
 
   /* ---------------- list view ---------------- */
 
+  var allDemos = [];
+  var folders = [];
+  var collapsedFolders = {}; // session-local collapse state
+
   function loadList() {
     $("listView").hidden = false;
     $("editView").hidden = true;
     $("remoteView").hidden = true;
     editingId = null;
-    api("/api/demos").then(function (data) {
-      var demos = data.demos || [];
-      var list = $("demoList");
-      list.innerHTML = "";
-      $("emptyState").hidden = demos.length > 0;
-      demos.forEach(function (d) { list.appendChild(card(d)); });
+    Promise.all([api("/api/demos"), api("/api/settings")]).then(function (results) {
+      allDemos = results[0].demos || [];
+      folders = results[1].folders || [];
+      $("presentationMode").checked = !!results[1].presentationMode;
+      renderList();
+      renderFolderOptions();
     });
-    api("/api/settings").then(function (s) { $("presentationMode").checked = !!s.presentationMode; });
   }
 
   var TEMPLATE_LABEL = { "webchat": "Webchat", "webrtc": "WebRTC", "webchat-webrtc": "Webchat + WebRTC" };
 
-  function card(d) {
+  function allFolderNames() {
+    var names = folders.slice();
+    allDemos.forEach(function (d) {
+      if (d.folder && names.indexOf(d.folder) < 0) names.push(d.folder);
+    });
+    return names.sort(function (a, b) { return a.localeCompare(b); });
+  }
+
+  function renderFolderOptions() {
+    var dl = $("folderOptions");
+    dl.innerHTML = "";
+    allFolderNames().forEach(function (f) {
+      var opt = document.createElement("option");
+      opt.value = f;
+      dl.appendChild(opt);
+    });
+  }
+
+  function matchesFind(d, q) {
+    if (!q) return true;
+    return (d.name + " " + (d.website || "") + " " + (d.folder || "") + " " + TEMPLATE_LABEL[d.template])
+      .toLowerCase().indexOf(q) >= 0;
+  }
+
+  function renderList() {
+    var q = ($("findInput").value || "").trim().toLowerCase();
+    var list = $("demoList");
+    list.innerHTML = "";
+    var visible = allDemos.filter(function (d) { return matchesFind(d, q); });
+    $("emptyState").hidden = allDemos.length > 0;
+    $("noMatches").hidden = !(allDemos.length > 0 && visible.length === 0);
+
+    // Group: root demos first, then each folder (searching auto-expands).
+    var groups = { "": [] };
+    allFolderNames().forEach(function (f) { groups[f] = []; });
+    visible.forEach(function (d) {
+      var f = d.folder && groups[d.folder] ? d.folder : (d.folder || "");
+      if (!groups[f]) groups[f] = [];
+      groups[f].push(d);
+    });
+
+    (groups[""] || []).forEach(function (d) { list.appendChild(row(d)); });
+    Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (f) {
+      if (!f) return;
+      if (q && groups[f].length === 0) return; // hide empty folders while searching
+      var head = document.createElement("div");
+      head.className = "folder-head" + (collapsedFolders[f] && !q ? " collapsed" : "");
+      head.innerHTML = '<span class="folder-caret">▾</span><span class="folder-ico">📁</span> <b></b> <span class="folder-count"></span>';
+      head.querySelector("b").textContent = f;
+      head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " demo" : " demos");
+      head.addEventListener("click", function () {
+        collapsedFolders[f] = !collapsedFolders[f];
+        renderList();
+      });
+      list.appendChild(head);
+      if (!collapsedFolders[f] || q) {
+        groups[f].forEach(function (d) { list.appendChild(row(d, true)); });
+      }
+    });
+  }
+
+  function row(d, indented) {
     var el = document.createElement("div");
-    el.className = "demo-card";
+    el.className = "demo-row" + (indented ? " in-folder" : "");
     var chips = '<span class="chip chip-template">' + TEMPLATE_LABEL[d.template] + "</span>";
     if (d.hasLocked) chips += ' <span class="chip chip-locked">Locked</span>';
     if (!d.built) chips += ' <span class="chip chip-unbuilt">Building…</span>';
     el.innerHTML =
-      '<div class="row1"><h3></h3>' + chips + "</div>" +
-      '<div class="demo-site"></div>' +
+      '<div class="demo-row-main"><h3></h3><span class="demo-site"></span></div>' +
+      '<div class="demo-row-chips">' + chips + "</div>" +
       '<div class="demo-actions">' +
       '<button class="primary" data-act="launch">Launch</button>' +
       '<button class="ghost" data-act="edit">Edit</button>' +
@@ -68,6 +132,20 @@
     });
     return el;
   }
+
+  $("findInput").addEventListener("input", renderList);
+
+  $("newFolderBtn").addEventListener("click", function () {
+    var name = prompt("Folder name:");
+    if (!name || !name.trim()) return;
+    name = name.trim().slice(0, 80);
+    if (allFolderNames().indexOf(name) >= 0) { renderList(); return; }
+    folders.push(name);
+    api("/api/settings", putJson({ folders: folders })).then(function () {
+      renderList();
+      renderFolderOptions();
+    });
+  });
 
   var actions = {
     launch: function (d) {
@@ -119,8 +197,8 @@
     $("f-template-set").style.pointerEvents = slug ? "none" : "auto";
     $("saveStatus").textContent = "";
     $("buildStatus").textContent = "";
-    $("demoPath").textContent = "";
-    $("folderRow").hidden = !(window.cds && window.cds.openPath);
+    setVibecodeRow(null);
+    renderFolderOptions();
 
     if (!slug) {
       fillForm(null);
@@ -130,13 +208,25 @@
     api("/api/demos/" + slug).then(function (res) {
       fillForm(res.demo);
       setPreview(slug);
+      setVibecodeRow(res.demo);
       if (res.lastBuild && !res.lastBuild.ok) showBuildError(res.lastBuild.error);
     }).catch(function () { loadList(); });
+  }
+
+  // Vibe-code customization row: show the demo's project folder as soon as it
+  // exists — Open (Electron) / Copy path (everywhere).
+  function setVibecodeRow(demo) {
+    var hasDemo = !!(demo && demo.path);
+    $("openFolderBtn").hidden = !(hasDemo && window.cds && window.cds.openPath);
+    $("copyPathBtn").hidden = !hasDemo;
+    $("vibecodeHint").hidden = hasDemo;
+    $("demoPath").textContent = hasDemo ? demo.path : "";
   }
 
   function fillForm(d) {
     $("f-name").value = d ? d.name : "";
     $("f-website").value = d ? d.website : "";
+    $("f-folder").value = d ? (d.folder || "") : "";
     setRadio("template", d ? d.template : "webchat-webrtc");
     $("f-chat").value = d ? d.cognigy.chatEndpoint : "";
     $("f-voice").value = d ? d.cognigy.voiceEndpoint : "";
@@ -150,7 +240,7 @@
     $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#3694fc";
     $("f-secondary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.secondaryColor) ? d.theme.secondaryColor : "#f1f5f9";
     $("f-logo").value = d ? d.theme.logo : "";
-    $("f-userid").value = d ? d.userId : "";
+    $("f-userid").value = d ? d.userId : "followme";
     syncEndpointVisibility();
   }
 
@@ -158,6 +248,7 @@
     return {
       name: $("f-name").value.trim(),
       website: $("f-website").value.trim(),
+      folder: $("f-folder").value.trim(),
       template: radio("template"),
       panelSide: radio("side"),
       panelWidth: parseInt($("f-width").value, 10) || 0,
@@ -166,7 +257,7 @@
       showLauncherText: $("f-showlabel").checked,
       agentName: $("f-agent").value.trim() || "AI Assistant",
       welcomeMessage: $("f-welcome").value.trim(),
-      userId: $("f-userid").value.trim(),
+      userId: $("f-userid").value.trim() || "followme",
       cognigy: { chatEndpoint: $("f-chat").value.trim(), voiceEndpoint: $("f-voice").value.trim() },
       theme: { primaryColor: $("f-primary").value, secondaryColor: $("f-secondary").value, logo: $("f-logo").value.trim() }
     };
@@ -215,6 +306,7 @@
       $("f-template-set").style.opacity = ".5";
       $("saveStatus").textContent = "Saved.";
       setTimeout(function () { $("saveStatus").textContent = ""; }, 2000);
+      setVibecodeRow(d);
       if (isNew) {
         // First build runs in the background; poll until it lands, then preview.
         $("buildStatus").className = "";
@@ -252,6 +344,13 @@
   });
   $("openFolderBtn").addEventListener("click", function () {
     if (editingId && window.cds && window.cds.openDemoFolder) window.cds.openDemoFolder(editingId);
+  });
+  $("copyPathBtn").addEventListener("click", function () {
+    var p = $("demoPath").textContent;
+    if (!p) return;
+    try { navigator.clipboard.writeText(p); } catch (e) {}
+    $("copyPathBtn").textContent = "Copied ✓";
+    setTimeout(function () { $("copyPathBtn").textContent = "Copy folder path"; }, 1600);
   });
 
   /* ---------------- presentation mode ---------------- */

@@ -27,6 +27,7 @@
       id: "",
       name: "",
       website: "",
+      folder: "",
       template: "webchat",
       panelSide: "right",
       panelWidth: 0,           // 0 = template default
@@ -36,7 +37,7 @@
       launcherSize: "medium",
       agentName: "AI Assistant",
       welcomeMessage: "",
-      userId: "",
+      userId: "followme",
       cognigy: { chatEndpoint: "", voiceEndpoint: "" },
       theme: { primaryColor: "#3694fc", secondaryColor: "#f1f5f9", logo: "" },
       createdAt: "",
@@ -52,6 +53,7 @@
       id: String(input.id || d.id),
       name: String(input.name || d.name),
       website: String(input.website || ""),
+      folder: String(input.folder || "").slice(0, 80),
       template: pick(input.template, TEMPLATES, d.template),
       panelSide: pick(input.panelSide, SIDES, d.panelSide),
       panelWidth: Math.max(0, Math.min(1200, parseInt(input.panelWidth, 10) || 0)),
@@ -61,7 +63,7 @@
       launcherSize: pick(input.launcherSize, SIZES, d.launcherSize),
       agentName: String(input.agentName || d.agentName),
       welcomeMessage: String(input.welcomeMessage || ""),
-      userId: String(input.userId || ""),
+      userId: String(input.userId || d.userId), // default "followme" for Live Follow
       cognigy: {
         chatEndpoint: String((input.cognigy && input.cognigy.chatEndpoint) || ""),
         voiceEndpoint: String((input.cognigy && input.cognigy.voiceEndpoint) || "")

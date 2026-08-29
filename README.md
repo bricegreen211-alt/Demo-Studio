@@ -34,6 +34,12 @@ npm run service      # or: service only, dashboard at http://localhost:41700
 
 ## SE workflow
 
+The dashboard shows your demos as a **list** with a **Find** box, and you can group them into
+**folders** (+ New Folder, or type a folder name on the demo form). Every demo connects with the
+**Follow** user ID — `followme` by default — so Cognigy Live Follow / the Interaction Panel can
+track your demo conversations without any setup. **Vibe-code customization** lives at the bottom
+of the demo form: the project folder path with Copy (and Open in the desktop app).
+
 1. **+ New Demo** — customer name, website, template (Webchat / WebRTC / both), paste the
    Cognigy endpoints in whatever form Cognigy gave you (hosted webchat URL, click-to-call link,
    or bare token — all normalized automatically), pick launcher + branding. **Create Demo.**

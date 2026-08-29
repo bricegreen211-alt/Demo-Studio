@@ -39,12 +39,15 @@
     <div class="list-head">
       <h2>My Demo Experiences</h2>
       <div class="list-actions">
+        <input type="search" id="findInput" class="find" placeholder="Find demos…" />
+        <button class="ghost" id="newFolderBtn" title="Create a folder to organize your demos">+ New Folder</button>
         <button class="ghost" id="importBtn" title="Import demos from Cognigy Injector or another machine">Import</button>
         <input type="file" id="importFile" accept="application/json" hidden />
         <button class="primary" id="newDemoBtn">+ New Demo</button>
       </div>
     </div>
-    <div id="demoList" class="demo-list"></div>
+    <div id="demoList" class="demo-rows"></div>
+    <div id="noMatches" class="empty" hidden><p>No demos match your search.</p></div>
     <div id="emptyState" class="empty" hidden>
       <p>No demos yet.</p>
       <p class="soft">Create your first Demo Experience — pick a template, paste your Cognigy endpoints, and you're ready to present.</p>
@@ -59,6 +62,8 @@
 
         <label>Customer <input id="f-name" placeholder="ABC Airlines" /></label>
         <label>Customer Website <input id="f-website" placeholder="https://www.abcairlines.com" /></label>
+        <label>Folder <input id="f-folder" list="folderOptions" placeholder="Optional — e.g. Banking" /></label>
+        <datalist id="folderOptions"></datalist>
 
         <fieldset id="f-template-set">
           <legend>Template</legend>
@@ -107,15 +112,21 @@
         </div>
         <label>Logo URL <input id="f-logo" placeholder="https://…/logo.png (optional)" /></label>
 
-        <details class="advanced">
-          <summary>Advanced</summary>
-          <label>Forced User ID <input id="f-userid" placeholder="Optional — for Live Follow testing" /></label>
-          <div id="folderRow" class="folder-row" hidden>
-            <button class="ghost" id="openFolderBtn">Open project folder</button>
-            <span class="soft">Vibe-code this demo with your AI tool — saves rebuild automatically.</span>
+        <div class="advanced-block">
+          <div class="advanced-title">Advanced</div>
+          <label>Follow <input id="f-userid" placeholder="followme" /></label>
+          <span class="soft">The user ID this demo connects with — keep <b>followme</b> to track the
+            conversation in Cognigy Live Follow / the Interaction Panel.</span>
+          <div class="advanced-title vc-title">Vibe-code customization</div>
+          <div id="vibecodeRow" class="folder-row">
+            <button class="ghost" id="openFolderBtn" hidden>Open project folder</button>
+            <button class="ghost" id="copyPathBtn" hidden>Copy folder path</button>
+            <span class="soft" id="vibecodeHint">Save the demo first to get its project folder.</span>
           </div>
           <div class="folder-row"><code id="demoPath" class="soft"></code></div>
-        </details>
+          <span class="soft">Point Claude Code / Cursor / any AI tool at this folder and edit — the demo
+            rebuilds automatically on save, no terminal needed.</span>
+        </div>
 
         <div class="form-actions">
           <button class="primary" id="saveBtn">Create Demo</button>

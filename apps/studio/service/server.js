@@ -145,6 +145,9 @@ function createApp() {
         .map((g) => ({ name: String(g.name || "Gateway").slice(0, 80), endpointUrl: String(g.endpointUrl || "").slice(0, 500) }));
     }
     if ("activeGateway" in body) patch.activeGateway = Math.max(0, parseInt(body.activeGateway, 10) || 0);
+    if (Array.isArray(body.folders)) {
+      patch.folders = body.folders.map((f) => String(f || "").slice(0, 80)).filter(Boolean);
+    }
     if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
     if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
     if (body.outbound && typeof body.outbound === "object") {

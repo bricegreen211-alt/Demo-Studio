@@ -17,6 +17,7 @@ const DEFAULTS = {
   extensionLastSeen: 0,
   gateways: [],
   activeGateway: 0,
+  folders: [],
   preferredMicId: "",
   preferredSpeakerId: "",
   outbound: { endpointUrl: "", endpointKey: "" }
