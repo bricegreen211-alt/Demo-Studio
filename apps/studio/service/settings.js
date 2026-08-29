@@ -15,9 +15,10 @@ const DEFAULTS = {
   presentationMode: false,
   overrideDemoId: null,
   extensionLastSeen: 0,
-  gateways: [],
-  activeGateway: 0,
-  folders: [],
+  gateways: [],        // Remote Control: [{id, name, endpointUrl, folder}]
+  activeGateway: 0,    // legacy index (pre-list-view)
+  folders: [],         // Demo Experiences folders
+  gatewayFolders: [],  // Voice Agent gateway folders
   preferredMicId: "",
   preferredSpeakerId: "",
   outbound: { endpointUrl: "", endpointKey: "" }

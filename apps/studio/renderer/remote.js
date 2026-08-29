@@ -1,15 +1,14 @@
 /*
- * Cognigy Remote Control — ported from the NiCE Voice Agent desktop app and
- * rebranded, plus the new Outbound Trigger mini-CRM.
+ * Cognigy Remote Control.
  *
- * Voice Agent tab: hosts the Cognigy click-to-call widget (vendored bundle) so
- * the SE can take/place WebRTC calls OFF-SCREEN during a demo — with live
- * mic/speaker switching mid-call, a call-state indicator, and a session-ID
- * badge (auto-copied for Live Follow / Interaction Panel).
+ * Voice Agent tab — a gateway LIST mirroring the Demo Experiences layout:
+ * Find at the top, collapsible folders, and per-row actions — inline
+ * 📞 Call / Mute / End (via the vendored @cognigy/click-to-call-sdk bundle,
+ * window.CdsVoice), Edit, ⧉ Pop Out (full widget view with mic/speaker
+ * devices and end-call, in a compact window for off-screen use), Delete.
  *
- * Outbound Trigger tab: contacts (name/phone/SMS/email) with one-click
- * triggers that POST to a Cognigy Agent flow's REST endpoint via the service
- * (voice first; SMS/email wired the same way, labeled beta).
+ * Outbound Trigger tab — contacts mini-CRM posting to a Cognigy Agent flow
+ * REST endpoint (voice primary; SMS/email beta).
  */
 (function () {
   "use strict";
@@ -30,25 +29,289 @@
   var settings = null;
   var demos = [];
   var booted = false;
-  var widgetLoaded = false;
+  var POPOUT = /popout=1/.test(location.hash);
+  var POPOUT_GW = (location.hash.match(/gw=([A-Za-z0-9_-]+)/) || [])[1] || "";
 
-  /* ══════════════ Voice Agent ══════════════ */
+  function normVoice(url) {
+    return window.CognigyNormalize ? window.CognigyNormalize.voiceEndpoint(url || "") : (url || "");
+  }
 
-  // Track every RTCPeerConnection the widget creates so live mic switching
-  // works even if the widget instance doesn't expose the JsSIP UA. (The UA
-  // path below also feeds this set when available.)
-  var activePCs = new Set();
-  var NativePC = window.RTCPeerConnection;
-  if (NativePC) {
-    window.RTCPeerConnection = function (cfg) {
-      var pc = new NativePC(cfg);
-      activePCs.add(pc);
-      pc.addEventListener("connectionstatechange", function () {
-        if (["closed", "failed", "disconnected"].indexOf(pc.connectionState) >= 0) activePCs.delete(pc);
+  /* ══════════════ Gateway list (Voice Agent tab) ══════════════ */
+
+  var gwCollapsed = {};
+
+  function gateways() { return settings.gateways || []; }
+
+  function persistGateways() {
+    return api("/api/settings", putJson({ gateways: gateways(), gatewayFolders: settings.gatewayFolders || [] }))
+      .then(function (s) { settings = s; });
+  }
+
+  function gwFolderNames() {
+    var names = (settings.gatewayFolders || []).slice();
+    gateways().forEach(function (g) {
+      if (g.folder && names.indexOf(g.folder) < 0) names.push(g.folder);
+    });
+    return names.sort(function (a, b) { return a.localeCompare(b); });
+  }
+
+  function renderGwOptions() {
+    var fl = $("gwFolderOptions");
+    fl.innerHTML = "";
+    gwFolderNames().forEach(function (f) {
+      var o = document.createElement("option");
+      o.value = f;
+      fl.appendChild(o);
+    });
+    // Endpoint suggestions from demos that carry a voice endpoint.
+    var el = $("gwEndpointOptions");
+    el.innerHTML = "";
+    demos.forEach(function (d) {
+      if (d.cognigy && d.cognigy.voiceEndpoint) {
+        var o = document.createElement("option");
+        o.value = d.cognigy.voiceEndpoint;
+        o.label = "Demo — " + d.name;
+        el.appendChild(o);
+      }
+    });
+  }
+
+  function gwMatches(g, q) {
+    if (!q) return true;
+    return (g.name + " " + (g.endpointUrl || "") + " " + (g.folder || "")).toLowerCase().indexOf(q) >= 0;
+  }
+
+  function renderGwList() {
+    var q = ($("gwFind").value || "").trim().toLowerCase();
+    var list = $("gwList");
+    list.innerHTML = "";
+    var all = gateways();
+    var visible = all.filter(function (g) { return gwMatches(g, q); });
+    $("gwEmpty").hidden = all.length > 0;
+    $("gwNoMatches").hidden = !(all.length > 0 && visible.length === 0);
+
+    var groups = { "": [] };
+    gwFolderNames().forEach(function (f) { groups[f] = []; });
+    visible.forEach(function (g) {
+      var f = g.folder || "";
+      if (!groups[f]) groups[f] = [];
+      groups[f].push(g);
+    });
+
+    (groups[""] || []).forEach(function (g) { list.appendChild(gwRow(g)); });
+    Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (f) {
+      if (!f) return;
+      if (q && groups[f].length === 0) return;
+      var head = document.createElement("div");
+      head.className = "folder-head" + (gwCollapsed[f] && !q ? " collapsed" : "");
+      head.innerHTML = '<span class="folder-caret">▾</span><span class="folder-ico">📁</span> <b></b> <span class="folder-count"></span>';
+      head.querySelector("b").textContent = f;
+      head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " gateway" : " gateways");
+      head.addEventListener("click", function () { gwCollapsed[f] = !gwCollapsed[f]; renderGwList(); });
+      list.appendChild(head);
+      if (!gwCollapsed[f] || q) groups[f].forEach(function (g) { list.appendChild(gwRow(g, true)); });
+    });
+  }
+
+  function gwRow(g, indented) {
+    var el = document.createElement("div");
+    el.className = "demo-row" + (indented ? " in-folder" : "");
+    el.dataset.gwId = g.id;
+    var onCall = inlineCall && inlineCall.gwId === g.id;
+    var host = "";
+    try { host = new URL(normVoice(g.endpointUrl)).hostname; } catch (e) {}
+
+    var callControls;
+    if (!onCall) {
+      callControls = '<button class="primary" data-act="call"' + (inlineCall ? " disabled" : "") + ">📞 Call</button>";
+    } else {
+      callControls =
+        '<span class="gw-state ' + inlineCall.status + '"><i class="gw-dot"></i>' +
+        (inlineCall.status === "active" ? '<span data-role="timer">' + fmtSecs(inlineCall.seconds) + "</span>" :
+         inlineCall.status === "ringing" ? "Calling…" : "Connecting…") +
+        "</span>" +
+        (inlineCall.status === "active"
+          ? '<button class="ghost gw-mute' + (inlineCall.muted ? " on" : "") + '" data-act="mute">' + (inlineCall.muted ? "🔇 Unmute" : "🎙 Mute") + "</button>"
+          : "") +
+        '<button class="gw-end" data-act="end">✕ End</button>';
+    }
+
+    el.innerHTML =
+      '<div class="demo-row-main"><h3></h3><span class="demo-site"></span></div>' +
+      '<div class="demo-actions">' +
+      callControls +
+      '<button class="ghost" data-act="edit">Edit</button>' +
+      '<button class="ghost" data-act="popout" title="Full view with mic/speaker devices — move it off-screen during the demo">⧉ Pop Out</button>' +
+      '<button class="danger" data-act="delete">✕</button>' +
+      "</div>";
+    el.querySelector("h3").textContent = g.name || "(unnamed gateway)";
+    el.querySelector(".demo-site").textContent = host || g.endpointUrl || "No endpoint";
+    el.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("button");
+      var act = btn && btn.getAttribute("data-act");
+      if (!act || (btn && btn.disabled)) return;
+      if (act === "call") startInlineCall(g);
+      else if (act === "mute") toggleInlineMute();
+      else if (act === "end") endInlineCall();
+      else if (act === "edit") showGwForm(g);
+      else if (act === "popout") popOut(g);
+      else if (act === "delete") deleteGw(g);
+    });
+    return el;
+  }
+
+  function fmtSecs(s) {
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  /* ── gateway CRUD ── */
+
+  function showGwForm(g) {
+    $("gwForm").hidden = false;
+    $("gwId").value = g ? g.id : "";
+    $("gwName").value = g ? g.name : "";
+    $("gwEndpoint").value = g ? g.endpointUrl : "";
+    $("gwFolder").value = g ? (g.folder || "") : "";
+    renderGwOptions();
+    $("gwName").focus();
+  }
+
+  $("gwNewBtn").addEventListener("click", function () { showGwForm(null); });
+  $("gwCancelBtn").addEventListener("click", function () { $("gwForm").hidden = true; });
+  $("gwSaveBtn").addEventListener("click", function () {
+    var name = $("gwName").value.trim();
+    var endpointUrl = $("gwEndpoint").value.trim();
+    var folder = $("gwFolder").value.trim();
+    if (!name) { rcToast("Gateway name is required.", false); return; }
+    if (!endpointUrl) { rcToast("Paste the voice endpoint (Click-to-Call link, endpoint URL, or token).", false); return; }
+    var id = $("gwId").value;
+    if (id) {
+      gateways().forEach(function (g) {
+        if (g.id === id) { g.name = name; g.endpointUrl = endpointUrl; g.folder = folder; }
       });
-      return pc;
-    };
-    window.RTCPeerConnection.prototype = NativePC.prototype;
+    } else {
+      settings.gateways = gateways().concat([{ id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: name, endpointUrl: endpointUrl, folder: folder }]);
+    }
+    persistGateways().then(function () { $("gwForm").hidden = true; renderGwList(); renderGwOptions(); });
+  });
+
+  function deleteGw(g) {
+    if (!confirm('Delete gateway "' + g.name + '"?')) return;
+    if (inlineCall && inlineCall.gwId === g.id) endInlineCall();
+    settings.gateways = gateways().filter(function (x) { return x.id !== g.id; });
+    persistGateways().then(renderGwList);
+  }
+
+  $("gwFind").addEventListener("input", renderGwList);
+
+  $("gwNewFolderBtn").addEventListener("click", function () {
+    var name = prompt("Folder name:");
+    if (!name || !name.trim()) return;
+    name = name.trim().slice(0, 80);
+    if (gwFolderNames().indexOf(name) < 0) {
+      settings.gatewayFolders = (settings.gatewayFolders || []).concat([name]);
+      persistGateways().then(function () { renderGwList(); renderGwOptions(); });
+    }
+  });
+
+  /* ── inline Call / Mute / End (SDK, no widget UI) ── */
+
+  var inlineCall = null;
+
+  function startInlineCall(g) {
+    if (inlineCall) { rcToast("End the current call first.", false); return; }
+    if (!window.CdsVoice) { rcToast("Voice SDK failed to load.", false); return; }
+    var support = window.CdsVoice.checkWebRTCSupport();
+    if (!support.supported) { rcToast("This browser doesn't support WebRTC calls.", false); return; }
+    var endpointUrl = normVoice(g.endpointUrl);
+    if (!endpointUrl) { rcToast("This gateway has no valid endpoint — click Edit.", false); return; }
+
+    inlineCall = { gwId: g.id, client: null, status: "connecting", muted: false, seconds: 0, timer: null };
+    renderGwList();
+
+    window.CdsVoice.createWebRTCClient({ endpointUrl: endpointUrl, userId: "followme" })
+      .then(function (client) {
+        if (!inlineCall || inlineCall.gwId !== g.id) { client.destroy().catch(function () {}); return; }
+        inlineCall.client = client;
+        client.on("ringing", function () { if (inlineCall) { inlineCall.status = "ringing"; renderGwList(); } });
+        client.on("answered", function () {
+          if (!inlineCall) return;
+          inlineCall.status = "active";
+          inlineCall.timer = setInterval(function () {
+            if (!inlineCall) return;
+            inlineCall.seconds++;
+            var t = document.querySelector('[data-gw-id="' + g.id + '"] [data-role="timer"]');
+            if (t) t.textContent = fmtSecs(inlineCall.seconds);
+          }, 1000);
+          renderGwList();
+        });
+        client.on("muted", function () { if (inlineCall) { inlineCall.muted = true; renderGwList(); } });
+        client.on("unmuted", function () { if (inlineCall) { inlineCall.muted = false; renderGwList(); } });
+        client.on("ended", function () { cleanupInlineCall(); });
+        client.on("failed", function (s, info) {
+          rcToast("Call failed" + (info && (info.description || info.cause) ? ": " + (info.description || info.cause) : "") + ".", false);
+          cleanupInlineCall();
+        });
+        client.on("error", function (err) {
+          rcToast("Voice error: " + String((err && err.message) || err), false);
+        });
+        return client.connectAndCall();
+      })
+      .catch(function (err) {
+        rcToast("Could not start the call: " + String((err && err.message) || err), false);
+        cleanupInlineCall();
+      });
+  }
+
+  function toggleInlineMute() {
+    if (!inlineCall || !inlineCall.client) return;
+    var c = inlineCall.client;
+    (inlineCall.muted ? c.unmute() : c.mute()).catch(function () {});
+  }
+
+  function endInlineCall() {
+    if (!inlineCall) return;
+    var c = inlineCall.client;
+    if (c) {
+      c.endCall().catch(function () {}).then(function () { c.destroy().catch(function () {}); });
+    }
+    cleanupInlineCall();
+  }
+
+  function cleanupInlineCall() {
+    if (inlineCall && inlineCall.timer) clearInterval(inlineCall.timer);
+    var c = inlineCall && inlineCall.client;
+    inlineCall = null;
+    if (c) c.destroy().catch(function () {});
+    renderGwList();
+  }
+
+  window.addEventListener("beforeunload", function () { endInlineCall(); });
+
+  /* ── pop out ── */
+
+  function popOut(g) {
+    if (window.cds && window.cds.openRemote) window.cds.openRemote(g.id);
+    else window.open(location.origin + "/#remote&popout=1&gw=" + encodeURIComponent(g.id), "cds-remote-" + g.id, "width=480,height=720");
+  }
+
+  /* ══════════════ Pop-out view: full widget (mic/speaker, end call) ══════════════ */
+
+  var activePCs = new Set();
+  if (POPOUT) {
+    // Track RTCPeerConnections for live mic replaceTrack switching.
+    var NativePC = window.RTCPeerConnection;
+    if (NativePC) {
+      window.RTCPeerConnection = function (cfg) {
+        var pc = new NativePC(cfg);
+        activePCs.add(pc);
+        pc.addEventListener("connectionstatechange", function () {
+          if (["closed", "failed", "disconnected"].indexOf(pc.connectionState) >= 0) activePCs.delete(pc);
+        });
+        return pc;
+      };
+      window.RTCPeerConnection.prototype = NativePC.prototype;
+    }
   }
 
   var sidFound = false;
@@ -56,18 +319,9 @@
 
   function setCallState(state) {
     var group = $("rc-call-state"), dot = $("rc-call-dot"), text = $("rc-call-text");
-    if (state === "idle") {
-      group.hidden = true;
-      dot.classList.remove("connecting");
-    } else if (state === "connecting") {
-      group.hidden = false;
-      dot.classList.add("connecting");
-      text.textContent = "Connecting…";
-    } else if (state === "active") {
-      group.hidden = false;
-      dot.classList.remove("connecting");
-      text.textContent = "In Call";
-    }
+    if (state === "idle") { group.hidden = true; dot.classList.remove("connecting"); }
+    else if (state === "connecting") { group.hidden = false; dot.classList.add("connecting"); text.textContent = "Connecting…"; }
+    else if (state === "active") { group.hidden = false; dot.classList.remove("connecting"); text.textContent = "In Call"; }
   }
 
   function showError(msg) {
@@ -98,8 +352,6 @@
     if (m) { sidFound = true; showSid(m[0], true); }
   }
 
-  // Short-lived storage/DOM poll after a call starts (fallback SID discovery,
-  // carried over from the Voice Agent).
   function pollSid() {
     var polls = 0;
     var t = setInterval(function () {
@@ -119,20 +371,14 @@
       setCallState("connecting");
       sidFound = false;
       $("rc-sid").hidden = true;
-
-      function registerPC() {
-        var pc = session.connection;
-        if (pc) activePCs.add(pc);
-      }
+      function registerPC() { if (session.connection) activePCs.add(session.connection); }
       registerPC();
       session.on("answered", registerPC);
       session.on("accepted", registerPC);
-
       session.on("answered", function () { setCallState("active"); });
       ["ended", "terminated", "failed"].forEach(function (ev) {
         session.on(ev, function () { setCallState("idle"); });
       });
-
       trySid(session.id);
       session.on("newInfo", function (e) { trySid(e.info && e.info.body); });
       pollSid();
@@ -140,49 +386,27 @@
     return true;
   }
 
-  function currentEndpoint() {
-    var val = $("gwSelect").value || "";
-    if (val.indexOf("demo:") === 0) {
-      var slug = val.slice(5);
-      for (var i = 0; i < demos.length; i++) {
-        if (demos[i].id === slug) return demos[i].cognigy && demos[i].cognigy.voiceEndpoint;
-      }
-      return "";
-    }
-    if (val.indexOf("gw:") === 0) {
-      var gw = (settings.gateways || [])[parseInt(val.slice(3), 10)];
-      return gw && gw.endpointUrl;
-    }
-    return "";
+  function popoutGateway() {
+    var all = gateways();
+    for (var i = 0; i < all.length; i++) if (all[i].id === POPOUT_GW) return all[i];
+    return all[0] || null;
   }
 
   function loadWidget() {
     showError("");
     setCallState("idle");
-    var endpoint = window.CognigyNormalize
-      ? window.CognigyNormalize.voiceEndpoint(currentEndpoint() || "")
-      : (currentEndpoint() || "");
-    if (!endpoint) {
-      showError("No voice gateway selected — add one with + Add, or give a demo a voice endpoint.");
-      return;
-    }
+    var gw = popoutGateway();
+    var endpoint = gw ? normVoice(gw.endpointUrl) : "";
+    if (!endpoint) { showError("No voice gateway configured — add one on the Voice Agent list."); return; }
+    document.title = "Cognigy Remote Control — " + (gw.name || "Voice");
     try { if (window.destroyWebRTCWidget) window.destroyWebRTCWidget(); } catch (e) {}
-    if (typeof window.initWebRTCWidget !== "function") {
-      showError("Voice widget failed to load.");
-      return;
-    }
-    widgetLoaded = true;
+    if (typeof window.initWebRTCWidget !== "function") { showError("Voice widget failed to load."); return; }
     window.initWebRTCWidget(endpoint, {}, function (instance) {
-      // Prefer the UA event bus when the widget exposes it; the PC-tracking
-      // shim + SID poll cover the rest either way.
       if (!wireUa(instance)) pollSid();
       relocateWidget();
     });
-    // The bundle appends its root to <body>; pull it into our shell.
     setTimeout(relocateWidget, 400);
     setTimeout(loadDevices, 1500);
-    // The widget hides itself when the endpoint rejects its config fetch —
-    // surface that instead of showing an empty shell.
     setTimeout(function () {
       var c = document.querySelector(".webrtc_widget_container");
       if (c && getComputedStyle(c).visibility === "hidden") {
@@ -201,7 +425,7 @@
     }
   }
 
-  /* ── devices (ported: live mic swap via replaceTrack, speaker setSinkId) ── */
+  /* devices — live mic swap via replaceTrack, speaker setSinkId (pop-out only) */
 
   var activeSpeakerId = "";
   var replacementMicStream = null;
@@ -255,12 +479,10 @@
   async function loadDevices() {
     var devices = [];
     try {
-      // A one-shot permission probe so device labels populate.
       var probe = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(function () { return null; });
       devices = await navigator.mediaDevices.enumerateDevices();
       if (probe) probe.getTracks().forEach(function (t) { t.stop(); });
     } catch (e) { return; }
-
     var micSel = $("rcMicSelect"), spkSel = $("rcSpeakerSelect");
     micSel.innerHTML = '<option value="">Default microphone</option>';
     spkSel.innerHTML = '<option value="">Default speaker</option>';
@@ -284,67 +506,6 @@
 
   $("rcMicSelect").addEventListener("change", function (e) { applyMic(e.target.value); });
   $("rcSpeakerSelect").addEventListener("change", function (e) { saveDevicePrefs(); applySpeaker(e.target.value); });
-
-  /* ── gateways ── */
-
-  function renderGateways() {
-    var sel = $("gwSelect");
-    sel.innerHTML = "";
-    var gws = settings.gateways || [];
-    gws.forEach(function (g, i) {
-      var opt = document.createElement("option");
-      opt.value = "gw:" + i;
-      opt.textContent = g.name || "Gateway " + (i + 1);
-      sel.appendChild(opt);
-    });
-    demos.forEach(function (d) {
-      if (d.cognigy && d.cognigy.voiceEndpoint) {
-        var opt = document.createElement("option");
-        opt.value = "demo:" + d.id;
-        opt.textContent = "Demo — " + d.name;
-        sel.appendChild(opt);
-      }
-    });
-    if (!sel.options.length) {
-      var none = document.createElement("option");
-      none.value = "";
-      none.textContent = "No gateways — click + Add";
-      sel.appendChild(none);
-    } else {
-      var want = "gw:" + (settings.activeGateway || 0);
-      sel.value = Array.prototype.some.call(sel.options, function (o) { return o.value === want; }) ? want : sel.options[0].value;
-    }
-  }
-
-  $("gwSelect").addEventListener("change", function () {
-    var v = $("gwSelect").value;
-    if (v.indexOf("gw:") === 0) {
-      settings.activeGateway = parseInt(v.slice(3), 10);
-      api("/api/settings", putJson({ activeGateway: settings.activeGateway })).catch(function () {});
-    }
-    loadWidget();
-  });
-
-  $("gwAddBtn").addEventListener("click", function () {
-    var name = prompt("Gateway name (e.g. Trial US):");
-    if (name === null) return;
-    var url = prompt("Voice endpoint — paste the Click-to-Call link, endpoint URL, or bare token:");
-    if (!url) return;
-    settings.gateways = settings.gateways || [];
-    settings.gateways.push({ name: name || "Gateway", endpointUrl: url.trim() });
-    settings.activeGateway = settings.gateways.length - 1;
-    api("/api/settings", putJson({ gateways: settings.gateways, activeGateway: settings.activeGateway }))
-      .then(function () { renderGateways(); loadWidget(); });
-  });
-
-  $("rcReloadBtn").addEventListener("click", loadWidget);
-
-  /* ── pop out ── */
-
-  $("popoutBtn").addEventListener("click", function () {
-    if (window.cds && window.cds.openRemote) window.cds.openRemote();
-    else window.open(location.origin + "/#remote&popout=1", "cds-remote", "width=480,height=720");
-  });
 
   /* ══════════════ Outbound Trigger ══════════════ */
 
@@ -371,7 +532,7 @@
       tr.addEventListener("click", function (ev) {
         var act = ev.target.closest("button") && ev.target.closest("button").getAttribute("data-act");
         if (!act) return;
-        if (act === "edit") return editContact(c);
+        if (act === "edit") return showContactForm(c);
         if (act === "del") return deleteContact(c);
         trigger(c, act);
       });
@@ -395,7 +556,6 @@
     $("obcEmail").value = c ? c.email : "";
     $("obcName").focus();
   }
-  function editContact(c) { showContactForm(c); }
   function deleteContact(c) {
     if (!confirm('Delete contact "' + c.name + '"?')) return;
     api("/api/contacts/" + c.id, { method: "DELETE" }).then(loadContacts);
@@ -410,36 +570,36 @@
       sms: $("obcSms").value.trim(),
       email: $("obcEmail").value.trim()
     };
-    if (!body.name) { toast("Name is required.", false); return; }
+    if (!body.name) { rcToast("Name is required.", false); return; }
     var id = $("obcId").value;
     var req = id ? api("/api/contacts/" + id, putJson(body)) : api("/api/contacts", postJson(body));
     req.then(function () { $("obForm").hidden = true; loadContacts(); })
-       .catch(function (err) { toast(String(err.message || err), false); });
+       .catch(function (err) { rcToast(String(err.message || err), false); });
   });
 
   $("obSaveBtn").addEventListener("click", function () {
     api("/api/settings", putJson({
       outbound: { endpointUrl: $("obEndpoint").value.trim(), endpointKey: $("obKey").value.trim() }
-    })).then(function (s) { settings = s; toast("Agent flow connection saved.", true); })
-      .catch(function (err) { toast(String(err.message || err), false); });
+    })).then(function (s) { settings = s; rcToast("Agent flow connection saved.", true); })
+      .catch(function (err) { rcToast(String(err.message || err), false); });
   });
 
   function trigger(c, channel) {
     var label = channel === "voice" ? "call" : channel;
-    toast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
+    rcToast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
     api("/api/contacts/" + c.id + "/trigger", postJson({ channel: channel }))
       .then(function (res) {
-        toast("✓ Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
+        rcToast("✓ Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
           (res.flowReply ? "<br>Flow says: " + esc(res.flowReply) : ""), true);
       })
       .catch(function (err) {
-        toast("✗ Trigger failed: " + esc(String(err.message || err)) +
+        rcToast("✗ Trigger failed: " + esc(String(err.message || err)) +
           "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false);
       });
   }
 
   var toastTimer = null;
-  function toast(html, ok) {
+  function rcToast(html, ok) {
     var el = $("obToast");
     el.className = "ob-toast " + (ok ? "ok" : "err");
     el.innerHTML = html;
@@ -468,15 +628,27 @@
       Promise.all([api("/api/settings"), api("/api/demos")]).then(function (results) {
         settings = results[0];
         demos = results[1].demos || [];
+        // Migrate pre-list-view gateways that have no id yet.
+        (settings.gateways || []).forEach(function (g, i) {
+          if (!g.id) g.id = "g-legacy-" + i;
+        });
+        if (POPOUT) {
+          $("rcVoice").hidden = true;
+          $("rcOutbound").hidden = true;
+          $("rcPopout").hidden = false;
+          loadWidget();
+          return;
+        }
         $("obEndpoint").value = (settings.outbound && settings.outbound.endpointUrl) || "";
         $("obKey").value = (settings.outbound && settings.outbound.endpointKey) || "";
-        renderGateways();
+        renderGwList();
+        renderGwOptions();
         loadContacts();
-        loadWidget();
       });
     }
   };
 
-  // Pop-out window boots straight into the voice view.
-  if (/popout=1/.test(location.hash)) window.CDSRemote.show();
+  // app.js routes before this script defines CDSRemote — self-boot when the
+  // page loads directly on #remote (including pop-out windows).
+  if (POPOUT || (location.hash || "").split("&")[0] === "#remote") window.CDSRemote.show();
 })();

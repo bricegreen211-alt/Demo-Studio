@@ -87,8 +87,13 @@ if (!app.requestSingleInstanceLock()) {
 
   // Cognigy Remote Control pop-out — the compact window the SE drags
   // off-screen while presenting (successor to the NiCE Voice Agent app).
-  ipcMain.on("cds-open-remote", () => {
-    if (remoteWin && !remoteWin.isDestroyed()) { remoteWin.focus(); return; }
+  ipcMain.on("cds-open-remote", (ev, gatewayId) => {
+    const gw = /^[A-Za-z0-9_-]*$/.test(String(gatewayId || "")) ? String(gatewayId || "") : "";
+    if (remoteWin && !remoteWin.isDestroyed()) {
+      remoteWin.loadURL("http://localhost:41700/#remote&popout=1" + (gw ? "&gw=" + gw : ""));
+      remoteWin.focus();
+      return;
+    }
     remoteWin = new BrowserWindow({
       width: 480,
       height: 720,
@@ -99,7 +104,7 @@ if (!app.requestSingleInstanceLock()) {
       webPreferences: { contextIsolation: true, nodeIntegration: false }
     });
     remoteWin.removeMenu();
-    remoteWin.loadURL("http://localhost:41700/#remote&popout=1");
+    remoteWin.loadURL("http://localhost:41700/#remote&popout=1" + (gw ? "&gw=" + gw : ""));
     remoteWin.on("closed", () => { remoteWin = null; });
   });
 }

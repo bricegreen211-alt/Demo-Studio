@@ -155,9 +155,6 @@
   <main id="remoteView" hidden>
     <div class="list-head">
       <h2>Cognigy Remote Control</h2>
-      <div class="list-actions">
-        <button class="ghost" id="popoutBtn" title="Open in a compact window you can move off-screen during the demo">⧉ Pop out</button>
-      </div>
     </div>
 
     <nav class="rc-tabs">
@@ -165,38 +162,38 @@
       <button id="rcTabOutbound">Outbound Trigger</button>
     </nav>
 
-    <!-- Voice Agent -->
+    <!-- Voice Agent — gateway list (same layout language as Demo Experiences) -->
     <section id="rcVoice">
-      <div class="rc-bar">
-        <label class="rc-gw-label">Voice gateway</label>
-        <select id="gwSelect" class="rc-gw"></select>
-        <button class="ghost" id="gwAddBtn" title="Add a gateway endpoint">+ Add</button>
-        <button class="ghost" id="rcReloadBtn" title="Reload the voice widget">⟲</button>
-        <span id="rcHint" class="soft">Answer or place WebRTC calls here — keep this window off-screen during a demo.</span>
+      <div class="list-head">
+        <span class="soft">Answer or place WebRTC calls — inline, or Pop Out for the full off-screen view.</span>
+        <div class="list-actions">
+          <input type="search" id="gwFind" class="find" placeholder="Find gateways…" />
+          <button class="ghost" id="gwNewFolderBtn" title="Create a folder to organize your gateways">+ New Folder</button>
+          <button class="primary" id="gwNewBtn">+ New Gateway</button>
+        </div>
       </div>
 
-      <div id="rc-widget-shell">
-        <div id="rc-error" class="rc-error" hidden></div>
-        <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
-          <span class="rc-sid-id" id="rcSidText"></span>
-          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard">⧉</button>
+      <div id="gwForm" class="ob-form" hidden>
+        <input type="hidden" id="gwId" />
+        <div class="ob-form-grid gw-grid">
+          <label>Name <input id="gwName" placeholder="Trial US" /></label>
+          <label>Voice Endpoint <input id="gwEndpoint" list="gwEndpointOptions" placeholder="Paste the Click-to-Call link, endpoint URL, or bare token" /></label>
+          <datalist id="gwEndpointOptions"></datalist>
+          <label>Folder <input id="gwFolder" list="gwFolderOptions" placeholder="Optional" /></label>
+          <datalist id="gwFolderOptions"></datalist>
         </div>
-        <div id="rc-widget-wrap"></div>
-        <div id="rc-device-bar">
-          <div class="rc-dev-group">
-            <span class="rc-dev-ico">🎙</span>
-            <select id="rcMicSelect"><option value="">Default microphone</option></select>
-          </div>
-          <div class="rc-dev-group">
-            <span class="rc-dev-ico">🔊</span>
-            <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
-          </div>
-          <div id="rc-call-state" hidden>
-            <span id="rc-call-dot"></span>
-            <span id="rc-call-text">In Call</span>
-          </div>
+        <div class="form-actions">
+          <button class="primary" id="gwSaveBtn">Save Gateway</button>
+          <button class="ghost" id="gwCancelBtn">Cancel</button>
         </div>
       </div>
+
+      <div id="gwList" class="demo-rows"></div>
+      <div id="gwEmpty" class="empty" hidden>
+        <p>No voice gateways yet.</p>
+        <p class="soft">Add one with + New Gateway — paste the Click-to-Call link from your Cognigy endpoint.</p>
+      </div>
+      <div id="gwNoMatches" class="empty" hidden><p>No gateways match your search.</p></div>
     </section>
 
     <!-- Outbound Trigger -->
@@ -244,6 +241,32 @@
 
       <div id="obToast" class="ob-toast" hidden></div>
     </section>
+
+    <!-- Pop-out view: full voice widget (mic/speaker, end call) for one gateway -->
+    <section id="rcPopout" hidden>
+      <div id="rc-widget-shell">
+        <div id="rc-error" class="rc-error" hidden></div>
+        <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
+          <span class="rc-sid-id" id="rcSidText"></span>
+          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard">⧉</button>
+        </div>
+        <div id="rc-widget-wrap"></div>
+        <div id="rc-device-bar">
+          <div class="rc-dev-group">
+            <span class="rc-dev-ico">🎙</span>
+            <select id="rcMicSelect"><option value="">Default microphone</option></select>
+          </div>
+          <div class="rc-dev-group">
+            <span class="rc-dev-ico">🔊</span>
+            <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
+          </div>
+          <div id="rc-call-state" hidden>
+            <span id="rc-call-dot"></span>
+            <span id="rc-call-text">In Call</span>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   </div><!-- /content -->
@@ -258,6 +281,7 @@
 
   <script src="/shared/normalize.js"></script>
   <script src="vendor/webRTCWidget.js"></script>
+  <script src="vendor/cds-voice-sdk.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
 </body>

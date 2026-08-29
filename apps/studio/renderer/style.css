@@ -236,6 +236,26 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 @keyframes rcPulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 #rc-call-text { font-size: 11px; color: rgba(255,255,255,.7); }
 
+/* ── Voice Agent gateway rows: inline call controls ─────── */
+.gw-grid { grid-template-columns: 1fr 2fr 1fr; }
+.gw-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--soft); padding: 6px 4px;
+  font-variant-numeric: tabular-nums;
+}
+.gw-state.active { color: #0b8f7c; font-weight: 600; }
+.gw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); display: inline-block; }
+.gw-state.connecting .gw-dot, .gw-state.ringing .gw-dot {
+  background: var(--primary); animation: rcPulse 1s ease-in-out infinite;
+}
+.gw-mute { padding: 6px 10px; font-size: 12px; }
+.gw-mute.on { background: #fde68a; border-color: #f59e0b; }
+.gw-end {
+  background: #dc2626; color: #fff; border: 0; padding: 6px 12px;
+  font-size: 12.5px; font-weight: 600;
+}
+.gw-end:hover { background: #b91c1c; }
+
 /* pop-out mode: hide the chrome, keep the shell */
 body.popout #sidebar, body.popout .list-head, body.popout .rc-tabs, body.popout .rc-bar { display: none; }
 body.popout #content { margin-left: 0; }

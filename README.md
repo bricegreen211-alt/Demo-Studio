@@ -61,11 +61,13 @@ exports.
 
 The sidebar's **Remote Control** page absorbs the old "NiCE Voice Agent" desktop app:
 
-- **Voice Agent tab** — hosts the Cognigy click-to-call widget (vendored locally, no internet
-  fetch) so you can take or place WebRTC calls **off-screen** during a demo. Pick a voice
-  gateway (saved gateways or any demo's voice endpoint), switch microphone/speaker **live
-  mid-call**, watch the call-state dot, and grab the auto-copied `webrtc-voice-…` session ID for
-  Live Follow. **⧉ Pop out** opens the compact 480×720 window to drag onto a second/off screen.
+- **Voice Agent tab** — your voice gateways as a list (same layout as Demo Experiences: Find at
+  the top, collapsible folders, + New Gateway / Edit / Delete; the endpoint field suggests your
+  demos' voice endpoints). Each row can **📞 Call / Mute / End inline** — no pop-up needed — via
+  the vendored Click-to-Call SDK. **⧉ Pop Out** on a row opens that gateway in the compact
+  480×720 full-widget window (drag it off-screen during the demo) with live mic/speaker
+  switching mid-call, end call, the call-state dot, and the auto-copied `webrtc-voice-…` session
+  ID for Live Follow.
 - **Outbound Trigger tab** — a mini-CRM (name, telephone, SMS, email). **📞 Call** POSTs the
   contact to your Agent flow's REST endpoint and the flow places the outbound call (SMS/Email
   buttons work the same way and are labeled beta).

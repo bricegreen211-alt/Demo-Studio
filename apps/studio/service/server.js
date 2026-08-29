@@ -142,7 +142,15 @@ function createApp() {
     if (Array.isArray(body.gateways)) {
       patch.gateways = body.gateways
         .filter((g) => g && typeof g === "object")
-        .map((g) => ({ name: String(g.name || "Gateway").slice(0, 80), endpointUrl: String(g.endpointUrl || "").slice(0, 500) }));
+        .map((g) => ({
+          id: String(g.id || "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+          name: String(g.name || "Gateway").slice(0, 80),
+          endpointUrl: String(g.endpointUrl || "").slice(0, 500),
+          folder: String(g.folder || "").slice(0, 80)
+        }));
+    }
+    if (Array.isArray(body.gatewayFolders)) {
+      patch.gatewayFolders = body.gatewayFolders.map((f) => String(f || "").slice(0, 80)).filter(Boolean);
     }
     if ("activeGateway" in body) patch.activeGateway = Math.max(0, parseInt(body.activeGateway, 10) || 0);
     if (Array.isArray(body.folders)) {
