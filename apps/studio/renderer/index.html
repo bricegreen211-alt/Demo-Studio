@@ -4,19 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cognigy Demo Studio</title>
+  <link rel="icon" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-orb"></span>
-      <h1>COGNIGY <b>DEMO STUDIO</b></h1>
+  <!-- ── Left sidebar ─────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <div class="side-brand">
+      <img src="favicon.png" alt="" class="side-mark" />
+      <div class="side-word"><b>NiCE</b> <span>Cognigy</span><small>DEMO STUDIO</small></div>
     </div>
-    <label class="presentation" title="Serve locked demo versions and hide development controls">
-      <input type="checkbox" id="presentationMode" />
-      <span>Presentation Mode</span>
-    </label>
-  </header>
+    <nav class="side-nav">
+      <a href="#demos" id="nav-demos" class="side-item">
+        <span class="side-ico">▣</span> Demo Experiences
+      </a>
+      <a href="#remote" id="nav-remote" class="side-item">
+        <span class="side-ico">☏</span> Remote Control
+      </a>
+    </nav>
+    <div class="side-foot">
+      <label class="presentation" title="Serve locked demo versions and hide development controls">
+        <input type="checkbox" id="presentationMode" />
+        <span>Presentation Mode</span>
+      </label>
+      <div class="side-version">Cognigy Demo Studio</div>
+    </div>
+  </aside>
+
+  <div id="content">
 
   <main id="listView">
     <div class="list-head">
@@ -85,7 +102,7 @@
         <label>Welcome Message <input id="f-welcome" placeholder="Hi! I'm Ava. How can I help?" /></label>
 
         <div class="grid2">
-          <label>Primary Color <input type="color" id="f-primary" value="#0284c7" /></label>
+          <label>Primary Color <input type="color" id="f-primary" value="#3694fc" /></label>
           <label>Secondary Color <input type="color" id="f-secondary" value="#f1f5f9" /></label>
         </div>
         <label>Logo URL <input id="f-logo" placeholder="https://…/logo.png (optional)" /></label>
@@ -123,6 +140,103 @@
     </div>
   </main>
 
+  <!-- ── Cognigy Remote Control ───────────────────────────────── -->
+  <main id="remoteView" hidden>
+    <div class="list-head">
+      <h2>Cognigy Remote Control</h2>
+      <div class="list-actions">
+        <button class="ghost" id="popoutBtn" title="Open in a compact window you can move off-screen during the demo">⧉ Pop out</button>
+      </div>
+    </div>
+
+    <nav class="rc-tabs">
+      <button id="rcTabVoice" class="on">Voice Agent</button>
+      <button id="rcTabOutbound">Outbound Trigger</button>
+    </nav>
+
+    <!-- Voice Agent -->
+    <section id="rcVoice">
+      <div class="rc-bar">
+        <label class="rc-gw-label">Voice gateway</label>
+        <select id="gwSelect" class="rc-gw"></select>
+        <button class="ghost" id="gwAddBtn" title="Add a gateway endpoint">+ Add</button>
+        <button class="ghost" id="rcReloadBtn" title="Reload the voice widget">⟲</button>
+        <span id="rcHint" class="soft">Answer or place WebRTC calls here — keep this window off-screen during a demo.</span>
+      </div>
+
+      <div id="rc-widget-shell">
+        <div id="rc-error" class="rc-error" hidden></div>
+        <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
+          <span class="rc-sid-id" id="rcSidText"></span>
+          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard">⧉</button>
+        </div>
+        <div id="rc-widget-wrap"></div>
+        <div id="rc-device-bar">
+          <div class="rc-dev-group">
+            <span class="rc-dev-ico">🎙</span>
+            <select id="rcMicSelect"><option value="">Default microphone</option></select>
+          </div>
+          <div class="rc-dev-group">
+            <span class="rc-dev-ico">🔊</span>
+            <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
+          </div>
+          <div id="rc-call-state" hidden>
+            <span id="rc-call-dot"></span>
+            <span id="rc-call-text">In Call</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Outbound Trigger -->
+    <section id="rcOutbound" hidden>
+      <div class="ob-settings">
+        <h3>Agent flow connection</h3>
+        <p class="soft">The Call button POSTs the contact to this Cognigy REST endpoint — your Agent flow places the outbound call
+          (see the README for the payload your flow receives).</p>
+        <div class="ob-settings-row">
+          <label>Flow REST Endpoint <input id="obEndpoint" placeholder="https://endpoint-….cognigy.ai/…  (REST endpoint of your Agent flow)" /></label>
+          <label>Endpoint Key <input id="obKey" placeholder="Optional — x-cognigy-endpoint-key" /></label>
+          <button class="ghost" id="obSaveBtn">Save</button>
+        </div>
+      </div>
+
+      <div class="list-head ob-head">
+        <h3>Contacts</h3>
+        <button class="primary" id="obAddContact">+ Add Contact</button>
+      </div>
+
+      <div id="obForm" class="ob-form" hidden>
+        <input type="hidden" id="obcId" />
+        <div class="ob-form-grid">
+          <label>Name <input id="obcName" placeholder="Jane Doe" /></label>
+          <label>Telephone <input id="obcPhone" placeholder="+1 555 010 1234" /></label>
+          <label>SMS Number <input id="obcSms" placeholder="+1 555 010 1234" /></label>
+          <label>Email <input id="obcEmail" placeholder="jane@example.com" /></label>
+        </div>
+        <div class="form-actions">
+          <button class="primary" id="obcSaveBtn">Save Contact</button>
+          <button class="ghost" id="obcCancelBtn">Cancel</button>
+        </div>
+      </div>
+
+      <div id="obTableWrap">
+        <table class="ob-table">
+          <thead><tr><th>Name</th><th>Telephone</th><th>SMS</th><th>Email</th><th></th></tr></thead>
+          <tbody id="obTableBody"></tbody>
+        </table>
+        <div id="obEmpty" class="empty" hidden>
+          <p>No contacts yet.</p>
+          <p class="soft">Add a contact, then trigger an outbound call from your Cognigy AI Agent with one click.</p>
+        </div>
+      </div>
+
+      <div id="obToast" class="ob-toast" hidden></div>
+    </section>
+  </main>
+
+  </div><!-- /content -->
+
   <div id="modal" class="modal" hidden>
     <div class="modal-card">
       <h3 id="modalTitle"></h3>
@@ -131,6 +245,9 @@
     </div>
   </div>
 
+  <script src="/shared/normalize.js"></script>
+  <script src="vendor/webRTCWidget.js"></script>
   <script src="app.js"></script>
+  <script src="remote.js"></script>
 </body>
 </html>

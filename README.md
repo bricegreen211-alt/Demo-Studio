@@ -2,7 +2,8 @@
 
 A Sales Engineering demo platform that overlays a custom Cognigy-powered AI experience on any
 customer website — the successor to the Cognigy Injector extension. Built to the Cognigy Demo
-Studio SOW.
+Studio SOW, in the **NiCE Cognigy** brand (dark `#21212b` · blue `#3694fc` · teal `#36ead0`,
+Be Vietnam Pro, ΛI app icon).
 
 **How it works:** the Studio app (Electron) serves customer-specific *Demo Experiences* from
 `http://localhost:41700`. The thin browser extension shows an animated AI launcher on the mapped
@@ -49,6 +50,44 @@ npm run service      # or: service only, dashboard at http://localhost:41700
 
 Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
 exports.
+
+## Cognigy Remote Control
+
+The sidebar's **Remote Control** page absorbs the old "NiCE Voice Agent" desktop app:
+
+- **Voice Agent tab** — hosts the Cognigy click-to-call widget (vendored locally, no internet
+  fetch) so you can take or place WebRTC calls **off-screen** during a demo. Pick a voice
+  gateway (saved gateways or any demo's voice endpoint), switch microphone/speaker **live
+  mid-call**, watch the call-state dot, and grab the auto-copied `webrtc-voice-…` session ID for
+  Live Follow. **⧉ Pop out** opens the compact 480×720 window to drag onto a second/off screen.
+- **Outbound Trigger tab** — a mini-CRM (name, telephone, SMS, email). **📞 Call** POSTs the
+  contact to your Agent flow's REST endpoint and the flow places the outbound call (SMS/Email
+  buttons work the same way and are labeled beta).
+
+### Outbound Trigger — what your flow receives
+
+Configure the tab with your flow's REST endpoint (`https://endpoint-<cluster>.cognigy.ai/<token>`,
+optional `x-cognigy-endpoint-key`). Each trigger POSTs the standard Cognigy REST body:
+
+```json
+{
+  "userId": "cds-remote-…",
+  "sessionId": "cds-outbound-…",
+  "text": "",
+  "data": {
+    "trigger": "outboundDemo",
+    "channel": "voice",
+    "contact": { "name": "Jane Doe", "phone": "+1555…", "sms": "+1555…", "email": "jane@…" }
+  }
+}
+```
+
+In your flow, branch on `data.trigger == "outboundDemo"` / `data.channel`, then place the call —
+e.g. an HTTP Request node to the Voice Gateway outbound-call API
+(`POST https://api-vg-<region>.cognigy.ai/v1/Accounts/<account_sid>/Calls` with
+`application_sid`, `from`, and `to.number = data.contact.phone` — see
+docs.cognigy.com → Voice Gateway → Create Outbound Calls). The first text output your flow
+returns is shown to the SE as confirmation.
 
 ## Repository layout
 

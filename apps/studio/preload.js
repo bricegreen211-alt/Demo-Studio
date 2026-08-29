@@ -7,5 +7,6 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("cds", {
   openExternal: (url) => ipcRenderer.send("cds-open-external", url),
   openPath: true, // capability flag for the dashboard
-  openDemoFolder: (slug) => ipcRenderer.send("cds-open-demo-folder", slug)
+  openDemoFolder: (slug) => ipcRenderer.send("cds-open-demo-folder", slug),
+  openRemote: () => ipcRenderer.send("cds-open-remote")
 });

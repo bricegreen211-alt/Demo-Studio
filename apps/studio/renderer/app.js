@@ -29,6 +29,7 @@
   function loadList() {
     $("listView").hidden = false;
     $("editView").hidden = true;
+    $("remoteView").hidden = true;
     editingId = null;
     api("/api/demos").then(function (data) {
       var demos = data.demos || [];
@@ -110,6 +111,7 @@
   function openEdit(slug) {
     $("listView").hidden = true;
     $("editView").hidden = false;
+    $("remoteView").hidden = true;
     editingId = slug || null;
     $("formTitle").textContent = slug ? "Edit Demo Experience" : "New Demo Experience";
     $("saveBtn").textContent = slug ? "Save" : "Create Demo";
@@ -145,7 +147,7 @@
     $("f-label").value = d ? d.launcherText : "";
     $("f-showlabel").checked = d ? !!d.showLauncherText : true;
     $("f-welcome").value = d ? d.welcomeMessage : "";
-    $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#0284c7";
+    $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#3694fc";
     $("f-secondary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.secondaryColor) ? d.theme.secondaryColor : "#f1f5f9";
     $("f-logo").value = d ? d.theme.logo : "";
     $("f-userid").value = d ? d.userId : "";
@@ -329,6 +331,27 @@
   $("modalClose").addEventListener("click", function () { $("modal").hidden = true; });
   $("modal").addEventListener("click", function (ev) { if (ev.target === $("modal")) $("modal").hidden = true; });
 
+  /* ---------------- sidebar router ---------------- */
+
+  function route() {
+    var hash = (location.hash || "#demos").split("&")[0];
+    var isRemote = hash === "#remote";
+    document.getElementById("nav-demos").classList.toggle("on", !isRemote);
+    document.getElementById("nav-remote").classList.toggle("on", isRemote);
+    if (isRemote) {
+      $("listView").hidden = true;
+      $("editView").hidden = true;
+      $("remoteView").hidden = false;
+      if (window.CDSRemote) window.CDSRemote.show();
+    } else {
+      loadList();
+    }
+  }
+  window.addEventListener("hashchange", route);
+
+  // Pop-out mode: compact Remote Control-only window (#remote&popout=1)
+  if (/popout=1/.test(location.hash)) document.body.classList.add("popout");
+
   /* ---------------- boot ---------------- */
-  loadList();
+  route();
 })();

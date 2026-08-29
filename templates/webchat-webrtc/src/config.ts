@@ -22,7 +22,7 @@ const FALLBACK: DemoConfig = {
   welcomeMessage: "",
   userId: "",
   cognigy: { chatEndpoint: "", voiceEndpoint: "" },
-  theme: { primaryColor: "#0284c7", secondaryColor: "#f1f5f9", logo: "" },
+  theme: { primaryColor: "#3694fc", secondaryColor: "#f1f5f9", logo: "" },
 };
 
 export async function loadConfig(): Promise<DemoConfig> {

@@ -12,6 +12,7 @@ const settingsStore = require("./settings");
 const builder = require("./builder");
 const preflight = require("./preflight");
 const importer = require("./importer");
+const outbound = require("./outbound");
 const { demoDir } = require("./paths");
 const normalize = require("../../../packages/shared/normalize");
 
@@ -138,7 +139,39 @@ function createApp() {
     const patch = {};
     if ("presentationMode" in body) patch.presentationMode = !!body.presentationMode;
     if ("overrideDemoId" in body) patch.overrideDemoId = body.overrideDemoId || null;
+    if (Array.isArray(body.gateways)) {
+      patch.gateways = body.gateways
+        .filter((g) => g && typeof g === "object")
+        .map((g) => ({ name: String(g.name || "Gateway").slice(0, 80), endpointUrl: String(g.endpointUrl || "").slice(0, 500) }));
+    }
+    if ("activeGateway" in body) patch.activeGateway = Math.max(0, parseInt(body.activeGateway, 10) || 0);
+    if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
+    if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
+    if (body.outbound && typeof body.outbound === "object") {
+      patch.outbound = {
+        endpointUrl: String(body.outbound.endpointUrl || "").slice(0, 500),
+        endpointKey: String(body.outbound.endpointKey || "").slice(0, 300)
+      };
+    }
     ok(res, settingsStore.write(patch));
+  });
+
+  /* ------------- Outbound Trigger (Remote Control) ------------- */
+
+  app.get("/api/contacts", (req, res) => ok(res, { contacts: outbound.list() }));
+  app.post("/api/contacts", (req, res) => {
+    try { ok(res, { contact: outbound.create(req.body || {}) }); } catch (err) { fail(res, err); }
+  });
+  app.put("/api/contacts/:id", (req, res) => {
+    try { ok(res, { contact: outbound.update(req.params.id, req.body || {}) }); } catch (err) { fail(res, err); }
+  });
+  app.delete("/api/contacts/:id", (req, res) => {
+    try { outbound.remove(req.params.id); ok(res, { ok: true }); } catch (err) { fail(res, err); }
+  });
+  app.post("/api/contacts/:id/trigger", async (req, res) => {
+    try {
+      ok(res, await outbound.trigger(settingsStore.read(), req.params.id, (req.body || {}).channel || "voice"));
+    } catch (err) { fail(res, err); }
   });
 
   app.post("/api/extension/heartbeat", (req, res) => {
@@ -156,6 +189,8 @@ function createApp() {
   // The Studio dashboard is a static web app served at "/" — the Electron
   // window loads this same URL, and the extension popup can open it in a tab.
   app.use(express.static(path.join(__dirname, "..", "renderer"), { cacheControl: false, etag: false }));
+  // Shared browser modules (endpoint normalization) for the dashboard.
+  app.use("/shared", express.static(require("./paths").SHARED_ROOT, { cacheControl: false, etag: false }));
 
   /* ------------- demo experiences ------------- */
 

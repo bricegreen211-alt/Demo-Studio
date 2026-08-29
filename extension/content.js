@@ -28,7 +28,7 @@
   function mount(demo) {
     var size = SIZES[demo.launcherSize] || SIZES.medium;
     var side = demo.panelSide === "left" ? "left" : "right";
-    var primary = (demo.theme && demo.theme.primaryColor) || "#0284c7";
+    var primary = (demo.theme && demo.theme.primaryColor) || "#3694fc";
     var width = Math.max(MIN_W, demo.panelWidth || 420);
 
     var host = document.createElement("div");

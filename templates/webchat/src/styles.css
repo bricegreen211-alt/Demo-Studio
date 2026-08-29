@@ -1,6 +1,6 @@
 /* Demo Experience — chat styling. Brand colors arrive as CSS variables from demo.json. */
 :root {
-  --brand-primary: #0284c7;
+  --brand-primary: #3694fc;
   --brand-secondary: #f1f5f9;
   --ink: #0f172a;
   --ink-soft: #64748b;

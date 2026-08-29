@@ -4,25 +4,35 @@
   <meta charset="UTF-8" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    body { width: 300px; padding: 14px; background: #fff; color: #0f172a; }
-    h1 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-    .dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; }
-    .dot.on { background: #22c55e; }
-    .dot.off { background: #ef4444; }
+    body { width: 300px; background: #fff; color: #16161d; }
+    h1 {
+      font-size: 13.5px; display: flex; align-items: center; gap: 8px;
+      background: #21212b; color: #fff; padding: 12px 14px; font-weight: 500;
+    }
+    h1 img { width: 20px; height: 20px; border-radius: 5px; }
+    h1 b { font-weight: 700; }
+    h1 .cg { color: #3694fc; font-weight: 500; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; margin-left: auto; }
+    .dot.on { background: #36ead0; }
+    .dot.off { background: #ff5b8a; }
+    .wrap { padding: 12px 14px 14px; }
     .row { margin: 10px 0; }
     label { display: block; font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
     select { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
+    select:focus { outline: none; border-color: #3694fc; }
     .hint { font-size: 12px; color: #64748b; line-height: 1.5; }
-    .mapped { font-size: 12.5px; background: #f1f5f9; border-radius: 8px; padding: 8px 10px; line-height: 1.5; }
-    .mapped b { color: #0284c7; }
+    .mapped { font-size: 12.5px; background: #f4f6f9; border-radius: 8px; padding: 8px 10px; line-height: 1.5; }
+    .mapped b { color: #3694fc; }
     .switchrow { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+    .switchrow input { accent-color: #36ead0; }
     .footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-    .footer a { font-size: 12px; color: #0284c7; text-decoration: none; cursor: pointer; }
+    .footer a { font-size: 12px; color: #3694fc; text-decoration: none; cursor: pointer; }
     #version { font-size: 11px; color: #94a3b8; }
   </style>
 </head>
 <body>
-  <h1><span class="dot" id="statusDot"></span>Cognigy Demo Studio</h1>
+  <h1><img src="icons/icon32.png" alt="" /><span><b>NiCE</b> <span class="cg">Cognigy</span> Demo Studio</span><span class="dot" id="statusDot"></span></h1>
+  <div class="wrap">
   <div class="hint" id="statusText">Checking…</div>
 
   <div id="connected" style="display:none">
@@ -41,6 +51,7 @@
     <a id="openStudio">Open Demo Studio</a>
     <span id="version"></span>
   </div>
+  </div><!-- /wrap -->
   <script src="popup.js"></script>
 </body>
 </html>

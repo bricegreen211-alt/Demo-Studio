@@ -1,0 +1,18 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- NiCE Cognigy "ΛI" AI mark — recreated from cognigy.com's favicon letterforms.
+       Brand blue mark on the NiCE dark surface. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#262633"/>
+      <stop offset="1" stop-color="#1a1a22"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <!-- Λ -->
+  <path d="M 442 736 L 508 736 L 386 288 L 302 288 L 180 736 L 246 736 L 344 352 Z"
+        fill="#3694fc"/>
+  <!-- I -->
+  <rect x="590" y="288" width="66" height="448" fill="#ffffff"/>
+  <!-- subtle teal spark accent -->
+  <circle cx="754" cy="322" r="34" fill="#36ead0"/>
+</svg>
