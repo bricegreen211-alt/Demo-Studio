@@ -21,6 +21,10 @@ Demo Experience (React, per customer)
 Cognigy AI Agent
 ```
 
+Setting this up for the first time? See **[INSTALL.md](INSTALL.md)** for step-by-step install
+instructions (no developer background assumed). The section below is the short version, for
+people already working in this repo.
+
 ## Getting started (development)
 
 ```bash
@@ -48,14 +52,37 @@ of the demo form: the project folder path with Copy (and Open in the desktop app
 3. Browse to the customer website — the launcher appears automatically (domain mapping), or pick
    the demo manually in the extension popup.
 4. **Duplicate** an existing demo for a new customer, tweak the form, done.
-5. **Vibe-code** deeper customization: *Advanced → Open project folder*, point Claude Code /
-   Cursor / Codex at it, save — the demo rebuilds automatically. No terminal, no extension
-   rebuild.
-6. **Preflight** → fix anything flagged → **Lock** → enable **Presentation Mode** for the
-   meeting. The locked snapshot is served even while you keep editing.
+5. **Vibe-code** deeper customization: the demo form's *Vibe-code customization* row shows the
+   project folder path (Copy, or Open in the desktop app) — point Claude Code / Cursor / Codex at
+   it, save — the demo rebuilds automatically. No terminal, no extension rebuild.
+6. **Preflight** → fix anything flagged → **Lock** → flip **Presentation Mode** on right before
+   the meeting.
 
 Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
 exports.
+
+### What Presentation Mode actually does
+
+Presentation Mode is one switch in the sidebar, and it does exactly one thing: it decides which
+build of a demo the extension shows — your **live working copy**, or the **frozen Lock snapshot**.
+
+| | Presentation Mode **off** (default) | Presentation Mode **on** |
+|---|---|---|
+| What the customer sees | `demos/<slug>/dist/` — rebuilds every time you save a source file | `demos/<slug>/locked/dist/` — exactly what existed the moment you last clicked **Lock** |
+| Config (branding, endpoints) | Live from `demo.json` | Frozen from the locked copy — a branding tweak won't show until you Lock again |
+| Risk | A bad edit can break what's on screen mid-demo | None — background edits keep happening but never reach the customer-facing copy |
+
+The intended rhythm: build/vibe-code with it **off** → **Lock** once the demo is good → switch it
+**on** right before you walk into the room → keep tinkering on other demos (or even this one)
+without any chance of the presentation changing under you.
+
+Two things worth knowing:
+
+- The toggle is **global**, not per-demo — turning it on freezes *every* demo that has a Lock,
+  not just the one you're about to present.
+- It only changes what gets **served** to the customer. It does not hide or change anything in
+  the Studio dashboard itself — the dashboard keeps looking and behaving the same whether the
+  toggle is on or off.
 
 ## Cognigy Remote Control
 
