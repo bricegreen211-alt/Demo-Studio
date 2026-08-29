@@ -31,35 +31,58 @@ and the project itself just lives in a folder you choose.
 
 ## What you need first
 
-1. **The project folder** — a copy of the `Cognigy Demo Studio` folder (from wherever your team
-   shares it: a zip, a shared drive, or a git repo). Unzip it somewhere permanent — e.g.
-   `~/Cognigy Demo Studio` on macOS or `C:\Cognigy Demo Studio` on Windows. Don't run it from
-   inside a zip file or a Downloads folder you plan to clear out.
-2. **Node.js 20 LTS** — the runtime the Studio app and its local service run on.
+1. **Node.js 20 LTS** — the runtime the Studio app and its local service run on.
    - Go to [nodejs.org](https://nodejs.org) and download the **LTS** version.
      - **macOS**: choose the **macOS Installer (.pkg)**, matching your chip (Apple Silicon or
        Intel — the site auto-detects this for you).
      - **Windows**: choose the **Windows Installer (.msi)**, 64-bit.
-   - Run the installer with all default options. This also installs `npm`, which you'll use once
-     below.
+   - Run the installer with all default options. This also installs `npm` and `git`-related
+     tooling you'll use below.
    - **Windows only**: when the installer offers to install "tools for native modules," leave
      that checkbox **unchecked** — it isn't needed here and takes a long time.
-3. **Google Chrome or Microsoft Edge** — for the browser extension. Both are Chromium, so either
+2. **Google Chrome or Microsoft Edge** — for the browser extension. Both are Chromium, so either
    works the same way; install whichever you don't already have from
    [google.com/chrome](https://www.google.com/chrome/) or it's already on Windows.
 
 ---
 
-## Step 1 — Install dependencies
+## Step 1 — Get the code
+
+The project lives on GitHub at **[github.com/bricegreen211-alt/Demo-Studio](https://github.com/bricegreen211-alt/Demo-Studio)**.
+Pick whichever of these feels more comfortable — both end with the same folder on your computer.
+
+**Option A — Download ZIP (no git needed)**
+
+1. On the [repo page](https://github.com/bricegreen211-alt/Demo-Studio), click the green **Code**
+   button → **Download ZIP**.
+2. Unzip it somewhere permanent — e.g. `~/Demo-Studio` on macOS or `C:\Demo-Studio` on Windows.
+   Don't run it from inside a zip file or a Downloads folder you plan to clear out.
+
+**Option B — `git clone` (if you already have git, or the app told you it's installed)**
+
+Open a terminal (see Step 2 below for how) and run:
+
+```bash
+git clone https://github.com/bricegreen211-alt/Demo-Studio.git
+cd Demo-Studio
+```
+
+This puts a `Demo-Studio` folder wherever you ran the command from (your home folder, by
+default), and — unlike the ZIP — makes it easy to pull future updates later with `git pull`.
+
+---
+
+## Step 2 — Install dependencies
 
 1. Open a terminal:
    - **macOS**: open **Terminal** (press `Cmd + Space`, type "Terminal", press Enter).
    - **Windows**: open **PowerShell** (press the Start key, type "PowerShell", press Enter — the
      regular, non-admin PowerShell is fine).
-2. Navigate into the project folder:
+2. Navigate into the project folder (skip this if you used `git clone` above and are already
+   there):
    - Type `cd ` (with a trailing space).
-   - Drag the `Cognigy Demo Studio` folder from **Finder** (macOS) or **File Explorer** (Windows)
-     into the terminal window — it fills in the path for you.
+   - Drag the `Demo-Studio` folder from **Finder** (macOS) or **File Explorer** (Windows) into
+     the terminal window — it fills in the path for you.
    - Press Enter.
 3. Run:
 
@@ -77,7 +100,7 @@ and the project itself just lives in a folder you choose.
 
 ---
 
-## Step 2 — Start Cognigy Demo Studio
+## Step 3 — Start Cognigy Demo Studio
 
 In the same terminal, in the same folder, run:
 
@@ -101,7 +124,7 @@ extension talks to; you don't need to do anything with that URL directly.
 
 ---
 
-## Step 3 — Install the browser extension
+## Step 4 — Install the browser extension
 
 The extension is what actually shows the animated launcher and demo panel on a customer's
 website. Steps are identical on macOS and Windows.
@@ -110,8 +133,8 @@ website. Steps are identical on macOS and Windows.
    the address bar.
 2. Turn on **Developer mode** (top-right toggle).
 3. Click **Load unpacked**.
-4. Select the **`extension`** folder inside the `Cognigy Demo Studio` project folder (not a zip —
-   the folder itself).
+4. Select the **`extension`** folder inside the `Demo-Studio` project folder (not a zip — the
+   folder itself).
 5. You should see **NiCE Cognigy Demo Studio** appear in your extensions list. Click the
    puzzle-piece icon in your browser toolbar and **pin** it so it's always visible.
 
@@ -119,7 +142,7 @@ Repeat this in both Chrome and Edge if you use both.
 
 ---
 
-## Step 4 — Create your first demo
+## Step 5 — Create your first demo
 
 Back in the Cognigy Demo Studio window:
 
@@ -137,7 +160,7 @@ Cognigy Demo Studio is running and which demo (if any) is mapped to the site you
 
 ## Everyday use, after this first setup
 
-You don't need to repeat Steps 1 or 3 again — those were one-time. Every time after that, you
+You don't need to repeat Steps 1, 2, or 4 again — those were one-time. Every time after that, you
 just need to get the app running again:
 
 - **macOS**: reopen **Terminal**, `cd` into the project folder (or press the Up arrow to recall
@@ -145,8 +168,8 @@ just need to get the app running again:
   simple double-clickable shortcut that runs `npm start` in that folder — ask a teammate familiar
   with the project to set one up.
 - **Windows**: reopen **PowerShell**, `cd` into the project folder, and run `npm start`. A
-  `.bat` file with `cd /d "C:\Cognigy Demo Studio" && npm start` saved to your Desktop gives you
-  a double-clickable shortcut — again, worth asking a teammate to set up once.
+  `.bat` file with `cd /d "C:\Demo-Studio" && npm start` saved to your Desktop gives you a
+  double-clickable shortcut — again, worth asking a teammate to set up once.
 - The browser extension, once loaded, stays installed — you don't reload it each session.
 
 ---
@@ -159,7 +182,7 @@ just need to get the app running again:
 | `npm start` does nothing / errors immediately | Make sure you ran `npm install` first, in the same folder. |
 | macOS: "app can't be opened because it is from an unidentified developer" | Right-click the app window in the Dock and choose **Open**, or approve it in **System Settings → Privacy & Security → Open Anyway**. |
 | Windows: "Windows protected your PC" (SmartScreen) | Click **More info** → **Run anyway**. This is expected for an unsigned internal tool. |
-| Extension shows "Cognigy Demo Studio isn't running" | The Studio app (or at least its window) needs to be open — go back to Step 2. |
+| Extension shows "Cognigy Demo Studio isn't running" | The Studio app (or at least its window) needs to be open — go back to Step 3. |
 | Launcher doesn't appear on the customer site | Check the extension popup: is a demo mapped to this website? Set the demo's **Website** field, or pick it manually in the popup. |
 | Microphone doesn't work in a voice demo | Grant microphone access when your OS/browser prompts. macOS: check **System Settings → Privacy & Security → Microphone**. Windows: check **Settings → Privacy & security → Microphone**. |
 | Port already in use / service won't start | Another copy of Cognigy Demo Studio may already be running (check for another open window, on either OS) — only one instance is needed. |

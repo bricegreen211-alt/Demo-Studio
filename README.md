@@ -28,6 +28,8 @@ people already working in this repo.
 ## Getting started (development)
 
 ```bash
+git clone https://github.com/bricegreen211-alt/Demo-Studio.git
+cd Demo-Studio
 npm install
 npm start            # Electron app (starts the service + opens the dashboard)
 npm run service      # or: service only, dashboard at http://localhost:41700
