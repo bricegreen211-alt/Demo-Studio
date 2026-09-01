@@ -25,7 +25,83 @@
     mount(demo);
   });
 
+  /*
+   * Overlay mode: the extension contributes nothing visual — just a
+   * transparent iframe that resizes to whatever the Demo Experience asks for.
+   * The launcher icon, the panel, the close button and any device frame are
+   * all drawn by the demo itself, which means they're vibe-codeable.
+   *
+   * Protocol (demo -> panel.html -> here):
+   *   { type: "CDS_SIZE", width, height }  collapsed launcher's measured size
+   *   { type: "CDS_OPEN", open: true|false }
+   */
+  function mountOverlay(demo) {
+    var side = demo.panelSide === "left" ? "left" : "right";
+    var openW = Math.max(MIN_W, demo.panelWidth || 420);
+
+    var host = document.createElement("div");
+    host.id = "cds-shell-host";
+    host.style.cssText = "all:initial;position:fixed;z-index:2147483000;";
+    var root = host.attachShadow({ mode: "closed" });
+
+    var style = document.createElement("style");
+    style.textContent =
+      ":host{all:initial;}" +
+      ".cds-overlay-frame{position:fixed;bottom:20px;" + side + ":20px;border:0;" +
+      "background:transparent;z-index:2147483002;display:block;" +
+      "transition:width .28s cubic-bezier(.32,.72,.28,1),height .28s cubic-bezier(.32,.72,.28,1);}";
+    root.appendChild(style);
+
+    var frame = document.createElement("iframe");
+    frame.className = "cds-overlay-frame";
+    frame.title = "Demo Experience";
+    frame.setAttribute("allow", "microphone; autoplay; clipboard-write");
+    frame.style.width = "240px";   // provisional until the demo measures itself
+    frame.style.height = "120px";
+    frame.src = chrome.runtime.getURL("panel.html") +
+      "?slug=" + encodeURIComponent(demo.id) +
+      "&name=" + encodeURIComponent(demo.name || "") +
+      "&agent=" + encodeURIComponent(demo.agentName || "") +
+      "&style=overlay";
+    root.appendChild(frame);
+    document.documentElement.appendChild(host);
+
+    var collapsed = { w: 240, h: 120 };
+    var opened = { w: openW, h: 560 };  // the demo tells us its opened size
+    var isOpen = false;
+
+    function applySize() {
+      if (isOpen) {
+        frame.style.width = Math.round(Math.min(window.innerWidth * 0.92, opened.w)) + "px";
+        frame.style.height = Math.round(Math.min(window.innerHeight - 40, opened.h)) + "px";
+      } else {
+        frame.style.width = collapsed.w + "px";
+        frame.style.height = collapsed.h + "px";
+      }
+    }
+    window.addEventListener("resize", applySize);
+
+    window.addEventListener("message", function (ev) {
+      if (ev.source !== frame.contentWindow) return;
+      var d = ev.data || {};
+      if (d.type === "CDS_SIZE") {
+        collapsed = {
+          w: Math.max(48, Math.min(600, Math.ceil(d.width) || 240)),
+          h: Math.max(48, Math.min(400, Math.ceil(d.height) || 120))
+        };
+        if (!isOpen) applySize();
+      } else if (d.type === "CDS_OPEN") {
+        isOpen = !!d.open;
+        if (d.width) opened.w = Math.max(MIN_W, Math.min(900, Math.ceil(d.width)));
+        if (d.height) opened.h = Math.max(200, Math.min(900, Math.ceil(d.height)));
+        applySize();
+      }
+    });
+  }
+
   function mount(demo) {
+    if ((demo.panelStyle || "solid") === "overlay") return mountOverlay(demo);
+
     var size = SIZES[demo.launcherSize] || SIZES.medium;
     var side = demo.panelSide === "left" ? "left" : "right";
     var primary = (demo.theme && demo.theme.primaryColor) || "#3694fc";

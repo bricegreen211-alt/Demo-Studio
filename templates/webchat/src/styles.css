@@ -131,3 +131,77 @@ body {
   background: rgba(255,255,255,.22); color: #fff;
   padding: 3px 7px; border-radius: 5px; margin-right: 2px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   OVERLAY SHELL  (panelStyle "overlay")
+   The extension gives us a bare transparent iframe; everything below is drawn
+   by the demo, so it's all yours to vibe-code.
+   ══════════════════════════════════════════════════════════════════════════ */
+html.cds-overlay, html.cds-overlay body, html.cds-overlay #root { background: transparent !important; }
+html.cds-overlay body { overflow: hidden; }
+
+.cds-shell { position: fixed; inset: 0; }
+
+/* collapsed launcher, pinned bottom-right of the (launcher-sized) iframe */
+.cds-shell-launcher {
+  position: absolute; right: 2px; bottom: 2px;
+  /* max-content: the launcher must never shrink to fit the iframe, or
+     measuring it would feed back into the size we ask the iframe to be. */
+  width: max-content; height: max-content;
+}
+.cds-launcher-row { display: flex; align-items: center; gap: 10px; }
+.cds-launcher-label {
+  background: #fff; color: var(--ink); font-size: 13px; font-weight: 600;
+  padding: 8px 14px; border-radius: 999px; white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, .2);
+}
+.cds-launcher {
+  position: relative; border: 0; cursor: pointer; border-radius: 50%;
+  display: grid; place-items: center; overflow: hidden; padding: 0;
+  color: #fff;
+  background: radial-gradient(circle at 32% 28%,
+    color-mix(in srgb, var(--brand-primary) 45%, #fff), var(--brand-primary) 72%);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--brand-primary) 55%, transparent);
+  transition: transform .2s ease, box-shadow .2s ease;
+  animation: cdsLauncherPulse 3.4s ease-in-out infinite;
+}
+.cds-launcher:hover { transform: scale(1.08); }
+.cds-launcher svg { width: 46%; height: 46%; }
+@keyframes cdsLauncherPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.cds-launcher-ai-spark { background: radial-gradient(circle at 50% 55%, #1e293b, #0f172a); }
+.cds-launcher-ai-spark svg { filter: drop-shadow(0 0 6px var(--brand-primary)); }
+
+/* AI orb icon */
+.cds-orb-icon { position: absolute; inset: 0; }
+.cds-orb-icon-swirl {
+  position: absolute; inset: -30%; border-radius: 50%; filter: blur(6px);
+  background: conic-gradient(from 0deg, transparent 0 40%, rgba(255,255,255,.55) 50%, transparent 60% 100%);
+  animation: cdsOrbSwirl 6s linear infinite;
+}
+@keyframes cdsOrbSwirl { to { transform: rotate(360deg); } }
+.cds-orb-icon-shine {
+  position: absolute; top: 16%; left: 20%; width: 34%; height: 26%;
+  border-radius: 50%; background: rgba(255,255,255,.7); filter: blur(5px);
+}
+
+/* expanded panel card — fills the iframe, which the extension has sized */
+.cds-shell-card {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  background: #fff; border-radius: 18px; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .3);
+}
+.cds-shell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cds-shell-body > * { flex: 1; min-height: 0; }
+.cds-shell-close {
+  position: absolute; top: 10px; right: 10px; z-index: 6;
+  width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
+  background: rgba(255, 255, 255, .18); color: #fff; font-size: 12px; line-height: 1;
+}
+.cds-shell-close:hover { background: rgba(255, 255, 255, .32); }
+
+/* room for the shell's close button in overlay mode */
+html.cds-overlay .cds-header,
+html.cds-overlay .cds-vheader { padding-right: 46px; }

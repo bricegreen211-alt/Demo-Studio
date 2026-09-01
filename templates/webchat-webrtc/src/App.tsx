@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DemoConfig } from "./config";
 import ChatView from "./chat/ChatView";
+import Shell from "./shell/Shell";
 import VoiceView from "./voice/VoiceView";
 import { useCognigyChat } from "./chat/useCognigyChat";
 import { useCognigyVoice } from "./voice/useCognigyVoice";
@@ -38,7 +39,7 @@ export default function App({ cfg }: { cfg: DemoConfig }) {
 
   const inCall = voice.state === "active" || voice.state === "ringing" || voice.state === "connecting";
 
-  return (
+  const view = (
     <div className="cds-multi">
       <nav className="cds-tabs">
         <button className={mode === "chat" ? "on" : ""} onClick={() => setMode("chat")}>💬 Chat</button>
@@ -57,4 +58,8 @@ export default function App({ cfg }: { cfg: DemoConfig }) {
       </div>
     </div>
   );
+
+  // "overlay" panel style: this demo draws its own launcher and panel card
+  // (see src/shell/) instead of the browser extension providing them.
+  return cfg.panelStyle === "overlay" ? <Shell cfg={cfg}>{view}</Shell> : view;
 }

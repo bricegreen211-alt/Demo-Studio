@@ -1,8 +1,11 @@
 /*
- * Create the sample Demo Experiences used to try out the panel styles without
- * a Cognigy connection:  npm run seed:samples
+ * Create the sample Demo Experiences:  npm run seed:samples
  *
- * Each sample uses the endpoint value "mock", which the templates recognise as
+ * All of them point at https://www.cognigy.com so you can compare them on one
+ * real site. Only one demo can auto-match a domain, so use the extension
+ * popup's "Demo on this browser" override to switch between them.
+ *
+ * Each uses the endpoint value "mock", which the templates recognise as
  * simulated mode — scripted chat replies and a scripted voice call, marked SIM
  * in the UI so it can never be mistaken for a live agent. Swap the endpoint for
  * a real one in the dashboard when you're ready to test against Cognigy.
@@ -12,49 +15,71 @@
 const store = require("../apps/studio/service/store");
 const builder = require("../apps/studio/service/builder");
 
+const SITE = "https://www.cognigy.com";
+
 const SAMPLES = [
+  /* ── The "looks like part of the site" set: small overlay widgets ────── */
   {
-    name: "Sample — Chat (Solid)",
+    name: "Webchat bubble — Overlay",
     template: "webchat",
-    panelStyle: "solid",
-    website: "example.com",
+    panelStyle: "overlay",
+    launcher: "chat",
+    launcherText: "Chat with us",
     agentName: "Ava",
-    launcher: "ai-orb",
-    launcherText: "Ask Ava",
-    welcomeMessage: "Hi, I'm Ava. What can I help you with today?",
+    welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
   },
   {
-    name: "Sample — Chat (Clear)",
-    template: "webchat",
-    panelStyle: "clear",
-    website: "wikipedia.org",
-    agentName: "Ava",
-    launcher: "ai-spark",
-    launcherText: "Ask Ava",
-    welcomeMessage: "Hi, I'm Ava. What can I help you with today?",
-    cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
-  },
-  {
-    name: "Sample — Voice (Phone)",
+    name: "Voice widget — Overlay",
     template: "webrtc",
-    panelStyle: "phone",
-    website: "news.ycombinator.com",
-    agentName: "Ava",
+    panelStyle: "overlay",
     launcher: "voice-wave",
-    launcherText: "Call Ava",
+    launcherText: "Talk to us",
+    agentName: "Ava",
     cognigy: { chatEndpoint: "", voiceEndpoint: "mock" }
   },
   {
-    name: "Sample — Multimodal (Clear)",
+    name: "AI assistant, chat + voice — Overlay",
     template: "webchat-webrtc",
-    panelStyle: "clear",
-    website: "",
-    agentName: "Ava",
+    panelStyle: "overlay",
     launcher: "ai-orb",
     launcherText: "Ask Ava",
-    welcomeMessage: "Hi, I'm Ava. Chat with me, or switch to voice any time.",
+    agentName: "Ava",
+    welcomeMessage: "Hi! I'm Ava — chat here, or switch to voice any time.",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "mock" }
+  },
+
+  /* ── The other panel styles, for comparison ──────────────────────────── */
+  {
+    name: "Webchat — Clear side panel",
+    template: "webchat",
+    panelStyle: "clear",
+    panelWidth: 420,
+    launcher: "ai-spark",
+    launcherText: "Ask Ava",
+    agentName: "Ava",
+    welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
+    cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
+  },
+  {
+    name: "Voice — Phone mockup",
+    template: "webrtc",
+    panelStyle: "phone",
+    launcher: "voice-wave",
+    launcherText: "Call Ava",
+    agentName: "Ava",
+    cognigy: { chatEndpoint: "", voiceEndpoint: "mock" }
+  },
+  {
+    name: "Webchat — Solid side panel",
+    template: "webchat",
+    panelStyle: "solid",
+    panelWidth: 420,
+    launcher: "ai-orb",
+    launcherText: "Ask Ava",
+    agentName: "Ava",
+    welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
+    cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
   }
 ];
 
@@ -67,7 +92,7 @@ const SAMPLES = [
       console.log("skip (already exists):", sample.name);
       continue;
     }
-    const demo = store.create(sample);
+    const demo = store.create(Object.assign({ website: SITE, folder: "Samples" }, sample));
     created.push(demo);
     console.log("created:", demo.name, "->", demo.id);
   }
@@ -81,9 +106,9 @@ const SAMPLES = [
 
   console.log(
     created.length
-      ? "\nDone. Open Demo Studio — the samples are in your demo list.\n" +
-        "Each one is mapped to a different website; or use the extension popup's\n" +
-        '"Demo on this browser" override to compare styles on the same site.'
+      ? "\nDone — the samples are in a \"Samples\" folder in your demo list.\n" +
+        "They're all mapped to " + SITE + "; open it in Chrome/Edge and use the\n" +
+        'extension popup\'s "Demo on this browser" override to switch between them.'
       : "\nNothing to do — all samples already exist."
   );
 })().catch((err) => {

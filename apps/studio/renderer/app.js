@@ -278,7 +278,8 @@
   var PANEL_STYLE_HINT = {
     solid: "Opaque panel — the classic slide-out.",
     clear: "See-through panel: the customer's site shows through, only the chat/voice elements paint.",
-    phone: "Floating phone mockup — great for simulating a call on a mobile device."
+    phone: "Floating phone mockup — great for simulating a call on a mobile device.",
+    overlay: "The demo draws its own launcher icon and panel — both vibe-codeable in src/shell/. The extension just supplies a transparent frame."
   };
   function syncPanelStyleHint() {
     $("panelStyleHint").textContent = PANEL_STYLE_HINT[radio("panelStyle")] || "";

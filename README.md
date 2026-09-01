@@ -69,20 +69,22 @@ exports.
 npm run seed:samples
 ```
 
-Creates four ready-built demos that run **simulated** (no Cognigy connection needed), so you can
-see the panel styles and the whole flow before you have endpoints:
+Creates six ready-built demos that run **simulated** (no Cognigy connection needed), all mapped to
+**https://www.cognigy.com** so you can compare them on one real site:
 
-| Sample | Template | Panel style | Mapped to |
+| Sample | Template | Panel style | Looks like |
 |---|---|---|---|
-| Sample — Chat (Solid) | Webchat | Solid | example.com |
-| Sample — Chat (Clear) | Webchat | Clear | wikipedia.org |
-| Sample — Voice (Phone) | WebRTC | Phone | news.ycombinator.com |
-| Sample — Multimodal (Clear) | Webchat + WebRTC | Clear | *(use the popup override)* |
+| Webchat bubble — Overlay | Webchat | Overlay | A small native chat widget in the corner |
+| Voice widget — Overlay | WebRTC | Overlay | A compact click-to-call widget |
+| AI assistant, chat + voice — Overlay | Both | Overlay | One widget that does both |
+| Webchat — Clear side panel | Webchat | Clear | Full-height panel, site visible through it |
+| Voice — Phone mockup | WebRTC | Phone | A phone sitting on the page |
+| Webchat — Solid side panel | Webchat | Solid | The classic opaque slide-out |
 
-Browse to the mapped site to see each one, or use the extension popup's **Demo on this browser**
-override to compare all three styles on the same page. The chat samples answer with a scripted
-conversation (quick replies, buttons, transaction cards, structured data); the voice sample runs a
-scripted call with call states, a timer, and a transcript.
+Only one demo can auto-match a domain, so use the extension popup's **Demo on this browser**
+override to switch between them. The chat samples answer with a scripted conversation (quick
+replies, buttons, cards, structured data); the voice samples run a scripted call with call states,
+a timer, and a transcript.
 
 Simulated mode is opt-in via the literal endpoint value **`mock`** — a blank or wrong endpoint
 still fails loudly, so a real customer demo can never quietly serve scripted answers as if they
@@ -98,6 +100,15 @@ Each demo picks how its slide-out renders over the customer's website:
 | **Solid** (default) | Opaque panel, classic slide-out with a title bar | Straightforward chat/voice demos |
 | **Clear** | The customer's website shows straight through the panel — only the chat bubbles, header, composer, and voice orb paint, each with its own shadow so they stay readable | Making the AI feel like it's floating on *their* site rather than boxed beside it |
 | **Phone** | A floating phone mockup (bezel, dynamic island, home indicator) with the demo running on its screen; everything around the device is transparent | Simulating a call or mobile app experience on top of their desktop site |
+| **Overlay** | The extension supplies only a transparent, self-sizing iframe — the demo draws its own launcher icon and compact panel | A small widget that looks like it was always part of the customer's site, and is fully vibe-codeable |
+
+**Overlay is the one to reach for when you want it to look native.** Because the launcher and the
+panel live in the demo's own source (`src/shell/Launcher.tsx` and `src/shell/Shell.tsx`), you can
+vibe-code them like anything else: swap the icon, restyle the pill, change the opened size, or
+wrap the card in your own device frame. The extension just follows the size the demo reports —
+it hugs the launcher while collapsed (so it never swallows clicks meant for the customer's page)
+and grows to the panel size when opened. The other three styles have their shell drawn by the
+extension, which is why they can't be vibe-coded.
 
 Clear mode works by serving an extra stylesheet ([`clear-mode.css`](apps/studio/service/clear-mode.css))
 into the demo page at request time, so **existing demos get it without a rebuild** — a demo folder

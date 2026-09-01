@@ -20,7 +20,9 @@
       width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
     }
     button:hover { background: rgba(255,255,255,.25); }
-    iframe { flex: 1; border: 0; width: 100%; background: transparent; }
+    /* min-height:0 — a replaced element won't shrink below its intrinsic
+       150px height without it, which overflows a launcher-sized overlay. */
+    iframe { flex: 1; border: 0; width: 100%; height: 100%; min-height: 0; background: transparent; }
     #err {
       display: none; padding: 24px; color: #64748b; font-size: 13px; line-height: 1.6;
     }
@@ -40,6 +42,9 @@
     body.chromeless button { width: 24px; height: 24px; font-size: 12px; }
     /* Phone: the frame already insets us below the island, so the controls
        sit at the top of the screen area like any other chromeless panel. */
+    /* Overlay: the demo draws everything, including its own close button —
+       we contribute no chrome at all. */
+    body.style-overlay header { display: none; }
     body.chromeless #err {
       background: rgba(255,255,255,.94); border-radius: 14px; margin: 16px;
       box-shadow: 0 8px 30px rgba(15,23,42,.2);

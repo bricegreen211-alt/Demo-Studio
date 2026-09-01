@@ -8,6 +8,10 @@ export interface DemoConfig {
   name: string;
   template: string;
   panelStyle: string;
+  launcher: string;
+  launcherText: string;
+  showLauncherText: boolean;
+  launcherSize: string;
   agentName: string;
   welcomeMessage: string;
   userId: string;
@@ -20,6 +24,10 @@ const FALLBACK: DemoConfig = {
   name: "Demo",
   template: "webchat",
   panelStyle: "solid",
+  launcher: "ai-orb",
+  launcherText: "",
+  showLauncherText: true,
+  launcherSize: "medium",
   agentName: "AI Assistant",
   welcomeMessage: "",
   userId: "",
@@ -47,6 +55,8 @@ export function applyTheme(cfg: DemoConfig) {
   const r = document.documentElement.style;
   r.setProperty("--brand-primary", cfg.theme.primaryColor);
   r.setProperty("--brand-secondary", cfg.theme.secondaryColor);
+  // Overlay demos paint their own launcher and card over a transparent page.
+  document.documentElement.classList.toggle("cds-overlay", cfg.panelStyle === "overlay");
 }
 
 /**

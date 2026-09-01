@@ -11,14 +11,17 @@
   "use strict";
 
   var TEMPLATES = ["webchat", "webrtc", "webchat-webrtc"];
-  var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave"];
+  var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave", "chat"];
   var SIDES = ["left", "right"];
   var SIZES = ["small", "medium", "large"];
   // How the slide-out shell renders over the customer's website:
   //   solid — opaque panel (default)
   //   clear — transparent frame; only the UI elements themselves are visible
   //   phone — floating phone mockup, everything outside the device transparent
-  var PANEL_STYLES = ["solid", "clear", "phone"];
+  //   overlay — the extension only supplies a transparent, auto-sizing iframe;
+  //             the Demo Experience draws its own launcher icon and panel, so
+  //             both are vibe-codeable in the demo's own source
+  var PANEL_STYLES = ["solid", "clear", "phone", "overlay"];
 
   var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 500 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };

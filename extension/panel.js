@@ -19,7 +19,7 @@
 
   // Clear/phone panels paint no chrome of their own — see panel.html.
   document.body.classList.add("style-" + panelStyle);
-  if (panelStyle === "clear" || panelStyle === "phone") {
+  if (panelStyle === "clear" || panelStyle === "phone" || panelStyle === "overlay") {
     document.body.classList.add("chromeless");
   }
 
@@ -46,5 +46,9 @@
     if (ev.origin !== API || !frame.contentWindow || ev.source !== frame.contentWindow) return;
     var d = ev.data || {};
     if (d.type === "CDS_VOICE_STATE") parent.postMessage({ type: "CDS_VOICE_STATE", state: d.state }, "*");
+    // Overlay mode: the demo owns its own size and open/closed state, so relay
+    // those up to the content script that sizes the outer iframe.
+    else if (d.type === "CDS_SIZE") parent.postMessage({ type: "CDS_SIZE", width: d.width, height: d.height }, "*");
+    else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open }, "*");
   });
 })();
