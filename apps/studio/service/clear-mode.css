@@ -1,0 +1,72 @@
+/*
+ * Clear panel mode — injected by the service into a Demo Experience's page
+ * when its demo.json says panelStyle: "clear".
+ *
+ * Injected rather than built into each template on purpose: demo folders hold
+ * their own copy of the template source, so a built-in version would only ever
+ * reach demos created after the change. Serving it means every demo — old,
+ * new, or vibe-coded — gets clear mode with no rebuild.
+ *
+ * The idea: the panel frame shows the customer's website straight through, so
+ * every surface stops painting and each UI element carries its own opaque
+ * background plus a shadow, staying readable over any site behind it.
+ */
+
+html, body, #root { background: transparent !important; }
+
+/* surfaces that must stop painting */
+.cds-scroll,
+.cds-quick,
+.cds-composer,
+.cds-vstage,
+.cds-multi,
+.cds-pane,
+.cds-tabs {
+  background: transparent !important;
+}
+.cds-composer { border-top: 0 !important; }
+.cds-tabs { border-bottom: 0 !important; }
+
+/* elements float with their own shadow so they read over any background */
+.cds-header,
+.cds-vheader,
+.cds-bubble-bot,
+.cds-bubble-user,
+.cds-chip,
+.cds-btn,
+.cds-card,
+.cds-composer input,
+.cds-send,
+.cds-transcript,
+.cds-error,
+.cds-verror,
+.cds-tabs button {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, .28) !important;
+}
+
+/* header floats as a rounded card instead of a full-bleed bar */
+.cds-header,
+.cds-vheader {
+  margin: 10px 10px 0 !important;
+  border-radius: 14px !important;
+}
+
+/* bubbles stay fully opaque for legibility */
+.cds-bubble-bot { background: #fff !important; }
+.cds-bubble-system {
+  background: rgba(255, 255, 255, .92) !important;
+  color: #0f172a !important;
+  border-radius: 10px !important;
+  padding: 5px 10px !important;
+}
+
+/* composer: transparent tray, solid input */
+.cds-composer input { background: #fff !important; border-color: transparent !important; }
+
+/* voice: transcript floats as its own card */
+.cds-transcript {
+  background: rgba(255, 255, 255, .94) !important;
+  border-top: 0 !important;
+  border-radius: 14px !important;
+  margin: 0 10px 10px !important;
+}

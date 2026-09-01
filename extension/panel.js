@@ -13,8 +13,15 @@
   var slug = params.get("slug") || "";
   var name = params.get("name") || "Demo Experience";
   var agent = params.get("agent") || "";
+  var panelStyle = params.get("style") || "solid";
 
   document.getElementById("title").textContent = agent ? name + " — " + agent : name;
+
+  // Clear/phone panels paint no chrome of their own — see panel.html.
+  document.body.classList.add("style-" + panelStyle);
+  if (panelStyle === "clear" || panelStyle === "phone") {
+    document.body.classList.add("chromeless");
+  }
 
   var frame = document.getElementById("demo");
   var err = document.getElementById("err");

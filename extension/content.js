@@ -29,6 +29,7 @@
     var size = SIZES[demo.launcherSize] || SIZES.medium;
     var side = demo.panelSide === "left" ? "left" : "right";
     var primary = (demo.theme && demo.theme.primaryColor) || "#3694fc";
+    var panelStyle = demo.panelStyle || "solid";
     var width = Math.max(MIN_W, demo.panelWidth || 420);
 
     var host = document.createElement("div");
@@ -37,7 +38,7 @@
     var root = host.attachShadow({ mode: "closed" });
 
     var style = document.createElement("style");
-    style.textContent = css(size, side, primary);
+    style.textContent = css(size, side, primary, panelStyle);
     root.appendChild(style);
 
     /* ---------- launcher ---------- */
@@ -59,8 +60,7 @@
 
     /* ---------- panel ---------- */
     var panel = document.createElement("div");
-    panel.className = "cds-panel cds-side-" + side + " cds-hidden";
-    panel.style.width = width + "px";
+    panel.className = "cds-panel cds-side-" + side + " cds-style-" + panelStyle + " cds-hidden";
 
     var handle = document.createElement("div");
     handle.className = "cds-resize";
@@ -69,6 +69,25 @@
     var frameSlot = document.createElement("div");
     frameSlot.className = "cds-frame-slot";
     panel.appendChild(frameSlot);
+
+    // Phone mockup keeps a real device aspect ratio, so width and height are
+    // computed together and clamped to the viewport; the other styles are
+    // full-height and only the width varies.
+    var PHONE_AR = 375 / 812;
+    function layoutPanel(w) {
+      width = Math.round(Math.min(window.innerWidth * 0.9, Math.max(MIN_W, w)));
+      if (panelStyle === "phone") {
+        var h = Math.min(window.innerHeight - 40, width / PHONE_AR);
+        var phoneW = Math.round(h * PHONE_AR);
+        panel.style.width = phoneW + "px";
+        panel.style.height = Math.round(h) + "px";
+      } else {
+        panel.style.width = width + "px";
+        panel.style.height = "";
+      }
+    }
+    layoutPanel(width);
+    window.addEventListener("resize", function () { layoutPanel(width); });
 
     var overlay = document.createElement("div"); // drag shield
     overlay.className = "cds-drag-overlay";
@@ -85,7 +104,8 @@
       return chrome.runtime.getURL("panel.html") +
         "?slug=" + encodeURIComponent(demo.id) +
         "&name=" + encodeURIComponent(demo.name || "") +
-        "&agent=" + encodeURIComponent(demo.agentName || "");
+        "&agent=" + encodeURIComponent(demo.agentName || "") +
+        "&style=" + encodeURIComponent(panelStyle);
     }
 
     function ensureFrame() {
@@ -124,7 +144,13 @@
       else if (d.type === "CDS_PANEL_MIN") hide(false);
       else if (d.type === "CDS_PANEL_FULL") {
         fullscreen = !fullscreen;
-        panel.classList.toggle("cds-full", fullscreen);
+        if (panelStyle === "phone") {
+          // A phone can't go full-bleed without stopping being a phone — grow
+          // it to the tallest the viewport allows instead.
+          layoutPanel(fullscreen ? window.innerWidth : (demo.panelWidth || 420));
+        } else {
+          panel.classList.toggle("cds-full", fullscreen);
+        }
       } else if (d.type === "CDS_VOICE_STATE") {
         launcher.className = launcher.className.replace(/cds-vstate-\S+/, "cds-vstate-" + (d.state || "idle"));
       }
@@ -139,8 +165,7 @@
 
       function move(e) {
         var dx = side === "right" ? startX - e.clientX : e.clientX - startX;
-        var w = Math.round(Math.min(window.innerWidth * 0.9, Math.max(MIN_W, startW + dx)));
-        panel.style.width = w + "px";
+        layoutPanel(startW + dx);
       }
       function up() {
         overlay.remove();
@@ -170,7 +195,7 @@
   }
 
   /* ---------- styles ---------- */
-  function css(size, side, primary) {
+  function css(size, side, primary, panelStyle) {
     return [
       ":host{all:initial;}",
       "*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}",
@@ -212,17 +237,43 @@
       ".cds-vstate-speaking .cds-bars i{animation-play-state:running;animation-duration:.55s;}",
       ".cds-vstate-error{background:radial-gradient(circle at 32% 28%, #fca5a5, #dc2626 72%) !important;}",
 
-      /* panel */
-      ".cds-panel{position:fixed;top:0;" + side + ":0;height:100vh;max-width:90vw;background:#fff;z-index:2147483002;" +
-        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " 0 40px rgba(15,23,42,.25);" +
-        "transition:transform .34s cubic-bezier(.32,.72,.28,1);display:flex;}",
-      ".cds-panel.cds-hidden{transform:translateX(" + (side === "right" ? "110%" : "-110%") + ");}",
-      ".cds-panel.cds-full{width:100vw !important;max-width:100vw;}",
-      ".cds-frame-slot{flex:1;height:100%;}",
-      ".cds-frame{width:100%;height:100%;border:0;display:block;}",
+      /* panel — shared */
+      ".cds-panel{position:fixed;max-width:90vw;z-index:2147483002;display:flex;" +
+        "transition:transform .34s cubic-bezier(.32,.72,.28,1),opacity .3s ease;}",
+      ".cds-frame-slot{flex:1;height:100%;min-width:0;}",
+      ".cds-frame{width:100%;height:100%;border:0;display:block;background:transparent;}",
       ".cds-resize{position:absolute;top:0;" + (side === "right" ? "left" : "right") + ":-3px;width:8px;height:100%;cursor:ew-resize;z-index:3;}",
       ".cds-resize:hover{background:color-mix(in srgb," + primary + " 35%, transparent);}",
-      ".cds-drag-overlay{position:fixed;inset:0;z-index:2147483003;cursor:ew-resize;}"
+      ".cds-drag-overlay{position:fixed;inset:0;z-index:2147483003;cursor:ew-resize;}",
+
+      /* edge-anchored styles (solid + clear) */
+      ".cds-style-solid,.cds-style-clear{top:0;" + side + ":0;height:100vh;}",
+      ".cds-style-solid.cds-hidden,.cds-style-clear.cds-hidden{transform:translateX(" + (side === "right" ? "110%" : "-110%") + ");}",
+      ".cds-style-solid.cds-full,.cds-style-clear.cds-full{width:100vw !important;max-width:100vw;}",
+
+      /* solid — opaque panel (default) */
+      ".cds-style-solid{background:#fff;" +
+        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " 0 40px rgba(15,23,42,.25);}",
+
+      /* clear — see straight through to the customer's site; only the demo's
+         own UI elements (bubbles, orb, controls) paint anything. */
+      ".cds-style-clear{background:transparent;box-shadow:none;}",
+
+      /* phone — floating device mockup, fully transparent around the body */
+      ".cds-style-phone{bottom:20px;" + side + ":24px;background:#0f0f12;" +
+        "border-radius:54px;padding:12px;" +
+        "box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.07) inset;}",
+      ".cds-style-phone.cds-hidden{transform:translateY(120%);opacity:0;}",
+      // Screen is black edge-to-edge; the demo is inset into the safe area so
+      // the dynamic island and home indicator never sit on top of its UI.
+      ".cds-style-phone .cds-frame-slot{border-radius:42px;overflow:hidden;background:#000;" +
+        "padding:34px 0 22px;}",
+      /* dynamic island */
+      ".cds-style-phone::before{content:'';position:absolute;top:24px;left:50%;transform:translateX(-50%);" +
+        "width:32%;height:24px;background:#0f0f12;border-radius:999px;z-index:4;pointer-events:none;}",
+      /* home indicator */
+      ".cds-style-phone::after{content:'';position:absolute;bottom:20px;left:50%;transform:translateX(-50%);" +
+        "width:34%;height:4px;background:rgba(255,255,255,.55);border-radius:999px;z-index:4;pointer-events:none;}"
     ].join("\n");
   }
 })();

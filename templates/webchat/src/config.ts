@@ -7,6 +7,7 @@ export interface DemoConfig {
   id: string;
   name: string;
   template: string;
+  panelStyle: string;
   agentName: string;
   welcomeMessage: string;
   userId: string;
@@ -18,6 +19,7 @@ const FALLBACK: DemoConfig = {
   id: "",
   name: "Demo",
   template: "webchat",
+  panelStyle: "solid",
   agentName: "AI Assistant",
   welcomeMessage: "",
   userId: "",

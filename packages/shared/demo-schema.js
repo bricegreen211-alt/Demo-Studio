@@ -14,6 +14,11 @@
   var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave"];
   var SIDES = ["left", "right"];
   var SIZES = ["small", "medium", "large"];
+  // How the slide-out shell renders over the customer's website:
+  //   solid — opaque panel (default)
+  //   clear — transparent frame; only the UI elements themselves are visible
+  //   phone — floating phone mockup, everything outside the device transparent
+  var PANEL_STYLES = ["solid", "clear", "phone"];
 
   var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 500 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };
@@ -30,6 +35,7 @@
       folder: "",
       template: "webchat",
       panelSide: "right",
+      panelStyle: "solid",
       panelWidth: 0,           // 0 = template default
       launcher: "",            // "" = template default
       launcherText: "",
@@ -56,6 +62,7 @@
       folder: String(input.folder || "").slice(0, 80),
       template: pick(input.template, TEMPLATES, d.template),
       panelSide: pick(input.panelSide, SIDES, d.panelSide),
+      panelStyle: pick(input.panelStyle, PANEL_STYLES, d.panelStyle),
       panelWidth: Math.max(0, Math.min(1200, parseInt(input.panelWidth, 10) || 0)),
       launcher: pick(input.launcher, LAUNCHERS, ""),
       launcherText: String(input.launcherText || ""),
@@ -86,6 +93,7 @@
     LAUNCHERS: LAUNCHERS,
     SIDES: SIDES,
     SIZES: SIZES,
+    PANEL_STYLES: PANEL_STYLES,
     DEFAULT_PANEL_WIDTH: DEFAULT_PANEL_WIDTH,
     DEFAULT_LAUNCHER: DEFAULT_LAUNCHER,
     defaults: defaults,

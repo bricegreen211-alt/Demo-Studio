@@ -63,6 +63,20 @@ of the demo form: the project folder path with Copy (and Open in the desktop app
 Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
 exports.
 
+### Panel Style — solid, clear, or phone
+
+Each demo picks how its slide-out renders over the customer's website:
+
+| Style | What the customer sees | Good for |
+|---|---|---|
+| **Solid** (default) | Opaque panel, classic slide-out with a title bar | Straightforward chat/voice demos |
+| **Clear** | The customer's website shows straight through the panel — only the chat bubbles, header, composer, and voice orb paint, each with its own shadow so they stay readable | Making the AI feel like it's floating on *their* site rather than boxed beside it |
+| **Phone** | A floating phone mockup (bezel, dynamic island, home indicator) with the demo running on its screen; everything around the device is transparent | Simulating a call or mobile app experience on top of their desktop site |
+
+Clear mode works by serving an extra stylesheet ([`clear-mode.css`](apps/studio/service/clear-mode.css))
+into the demo page at request time, so **existing demos get it without a rebuild** — a demo folder
+keeps its own copy of the template source, so building it in would only ever reach new demos.
+
 ### What Presentation Mode actually does
 
 Presentation Mode is one switch in the sidebar, and it does exactly one thing: it decides which

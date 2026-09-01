@@ -232,6 +232,8 @@
     $("f-voice").value = d ? d.cognigy.voiceEndpoint : "";
     setRadio("launcher", d ? d.launcher : "ai-orb");
     setRadio("side", d ? d.panelSide : "right");
+    setRadio("panelStyle", d ? (d.panelStyle || "solid") : "solid");
+    syncPanelStyleHint();
     $("f-width").value = d && [360, 420, 520, 650].indexOf(d.panelWidth) >= 0 ? String(d.panelWidth) : "0";
     $("f-agent").value = d ? d.agentName : "";
     $("f-label").value = d ? d.launcherText : "";
@@ -251,6 +253,7 @@
       folder: $("f-folder").value.trim(),
       template: radio("template"),
       panelSide: radio("side"),
+      panelStyle: radio("panelStyle"),
       panelWidth: parseInt($("f-width").value, 10) || 0,
       launcher: radio("launcher"),
       launcherText: $("f-label").value.trim(),
@@ -270,6 +273,18 @@
   }
   Array.prototype.forEach.call(document.querySelectorAll('input[name="template"]'), function (el) {
     el.addEventListener("change", syncEndpointVisibility);
+  });
+
+  var PANEL_STYLE_HINT = {
+    solid: "Opaque panel — the classic slide-out.",
+    clear: "See-through panel: the customer's site shows through, only the chat/voice elements paint.",
+    phone: "Floating phone mockup — great for simulating a call on a mobile device."
+  };
+  function syncPanelStyleHint() {
+    $("panelStyleHint").textContent = PANEL_STYLE_HINT[radio("panelStyle")] || "";
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="panelStyle"]'), function (el) {
+    el.addEventListener("change", syncPanelStyleHint);
   });
 
   function setPreview(slug) {

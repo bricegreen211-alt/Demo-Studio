@@ -20,9 +20,29 @@
       width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
     }
     button:hover { background: rgba(255,255,255,.25); }
-    iframe { flex: 1; border: 0; width: 100%; }
+    iframe { flex: 1; border: 0; width: 100%; background: transparent; }
     #err {
       display: none; padding: 24px; color: #64748b; font-size: 13px; line-height: 1.6;
+    }
+
+    /* Clear + phone: the wrapper itself paints nothing, so the customer's site
+       (clear) or the device screen (phone) shows through. The window controls
+       float over the content in their own translucent pill instead of a bar. */
+    body.chromeless { background: transparent; }
+    body.chromeless header {
+      position: absolute; top: 10px; right: 10px; z-index: 5;
+      padding: 4px; gap: 4px; background: rgba(15,23,42,.55);
+      border-radius: 10px; backdrop-filter: blur(8px);
+      opacity: 0; transition: opacity .18s ease;
+    }
+    body.chromeless:hover header, body.chromeless header:focus-within { opacity: 1; }
+    body.chromeless #title { display: none; }
+    body.chromeless button { width: 24px; height: 24px; font-size: 12px; }
+    /* Phone: the frame already insets us below the island, so the controls
+       sit at the top of the screen area like any other chromeless panel. */
+    body.chromeless #err {
+      background: rgba(255,255,255,.94); border-radius: 14px; margin: 16px;
+      box-shadow: 0 8px 30px rgba(15,23,42,.2);
     }
   </style>
 </head>

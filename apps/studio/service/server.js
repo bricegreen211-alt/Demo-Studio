@@ -123,7 +123,7 @@ function createApp() {
     ok(res, {
       demo: demo && {
         id: demo.id, name: demo.name, template: demo.template,
-        panelSide: demo.panelSide, panelWidth: demo.panelWidth,
+        panelSide: demo.panelSide, panelWidth: demo.panelWidth, panelStyle: demo.panelStyle,
         launcher: demo.launcher, launcherText: demo.launcherText,
         showLauncherText: demo.showLauncherText, launcherSize: demo.launcherSize,
         agentName: demo.agentName, theme: demo.theme, built: demo.built
@@ -203,6 +203,13 @@ function createApp() {
   // Shared browser modules (endpoint normalization) for the dashboard.
   app.use("/shared", express.static(require("./paths").SHARED_ROOT, { cacheControl: false, etag: false }));
 
+  // Studio-owned assets injected into demo pages (see clear-mode.css).
+  app.get("/_cds/clear-mode.css", (req, res) => {
+    res.set("Content-Type", "text/css; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(__dirname, "clear-mode.css"));
+  });
+
   /* ------------- demo experiences ------------- */
 
   // Serve /<slug>/... from the demo's dist (locked/dist in Presentation Mode).
@@ -227,6 +234,24 @@ function createApp() {
     if (!fs.existsSync(path.join(root, "index.html"))) {
       return res.status(503).send("<h3 style='font-family:sans-serif'>Demo \"" + slug + "\" has no build yet.</h3><p style='font-family:sans-serif'>Save a source file or click Rebuild in Cognigy Demo Studio.</p>");
     }
+
+    // "Clear" panels need the demo's own surfaces to stop painting so the
+    // customer's website shows through. Injected here rather than built into
+    // the template so it reaches existing demos too (see clear-mode.css).
+    if (req.path === "/" || req.path === "/index.html") {
+      const cfgFile = useLocked ? path.join(dir, "locked", "demo.json") : path.join(dir, "demo.json");
+      let panelStyle = "solid";
+      try { panelStyle = JSON.parse(fs.readFileSync(cfgFile, "utf8")).panelStyle || "solid"; } catch (e) {}
+      if (panelStyle === "clear") {
+        let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+        const tag = '<link rel="stylesheet" href="/_cds/clear-mode.css">';
+        html = html.includes("</head>") ? html.replace("</head>", tag + "</head>") : html + tag;
+        res.set("Cache-Control", "no-store");
+        res.set("Content-Type", "text/html; charset=utf-8");
+        return res.send(html);
+      }
+    }
+
     express.static(root, { cacheControl: false, etag: false, lastModified: false, setHeaders: (r) => r.set("Cache-Control", "no-store") })(req, res, next);
   });
 
