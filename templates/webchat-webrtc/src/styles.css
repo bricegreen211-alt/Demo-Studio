@@ -124,6 +124,13 @@ body {
   width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 15px;
 }
 .cds-send:disabled { opacity: .4; cursor: default; }
+
+/* simulated-mode badge (endpoint "mock") */
+.cds-sim-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  background: rgba(255,255,255,.22); color: #fff;
+  padding: 3px 7px; border-radius: 5px; margin-right: 2px;
+}
 /* Demo Experience — voice styling. Brand colors arrive as CSS variables from demo.json. */
 :root {
   --brand-primary: #3694fc;
@@ -162,7 +169,7 @@ body {
 }
 
 /* the big voice orb */
-.cds-orb { position: relative; width: 120px; height: 120px; display: grid; place-items: center; }
+.cds-orb { position: relative; width: 120px; height: 120px; flex: 0 0 auto; display: grid; place-items: center; }
 .cds-orb-core {
   position: absolute; inset: 0; border-radius: 50%;
   background: radial-gradient(circle at 32% 30%, color-mix(in srgb, var(--brand-primary) 55%, #fff), var(--brand-primary) 70%);
@@ -214,6 +221,16 @@ body {
 .cds-transcript {
   flex: 0 0 auto; max-height: 34%; overflow-y: auto;
   border-top: 1px solid #e2e8f0; background: var(--bg); padding: 10px 14px; font-size: 13px;
+}
+.cds-tline { margin: 4px 0; line-height: 1.45; }
+.cds-tline-ai b { color: var(--brand-primary); }
+.cds-tline-info { color: var(--ink-soft); font-size: 12px; }
+
+/* simulated-mode badge (endpoint "mock") */
+.cds-sim-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  background: rgba(255,255,255,.22); color: #fff;
+  padding: 3px 7px; border-radius: 5px;
 }
 .cds-tline { margin: 4px 0; line-height: 1.45; }
 .cds-tline-ai b { color: var(--brand-primary); }

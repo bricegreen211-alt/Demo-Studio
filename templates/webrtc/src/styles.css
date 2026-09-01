@@ -36,7 +36,7 @@ body {
 }
 
 /* the big voice orb */
-.cds-orb { position: relative; width: 120px; height: 120px; display: grid; place-items: center; }
+.cds-orb { position: relative; width: 120px; height: 120px; flex: 0 0 auto; display: grid; place-items: center; }
 .cds-orb-core {
   position: absolute; inset: 0; border-radius: 50%;
   background: radial-gradient(circle at 32% 30%, color-mix(in srgb, var(--brand-primary) 55%, #fff), var(--brand-primary) 70%);
@@ -92,3 +92,10 @@ body {
 .cds-tline { margin: 4px 0; line-height: 1.45; }
 .cds-tline-ai b { color: var(--brand-primary); }
 .cds-tline-info { color: var(--ink-soft); font-size: 12px; }
+
+/* simulated-mode badge (endpoint "mock") */
+.cds-sim-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  background: rgba(255,255,255,.22); color: #fff;
+  padding: 3px 7px; border-radius: 5px;
+}

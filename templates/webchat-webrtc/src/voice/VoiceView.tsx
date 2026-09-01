@@ -38,8 +38,9 @@ export default function VoiceView({ cfg, voice }: { cfg: DemoConfig; voice: Cogn
         {cfg.theme.logo ? <img className="cds-logo" src={cfg.theme.logo} alt="" /> : <div className="cds-logo-dot" />}
         <div>
           <div className="cds-agent">{cfg.agentName}</div>
-          <div className="cds-vstatus">{status}</div>
+          <div className="cds-vstatus">{voice.simulated && voice.state === "idle" ? "Simulated demo" : status}</div>
         </div>
+        {voice.simulated && <span className="cds-sim-badge" title="Scripted call — no Cognigy connection">SIM</span>}
         {voice.state === "active" && <div className="cds-timer">{fmt(voice.seconds)}</div>}
       </header>
 

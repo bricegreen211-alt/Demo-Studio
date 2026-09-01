@@ -49,6 +49,15 @@ export function applyTheme(cfg: DemoConfig) {
   r.setProperty("--brand-secondary", cfg.theme.secondaryColor);
 }
 
+/**
+ * Simulated mode. Opt-in ONLY via the literal endpoint value "mock" — a blank
+ * or wrong endpoint still fails loudly, so a real customer demo can never
+ * quietly serve scripted answers as if they came from a Cognigy agent.
+ */
+export function isMock(endpoint: string): boolean {
+  return String(endpoint || "").trim().toLowerCase() === "mock";
+}
+
 /** Fresh random ids per load — sessions never leak between demo runs. */
 export function randomId(prefix: string): string {
   return prefix + "-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);

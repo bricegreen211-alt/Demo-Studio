@@ -124,3 +124,10 @@ body {
   width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 15px;
 }
 .cds-send:disabled { opacity: .4; cursor: default; }
+
+/* simulated-mode badge (endpoint "mock") */
+.cds-sim-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  background: rgba(255,255,255,.22); color: #fff;
+  padding: 3px 7px; border-radius: 5px; margin-right: 2px;
+}

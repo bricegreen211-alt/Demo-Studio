@@ -94,11 +94,13 @@ export default function ChatView({ cfg, chat }: { cfg: DemoConfig; chat: Cognigy
         <div className="cds-header-text">
           <div className="cds-agent">{cfg.agentName}</div>
           <div className={"cds-status cds-status-" + chat.connection}>
-            {chat.connection === "connected" ? "Online" :
+            {chat.simulated && chat.connection === "connected" ? "Simulated demo" :
+             chat.connection === "connected" ? "Online" :
              chat.connection === "connecting" ? "Connecting…" :
              chat.connection === "error" ? "Connection issue" : ""}
           </div>
         </div>
+        {chat.simulated && <span className="cds-sim-badge" title="Scripted responses — no Cognigy connection">SIM</span>}
         <button className="cds-reset" title="Restart conversation" onClick={chat.reset}>⟲</button>
       </header>
 

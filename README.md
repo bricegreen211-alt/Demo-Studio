@@ -63,6 +63,32 @@ of the demo form: the project folder path with Copy (and Open in the desktop app
 Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
 exports.
 
+### Try it without Cognigy — sample demos
+
+```bash
+npm run seed:samples
+```
+
+Creates four ready-built demos that run **simulated** (no Cognigy connection needed), so you can
+see the panel styles and the whole flow before you have endpoints:
+
+| Sample | Template | Panel style | Mapped to |
+|---|---|---|---|
+| Sample — Chat (Solid) | Webchat | Solid | example.com |
+| Sample — Chat (Clear) | Webchat | Clear | wikipedia.org |
+| Sample — Voice (Phone) | WebRTC | Phone | news.ycombinator.com |
+| Sample — Multimodal (Clear) | Webchat + WebRTC | Clear | *(use the popup override)* |
+
+Browse to the mapped site to see each one, or use the extension popup's **Demo on this browser**
+override to compare all three styles on the same page. The chat samples answer with a scripted
+conversation (quick replies, buttons, transaction cards, structured data); the voice sample runs a
+scripted call with call states, a timer, and a transcript.
+
+Simulated mode is opt-in via the literal endpoint value **`mock`** — a blank or wrong endpoint
+still fails loudly, so a real customer demo can never quietly serve scripted answers as if they
+came from a Cognigy agent. Anything simulated is badged **SIM** in the demo's header. To go live,
+just replace `mock` with your real endpoint in the demo form.
+
 ### Panel Style — solid, clear, or phone
 
 Each demo picks how its slide-out renders over the customer's website:
