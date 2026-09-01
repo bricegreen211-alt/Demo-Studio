@@ -36,12 +36,34 @@ npm run service      # or: service only, dashboard at http://localhost:41700
 ```
 
 **Extension:** open `chrome://extensions` (or `edge://extensions`) → Developer mode →
-**Load unpacked** → select the `extension/` folder → pin it.
+**Load unpacked** → select the `extension/` folder → pin it → click the icon and turn on
+**Show demos**.
 
-The extension has a master **Show demos** switch in its popup, and it starts **off** — nothing is
-injected on any site until you turn it on, so demos don't follow you around every tab when you're
-not demoing. The toolbar icon shows an **ON** badge while it's active. Reload the extension from
-`chrome://extensions` whenever anything in `extension/` changes.
+That switch starts **off** by design: nothing is injected on any site until you turn it on, so
+demos don't follow you around every tab while you work. The toolbar icon shows an **ON** badge
+when it's active. The same instructions, with a copy-able path, live in the app under
+**Settings → Browser extension**.
+
+> **The app runs in your terminal session.** Closing the terminal — or the Studio window — quits
+> Demo Studio, and demos stop appearing until you run `npm start` again. Minimize rather than
+> close. Packaging it as a double-clickable app is the planned fix.
+
+### Updating
+
+```bash
+# quit the app first (Ctrl+C in the terminal), then:
+git pull
+npm install     # in case dependencies changed
+npm start
+```
+
+Then **reload the extension** at `chrome://extensions` (↻ on the Demo Studio card) and refresh any
+open customer tab — the browser keeps running the old copy until you do, which is the usual reason
+an update looks like it didn't apply. Confirm what you're running under **Settings → About**.
+
+Two things updates never break: your demos live in `~/CognigyDemoStudio`, outside the project, so
+they're untouched; and if an older demo doesn't pick up a new template feature, hit **Sync** on its
+row to refresh its code (previous source is backed up, settings kept).
 
 ## SE workflow
 

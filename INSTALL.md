@@ -112,7 +112,18 @@ A window titled **Cognigy Demo Studio** opens automatically — this is the app.
 it also started a small local service on your machine (`http://localhost:41700`) that the
 extension talks to; you don't need to do anything with that URL directly.
 
-**Keep this window open** while you work — closing it (or the terminal) stops the Studio.
+> ### ⚠️ Leave the terminal window open
+>
+> Demo Studio runs *inside* that terminal session. If you close the terminal, the app is shut down
+> with it, and your demos stop appearing on customer sites — the panel will say "Demo Studio isn't
+> running."
+>
+> **Minimize the terminal, don't close it.** The same applies to the Studio window itself: closing
+> it quits the app. Minimize it instead while you're presenting.
+>
+> Nothing is lost when this happens — your demos live in a separate folder. Just run `npm start`
+> again and everything is back. (A double-clickable app that removes the terminal entirely is the
+> planned fix; see the note at the end of this guide.)
 
 - **macOS**: the first launch will ask for **microphone access** — click **Allow** (needed for
   voice demos and Cognigy Remote Control). It may also warn that the app is from an
@@ -137,8 +148,15 @@ website. Steps are identical on macOS and Windows.
    folder itself).
 5. You should see **NiCE Cognigy Demo Studio** appear in your extensions list. Click the
    puzzle-piece icon in your browser toolbar and **pin** it so it's always visible.
+6. **Click the pinned icon and turn on "Show demos."** The extension ships with this switch
+   **off**, so nothing appears on any website until you turn it on. That's deliberate — it keeps
+   demos from popping up in unrelated tabs while you work. The icon shows an **ON** badge while
+   it's active.
 
 Repeat this in both Chrome and Edge if you use both.
+
+> **Tip:** these same steps live inside the app under **Settings → Browser extension**, with a
+> Copy button for the folder path — handier than retyping it from here.
 
 ---
 
@@ -181,7 +199,63 @@ just need to get the app running again:
 - **Windows**: reopen **PowerShell**, `cd` into the project folder, and run `npm start`. A
   `.bat` file with `cd /d "C:\Demo-Studio" && npm start` saved to your Desktop gives you a
   double-clickable shortcut — again, worth asking a teammate to set up once.
-- The browser extension, once loaded, stays installed — you don't reload it each session.
+- The browser extension, once loaded, stays installed — you don't reload it each session. Just
+  remember to turn **Show demos** on when you want demos to appear.
+
+---
+
+## Updating to a new version
+
+When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones people forget.
+
+1. **Quit the app** — close the Studio window, and press `Ctrl+C` in the terminal (or close it).
+   You can't update files that are in use.
+
+2. **Get the new code.** In the project folder:
+
+   ```bash
+   git pull
+   ```
+
+   (If you downloaded a ZIP instead of cloning, download the new ZIP and replace the folder —
+   but keep reading, because your demos are safe either way.)
+
+3. **Update dependencies**, in case the new version needs something new:
+
+   ```bash
+   npm install
+   ```
+
+4. **Start it again** with `npm start`.
+
+5. **Reload the browser extension** — only needed when the `extension` folder changed, but it's
+   harmless to always do it:
+   - Open `chrome://extensions` (or `edge://extensions`)
+   - Click **Reload** (↻) on the **NiCE Cognigy Demo Studio** card
+   - Refresh any customer tab you already had open
+
+   Skipping this is the most common reason an update "doesn't seem to have worked" — the browser
+   keeps running the old copy until you reload it.
+
+6. **Check Settings → About** in the app to confirm the version and last-updated date match what
+   you expect.
+
+### Your demos are never touched by an update
+
+Demos live in `~/CognigyDemoStudio` (macOS) or `C:\Users\<you>\CognigyDemoStudio` (Windows) —
+a completely separate folder from the app. Updating, reinstalling, or even deleting the project
+folder leaves them alone. **Settings → Back up & move demos → Export** writes them all to one
+file if you want a backup before a big change.
+
+### Picking up new demo features on older demos
+
+Each demo keeps its own copy of the template it was built from, so a demo you created last month
+won't automatically gain features added to the templates since. If a new feature doesn't show up
+on an existing demo, click **Sync** on that demo's row in the demo list — it refreshes the demo's
+code from the current template, backs up its previous source inside the demo folder first, and
+keeps all your settings and branding.
+
+Newly created demos always start from the current templates, so this only applies to older ones.
 
 ---
 
@@ -191,6 +265,9 @@ just need to get the app running again:
 |---|---|
 | `npm: command not found` (or `'npm' is not recognized...` on Windows) | Node.js isn't installed, or you need to fully close and reopen the terminal after installing it (PATH changes need a fresh terminal window). Reinstall from nodejs.org if unsure. |
 | `npm start` does nothing / errors immediately | Make sure you ran `npm install` first, in the same folder. |
+| **Everything worked, then demos stopped appearing** | The terminal window was closed, which shuts down Demo Studio. Reopen it, `cd` to the project folder, and run `npm start` again. Nothing is lost. |
+| Launcher never appears anywhere | Click the extension icon — is **Show demos** on? It's off by default. |
+| Updated, but nothing changed | Reload the extension at `chrome://extensions` (↻) and refresh the tab. For demo-level features, use **Sync** on the demo row. |
 | macOS: "app can't be opened because it is from an unidentified developer" | Right-click the app window in the Dock and choose **Open**, or approve it in **System Settings → Privacy & Security → Open Anyway**. |
 | Windows: "Windows protected your PC" (SmartScreen) | Click **More info** → **Run anyway**. This is expected for an unsigned internal tool. |
 | Extension shows "Cognigy Demo Studio isn't running" | The Studio app (or at least its window) needs to be open — go back to Step 3. |
