@@ -1,7 +1,8 @@
 /*
- * Cognigy Demo Studio Extension — popup.
- * Status + manual demo override (SOW §17) + Presentation Mode toggle.
- * All state lives in the Studio service; the popup is a thin remote control.
+ * Demo Studio Extension — popup.
+ * Master on/off switch (nothing is injected anywhere while it's off), plus the
+ * manual demo override for this browser. Demo state lives in the Studio
+ * service; the switch is extension-local so it works even if the app is shut.
  */
 (function () {
   "use strict";
@@ -12,7 +13,9 @@
   var connected = document.getElementById("connected");
   var mapped = document.getElementById("mapped");
   var override = document.getElementById("override");
-  var presentation = document.getElementById("presentation");
+  var enabled = document.getElementById("enabled");
+  var masterToggle = document.getElementById("masterToggle");
+  var masterSub = document.getElementById("masterSub");
 
   document.getElementById("version").textContent = "v" + chrome.runtime.getManifest().version;
 
@@ -21,7 +24,6 @@
       cb(tabs && tabs[0] ? tabs[0] : null);
     });
   }
-
   function reloadTab() {
     currentTab(function (tab) { if (tab && tab.id != null) chrome.tabs.reload(tab.id); });
   }
@@ -29,6 +31,28 @@
   document.getElementById("openStudio").addEventListener("click", function () {
     chrome.tabs.create({ url: API + "/" });
   });
+
+  /* ---- master switch ---- */
+
+  function paintMaster(on) {
+    enabled.checked = on;
+    masterToggle.classList.toggle("on", on);
+    masterSub.textContent = on
+      ? "On — demos appear on their mapped sites"
+      : "Off — nothing is injected on any site";
+    connected.classList.toggle("disabled", !on);
+  }
+
+  chrome.storage.local.get({ cdsEnabled: false }, function (s) { paintMaster(!!s.cdsEnabled); });
+
+  masterToggle.addEventListener("click", function (ev) {
+    ev.preventDefault();
+    var next = !enabled.checked;
+    paintMaster(next);
+    chrome.storage.local.set({ cdsEnabled: next }, reloadTab);
+  });
+
+  /* ---- studio state ---- */
 
   Promise.all([
     fetch(API + "/api/health").then(function (r) { return r.json(); }),
@@ -49,7 +73,6 @@
       if (settings.overrideDemoId === d.id) opt.selected = true;
       override.appendChild(opt);
     });
-    presentation.checked = !!settings.presentationMode;
 
     currentTab(function (tab) {
       var host = "";
@@ -73,14 +96,6 @@
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ overrideDemoId: override.value || null })
-      }).then(reloadTab);
-    });
-
-    presentation.addEventListener("change", function () {
-      fetch(API + "/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presentationMode: presentation.checked })
       }).then(reloadTab);
     });
   }).catch(function () {

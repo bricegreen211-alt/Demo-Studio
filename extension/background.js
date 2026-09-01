@@ -18,11 +18,25 @@ async function heartbeat() {
   try { await api("/api/extension/heartbeat", { method: "POST" }); } catch (e) { /* studio not running */ }
 }
 
+// Badge mirrors the popup's master switch, so it's obvious at a glance whether
+// demos are being injected.
+function paintBadge() {
+  chrome.storage.local.get({ cdsEnabled: false }, function (s) {
+    chrome.action.setBadgeText({ text: s.cdsEnabled ? "ON" : "" });
+    chrome.action.setBadgeBackgroundColor({ color: "#3694fc" });
+  });
+}
+
 chrome.runtime.onInstalled.addListener(function () {
   chrome.alarms.create("cds-heartbeat", { periodInMinutes: 1 });
   heartbeat();
+  paintBadge();
 });
-chrome.runtime.onStartup.addListener(heartbeat);
+chrome.runtime.onStartup.addListener(function () { heartbeat(); paintBadge(); });
+chrome.storage.onChanged.addListener(function (changes, area) {
+  if (area === "local" && changes.cdsEnabled) paintBadge();
+});
+paintBadge();
 chrome.alarms.onAlarm.addListener(function (alarm) {
   if (alarm.name === "cds-heartbeat") heartbeat();
 });

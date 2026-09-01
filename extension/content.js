@@ -16,13 +16,18 @@
   var SIZES = { small: 48, medium: 60, large: 72 };
   var MIN_W = 300;
 
-  chrome.runtime.sendMessage({ type: "CDS_RESOLVE", host: location.hostname }, function (res) {
-    if (chrome.runtime.lastError) return;
-    if (!res || !res.ok || !res.data || !res.data.demo) return;
-    var demo = res.data.demo;
-    if (!demo.built) return; // nothing to show yet
-    document.documentElement.dataset.cdsMounted = "1";
-    mount(demo);
+  // Master switch (popup). Nothing is injected anywhere while this is off, so
+  // demos don't follow you around every tab when you're not demoing.
+  chrome.storage.local.get({ cdsEnabled: false }, function (state) {
+    if (!state.cdsEnabled) return;
+    chrome.runtime.sendMessage({ type: "CDS_RESOLVE", host: location.hostname }, function (res) {
+      if (chrome.runtime.lastError) return;
+      if (!res || !res.ok || !res.data || !res.data.demo) return;
+      var demo = res.data.demo;
+      if (!demo.built) return; // nothing to show yet
+      document.documentElement.dataset.cdsMounted = "1";
+      mount(demo);
+    });
   });
 
   /*

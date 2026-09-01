@@ -38,7 +38,6 @@
     Promise.all([api("/api/demos"), api("/api/settings")]).then(function (results) {
       allDemos = results[0].demos || [];
       folders = results[1].folders || [];
-      $("presentationMode").checked = !!results[1].presentationMode;
       renderList();
       renderFolderOptions();
     });
@@ -111,7 +110,6 @@
     var el = document.createElement("div");
     el.className = "demo-row" + (indented ? " in-folder" : "");
     var chips = '<span class="chip chip-template">' + TEMPLATE_LABEL[d.template] + "</span>";
-    if (d.hasLocked) chips += ' <span class="chip chip-locked">Locked</span>';
     if (!d.built) chips += ' <span class="chip chip-unbuilt">Building…</span>';
     el.innerHTML =
       '<div class="demo-row-main"><h3></h3><span class="demo-site"></span></div>' +
@@ -121,7 +119,7 @@
       '<button class="ghost" data-act="edit">Edit</button>' +
       '<button class="ghost" data-act="duplicate">Duplicate</button>' +
       '<button class="ghost" data-act="preflight">Preflight</button>' +
-      '<button class="ghost" data-act="lock">Lock</button>' +
+      '<button class="ghost" data-act="sync" title="Refresh this demo\'s code from the current template (your source is backed up)">Sync</button>' +
       '<button class="danger" data-act="delete">Delete</button>' +
       "</div>";
     el.querySelector("h3").textContent = d.name;
@@ -163,9 +161,22 @@
       }).catch(alertErr);
     },
     preflight: function (d) { runPreflight(d); },
-    lock: function (d) {
-      api("/api/demos/" + d.id + "/lock", { method: "POST" }).then(function () {
-        modal("Demo locked", '<p style="font-size:13.5px;line-height:1.6">A known-good snapshot of <b>' + esc(d.name) + "</b> was saved.<br>Turn on <b>Presentation Mode</b> before the customer meeting to present this locked version while you keep developing.</p>");
+    sync: function (d) {
+      if (!confirm('Update "' + d.name + '" to the current template?\n\n' +
+                   'This replaces the demo\'s source code with a fresh copy of the ' +
+                   d.template + ' template — use it to pick up new features (like the ' +
+                   'overlay launcher) on an older demo.\n\n' +
+                   'Your current source is backed up inside the demo folder first, and ' +
+                   'your settings and branding are kept.')) return;
+      modal("Updating…", '<div class="soft">Copying the template and rebuilding.</div>');
+      api("/api/demos/" + d.id + "/sync-template", { method: "POST" }).then(function (res) {
+        var ok = res.lastBuild && res.lastBuild.ok;
+        modal(ok ? "Demo updated" : "Updated, but the build failed",
+          '<p style="font-size:13.5px;line-height:1.6">' +
+          (ok ? "<b>" + esc(d.name) + "</b> now runs the latest " + esc(d.template) + " template."
+              : "The template was copied but the rebuild failed:<br><code>" + esc(res.lastBuild && res.lastBuild.error) + "</code>") +
+          '<br><br>Your previous source was saved to:<br><code style="font-size:11px;word-break:break-all">' +
+          esc(res.backup) + "</code></p>");
         loadList();
       }).catch(alertErr);
     },
@@ -367,12 +378,6 @@
     try { navigator.clipboard.writeText(p); } catch (e) {}
     $("copyPathBtn").textContent = "Copied ✓";
     setTimeout(function () { $("copyPathBtn").textContent = "Copy folder path"; }, 1600);
-  });
-
-  /* ---------------- presentation mode ---------------- */
-
-  $("presentationMode").addEventListener("change", function () {
-    api("/api/settings", putJson({ presentationMode: $("presentationMode").checked }));
   });
 
   /* ---------------- import ---------------- */

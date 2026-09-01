@@ -1,6 +1,5 @@
 /*
  * Cognigy Demo Studio — settings.json (data dir).
- *   presentationMode   : serve locked demo copies, hide dev affordances
  *   overrideDemoId     : manual demo override from the extension popup (null = auto by domain)
  *   extensionLastSeen  : heartbeat timestamp used by preflight's "extension connected"
  *   gateways/activeGateway : Remote Control voice gateways [{name, endpointUrl}]
@@ -12,7 +11,6 @@ const fs = require("fs");
 const { SETTINGS_FILE, ensureDirs } = require("./paths");
 
 const DEFAULTS = {
-  presentationMode: false,
   overrideDemoId: null,
   extensionLastSeen: 0,
   gateways: [],        // Remote Control: [{id, name, endpointUrl, folder}]

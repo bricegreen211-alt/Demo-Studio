@@ -20,7 +20,6 @@ function readDemo(slug) {
   const file = path.join(demoDir(slug), "demo.json");
   const demo = schema.sanitize(JSON.parse(fs.readFileSync(file, "utf8")));
   demo.id = slug;
-  demo.hasLocked = fs.existsSync(path.join(demoDir(slug), "locked", "dist", "index.html"));
   demo.built = fs.existsSync(path.join(demoDir(slug), "dist", "index.html"));
   demo.path = demoDir(slug); // shown in the dashboard's vibe-coding row
   return demo;
@@ -51,7 +50,7 @@ function copyTemplateSrc(templateName, destDir) {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(srcDir, src);
-      return !/^((dist|node_modules|locked)(\/|$)|demo\.json$)/.test(rel);
+      return !/^((dist|node_modules)(\/|$)|demo\.json$)/.test(rel);
     }
   });
 }
@@ -87,11 +86,7 @@ function duplicate(slug, newName) {
   const name = newName || src.name + " Copy";
   const newSlug = slugify(name);
   const dir = path.join(DEMOS_ROOT, newSlug);
-  // Copy everything except locked snapshots; the duplicate starts unlocked.
-  fs.cpSync(demoDir(slug), dir, {
-    recursive: true,
-    filter: (p) => !/(^|\/)locked(\/|$)/.test(path.relative(demoDir(slug), p))
-  });
+  fs.cpSync(demoDir(slug), dir, { recursive: true });
   const demo = schema.sanitize(Object.assign({}, src, { id: newSlug, name }));
   demo.createdAt = demo.updatedAt = new Date().toISOString();
   writeDemoJson(newSlug, demo);
@@ -102,19 +97,38 @@ function remove(slug) {
   fs.rmSync(demoDir(slug), { recursive: true, force: true });
 }
 
-// Lock = snapshot the current build + config as the known-good presentation copy.
-function lock(slug) {
+/*
+ * Refresh a demo's source from its template.
+ *
+ * A demo folder holds its own copy of the template source, so demos created
+ * before a template change never get it (that's how the overlay shell can be
+ * missing from an older demo). This re-copies the current template over the
+ * demo, keeping demo.json — and snapshots the previous source first, so a
+ * vibe-coded demo can always be recovered from the backup folder.
+ */
+function syncTemplate(slug) {
   const dir = demoDir(slug);
-  if (!fs.existsSync(path.join(dir, "dist", "index.html"))) {
-    throw new Error("Demo has no build to lock — run Preflight/rebuild first.");
+  const demo = readDemo(slug);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupDir = path.join(dir, "_backup-" + stamp);
+
+  // Snapshot everything that isn't build output or a previous backup.
+  fs.mkdirSync(backupDir, { recursive: true });
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry === "dist" || entry === "node_modules" || entry.startsWith("_backup-") || entry === ".vite-cache") continue;
+    fs.cpSync(path.join(dir, entry), path.join(backupDir, entry), { recursive: true });
   }
-  const lockedDir = path.join(dir, "locked");
-  fs.rmSync(lockedDir, { recursive: true, force: true });
-  fs.mkdirSync(lockedDir, { recursive: true });
-  fs.cpSync(path.join(dir, "dist"), path.join(lockedDir, "dist"), { recursive: true });
-  fs.copyFileSync(path.join(dir, "demo.json"), path.join(lockedDir, "demo.json"));
-  fs.writeFileSync(path.join(lockedDir, "locked-at.txt"), new Date().toISOString());
-  return readDemo(slug);
+
+  // Remove current source (keeping demo.json, build output and backups), then
+  // lay down the fresh template.
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry === "dist" || entry === "node_modules" || entry.startsWith("_backup-") ||
+        entry === ".vite-cache" || entry === "demo.json") continue;
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+  }
+  copyTemplateSrc(demo.template, dir);
+
+  return { demo: readDemo(slug), backup: backupDir };
 }
 
-module.exports = { list, readDemo, create, update, duplicate, remove, lock, slugify };
+module.exports = { list, readDemo, create, update, duplicate, remove, syncTemplate, slugify };

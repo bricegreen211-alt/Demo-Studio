@@ -38,13 +38,20 @@ npm run service      # or: service only, dashboard at http://localhost:41700
 **Extension:** open `chrome://extensions` (or `edge://extensions`) → Developer mode →
 **Load unpacked** → select the `extension/` folder → pin it.
 
+The extension has a master **Show demos** switch in its popup, and it starts **off** — nothing is
+injected on any site until you turn it on, so demos don't follow you around every tab when you're
+not demoing. The toolbar icon shows an **ON** badge while it's active. Reload the extension from
+`chrome://extensions` whenever anything in `extension/` changes.
+
 ## SE workflow
 
 The dashboard shows your demos as a **list** with a **Find** box, and you can group them into
 **folders** (+ New Folder, or type a folder name on the demo form). Every demo connects with the
 **Follow** user ID — `followme` by default — so Cognigy Live Follow / the Interaction Panel can
-track your demo conversations without any setup. **Vibe-code customization** lives at the bottom
-of the demo form: the project folder path with Copy (and Open in the desktop app).
+track your demo conversations without any setup. **Sync** re-copies the current template over an
+older demo (backing its source up first) so it can pick up new features like the overlay launcher.
+**Vibe-code customization** lives at the bottom of the demo form: the project folder path with Copy
+(and Open in the desktop app).
 
 1. **+ New Demo** — customer name, website, template (Webchat / WebRTC / both), paste the
    Cognigy endpoints in whatever form Cognigy gave you (hosted webchat URL, click-to-call link,
@@ -57,8 +64,7 @@ of the demo form: the project folder path with Copy (and Open in the desktop app
 5. **Vibe-code** deeper customization: the demo form's *Vibe-code customization* row shows the
    project folder path (Copy, or Open in the desktop app) — point Claude Code / Cursor / Codex at
    it, save — the demo rebuilds automatically. No terminal, no extension rebuild.
-6. **Preflight** → fix anything flagged → **Lock** → flip **Presentation Mode** on right before
-   the meeting.
+6. **Preflight** → fix anything flagged → present.
 
 Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
 exports.
@@ -91,7 +97,7 @@ still fails loudly, so a real customer demo can never quietly serve scripted ans
 came from a Cognigy agent. Anything simulated is badged **SIM** in the demo's header. To go live,
 just replace `mock` with your real endpoint in the demo form.
 
-### Panel Style — solid, clear, or phone
+### Panel Style — solid, clear, phone, or overlay
 
 Each demo picks how its slide-out renders over the customer's website:
 
@@ -114,28 +120,6 @@ Clear mode works by serving an extra stylesheet ([`clear-mode.css`](apps/studio/
 into the demo page at request time, so **existing demos get it without a rebuild** — a demo folder
 keeps its own copy of the template source, so building it in would only ever reach new demos.
 
-### What Presentation Mode actually does
-
-Presentation Mode is one switch in the sidebar, and it does exactly one thing: it decides which
-build of a demo the extension shows — your **live working copy**, or the **frozen Lock snapshot**.
-
-| | Presentation Mode **off** (default) | Presentation Mode **on** |
-|---|---|---|
-| What the customer sees | `demos/<slug>/dist/` — rebuilds every time you save a source file | `demos/<slug>/locked/dist/` — exactly what existed the moment you last clicked **Lock** |
-| Config (branding, endpoints) | Live from `demo.json` | Frozen from the locked copy — a branding tweak won't show until you Lock again |
-| Risk | A bad edit can break what's on screen mid-demo | None — background edits keep happening but never reach the customer-facing copy |
-
-The intended rhythm: build/vibe-code with it **off** → **Lock** once the demo is good → switch it
-**on** right before you walk into the room → keep tinkering on other demos (or even this one)
-without any chance of the presentation changing under you.
-
-Two things worth knowing:
-
-- The toggle is **global**, not per-demo — turning it on freezes *every* demo that has a Lock,
-  not just the one you're about to present.
-- It only changes what gets **served** to the customer. It does not hide or change anything in
-  the Studio dashboard itself — the dashboard keeps looking and behaving the same whether the
-  toggle is on or off.
 
 ## Cognigy Remote Control
 
@@ -189,8 +173,7 @@ returns is shown to the SE as confirmation.
 | `packages/shared/` | Endpoint normalization + demo.json schema (used by service, extension, templates) |
 
 SE data lives in `~/CognigyDemoStudio/demos/<slug>/` — `demo.json` (config, read at runtime, no
-rebuild needed), `src/` (vibe-codeable source), `dist/` (auto-built), `locked/` (presentation
-snapshot).
+rebuild needed), `src/` (vibe-codeable source) and `dist/` (auto-built).
 
 `@cognigy/click-to-call-sdk` is pinned exactly (SOW §10) — bump it deliberately per release,
 never right before a customer demo.

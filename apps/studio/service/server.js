@@ -1,8 +1,7 @@
 /*
  * Cognigy Demo Studio — local demo service (http://localhost:41700).
  * One service for every demo (SOW §5): /api/* for the dashboard + extension,
- * /<slug>/ statically serves the demo's build (the locked snapshot when
- * Presentation Mode is on). Bound to 127.0.0.1 only.
+ * /<slug>/ statically serves the demo's build. Bound to 127.0.0.1 only.
  */
 const express = require("express");
 const fs = require("fs");
@@ -41,8 +40,7 @@ function createApp() {
   /* ---------------- API ---------------- */
 
   app.get("/api/health", (req, res) => {
-    const s = settingsStore.read();
-    ok(res, { ok: true, app: "cognigy-demo-studio", version: VERSION, presentationMode: !!s.presentationMode });
+    ok(res, { ok: true, app: "cognigy-demo-studio", version: VERSION });
   });
 
   app.get("/api/demos", (req, res) => ok(res, { demos: store.list() }));
@@ -77,9 +75,12 @@ function createApp() {
     } catch (err) { fail(res, err); }
   });
 
-  app.post("/api/demos/:id/lock", (req, res) => {
-    try { ok(res, { demo: store.lock(req.params.id) }); }
-    catch (err) { fail(res, err); }
+  app.post("/api/demos/:id/sync-template", async (req, res) => {
+    try {
+      const result = store.syncTemplate(req.params.id);
+      await builder.buildDemo(req.params.id);
+      ok(res, { demo: result.demo, backup: result.backup, lastBuild: builder.lastResult(req.params.id) });
+    } catch (err) { fail(res, err); }
   });
 
   app.post("/api/demos/:id/rebuild", async (req, res) => {
@@ -128,8 +129,7 @@ function createApp() {
         showLauncherText: demo.showLauncherText, launcherSize: demo.launcherSize,
         agentName: demo.agentName, theme: demo.theme, built: demo.built
       },
-      via,
-      presentationMode: !!s.presentationMode
+      via
     });
   });
 
@@ -137,7 +137,6 @@ function createApp() {
   app.put("/api/settings", (req, res) => {
     const body = req.body || {};
     const patch = {};
-    if ("presentationMode" in body) patch.presentationMode = !!body.presentationMode;
     if ("overrideDemoId" in body) patch.overrideDemoId = body.overrideDemoId || null;
     if (Array.isArray(body.gateways)) {
       patch.gateways = body.gateways
@@ -212,9 +211,7 @@ function createApp() {
 
   /* ------------- demo experiences ------------- */
 
-  // Serve /<slug>/... from the demo's dist (locked/dist in Presentation Mode).
-  // demo.json is served from the matching config so the locked snapshot's
-  // config travels with its build.
+  // Serve /<slug>/... from the demo's dist.
   app.use("/:slug", (req, res, next) => {
     const slug = req.params.slug;
     if (slug === "api" || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) return next();
@@ -222,12 +219,10 @@ function createApp() {
     try { dir = demoDir(slug); } catch (e) { return next(); }
     if (!fs.existsSync(path.join(dir, "demo.json"))) return next();
 
-    const presentation = !!settingsStore.read().presentationMode;
-    const useLocked = presentation && fs.existsSync(path.join(dir, "locked", "dist", "index.html"));
-    const root = useLocked ? path.join(dir, "locked", "dist") : path.join(dir, "dist");
+    const root = path.join(dir, "dist");
 
     if (req.path === "/demo.json" || req.path === "demo.json") {
-      const cfg = useLocked ? path.join(dir, "locked", "demo.json") : path.join(dir, "demo.json");
+      const cfg = path.join(dir, "demo.json");
       res.set("Cache-Control", "no-store");
       return res.sendFile(cfg);
     }
@@ -239,7 +234,7 @@ function createApp() {
     // customer's website shows through. Injected here rather than built into
     // the template so it reaches existing demos too (see clear-mode.css).
     if (req.path === "/" || req.path === "/index.html") {
-      const cfgFile = useLocked ? path.join(dir, "locked", "demo.json") : path.join(dir, "demo.json");
+      const cfgFile = path.join(dir, "demo.json");
       let panelStyle = "solid";
       try { panelStyle = JSON.parse(fs.readFileSync(cfgFile, "utf8")).panelStyle || "solid"; } catch (e) {}
       if (panelStyle === "clear") {

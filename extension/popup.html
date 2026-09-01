@@ -16,42 +16,67 @@
     .dot.on { background: #36ead0; }
     .dot.off { background: #ff5b8a; }
     .wrap { padding: 12px 14px 14px; }
+
+    /* master switch */
+    .master {
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      padding: 11px 12px; border-radius: 10px; border: 1px solid #e2e8f0;
+      background: #fafbfc; margin-bottom: 12px;
+    }
+    .master.on { background: rgba(54,148,252,.08); border-color: #3694fc; }
+    .master .switch {
+      position: relative; width: 38px; height: 22px; border-radius: 999px;
+      background: #cbd5e1; flex: 0 0 auto; transition: background .15s;
+    }
+    .master.on .switch { background: #3694fc; }
+    .master .switch::after {
+      content: ""; position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      transition: transform .15s;
+    }
+    .master.on .switch::after { transform: translateX(16px); }
+    .master .txt { font-size: 13.5px; font-weight: 600; }
+    .master .sub { font-size: 11.5px; color: #64748b; font-weight: 400; display: block; margin-top: 1px; }
+    .master input { display: none; }
+
     .row { margin: 10px 0; }
-    label { display: block; font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    label.lbl { display: block; font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
     select { width: 100%; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
     select:focus { outline: none; border-color: #3694fc; }
     .hint { font-size: 12px; color: #64748b; line-height: 1.5; }
     .mapped { font-size: 12.5px; background: #f4f6f9; border-radius: 8px; padding: 8px 10px; line-height: 1.5; }
     .mapped b { color: #3694fc; }
-    .switchrow { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-    .switchrow input { accent-color: #36ead0; }
     .footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
     .footer a { font-size: 12px; color: #3694fc; text-decoration: none; cursor: pointer; }
     #version { font-size: 11px; color: #94a3b8; }
+    .disabled { opacity: .45; pointer-events: none; }
   </style>
 </head>
 <body>
   <h1><img src="icons/icon32.png" alt="" /><span><b>NiCE</b> <span class="cg">Cognigy</span> Demo Studio</span><span class="dot" id="statusDot"></span></h1>
   <div class="wrap">
-  <div class="hint" id="statusText">Checking…</div>
 
-  <div id="connected" style="display:none">
-    <div class="row mapped" id="mapped"></div>
-    <div class="row">
-      <label for="override">Demo on this browser</label>
-      <select id="override"><option value="">Auto (match by website)</option></select>
+    <label class="master" id="masterToggle">
+      <input type="checkbox" id="enabled" />
+      <span class="switch"></span>
+      <span class="txt">Show demos<span class="sub" id="masterSub">Off — nothing is injected on any site</span></span>
+    </label>
+
+    <div id="connected" style="display:none">
+      <div class="row mapped" id="mapped"></div>
+      <div class="row">
+        <label class="lbl" for="override">Demo on this browser</label>
+        <select id="override"><option value="">Auto (match by website)</option></select>
+      </div>
     </div>
-    <div class="row switchrow">
-      <span>Presentation Mode</span>
-      <input type="checkbox" id="presentation" />
+
+    <div class="hint" id="statusText">Checking…</div>
+
+    <div class="footer">
+      <a id="openStudio">Open Demo Studio</a>
+      <span id="version"></span>
     </div>
   </div>
-
-  <div class="footer">
-    <a id="openStudio">Open Demo Studio</a>
-    <span id="version"></span>
-  </div>
-  </div><!-- /wrap -->
   <script src="popup.js"></script>
 </body>
 </html>
