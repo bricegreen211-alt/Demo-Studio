@@ -280,67 +280,126 @@
   <main id="settingsView" hidden>
     <div class="list-head"><h2>Settings</h2></div>
 
-    <section class="set-card">
-      <h3>Browser extension</h3>
-      <p class="soft">The extension puts your demo on the customer's website. It's loaded from this
-        project folder, so it updates when the project does.</p>
-
-      <div class="set-status" id="extStatus"></div>
-
-      <h4>Install it (first time)</h4>
-      <ol class="set-steps">
-        <li>Open <code>chrome://extensions</code> — or <code>edge://extensions</code> in Edge.</li>
-        <li>Turn on <b>Developer mode</b> (top-right).</li>
-        <li>Click <b>Load unpacked</b> and choose the folder below.</li>
-        <li>Pin <b>NiCE Cognigy Demo Studio</b> to your toolbar.</li>
-        <li>Click the icon and turn <b>Show demos</b> on when you want demos to appear.</li>
-      </ol>
-      <div class="set-path-row">
-        <code id="extPath" class="set-path"></code>
-        <button class="ghost" id="copyExtPath">Copy path</button>
-        <button class="ghost" id="openExtFolder" hidden>Open folder</button>
+    <!-- Extension: the one thing people actually need help with -->
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Browser extension</h3>
+          <p class="card-sub">This is what puts your demo on the customer's website.</p>
+        </div>
+        <span class="pill" id="extPill">Checking…</span>
       </div>
 
-      <h4>Update it (after someone ships a change)</h4>
-      <ol class="set-steps">
-        <li>Get the new code: <code>git pull</code> in the project folder (or re-download it).</li>
-        <li>Open <code>chrome://extensions</code> and click <b>Reload</b> (↻) on the Demo Studio card.</li>
-        <li>Refresh any tab you were testing on.</li>
-      </ol>
-      <p class="soft">Only changes inside <code>extension/</code> need this. Demo, template and
-        Studio changes are served live — no reload needed.</p>
-    </section>
+      <div class="banner" id="extBanner" hidden></div>
 
-    <section class="set-card">
-      <h3>Back up &amp; move demos</h3>
-      <p class="soft">Export writes every demo's configuration and your folders, gateways and
-        Outbound Trigger settings to one JSON file — handy for moving to another machine or keeping
-        a backup. Vibe-coded source code isn't included; copy the demo folders (or use git) for that.</p>
-      <div class="set-actions">
-        <button class="primary" id="exportBtn">Export demos…</button>
-        <button class="ghost" id="importBtn">Import…</button>
-        <input type="file" id="importFile" accept="application/json" hidden />
-        <span class="soft">Import also accepts a Cognigy Injector v3 export.</span>
+      <div class="steps" id="extSteps">
+        <div class="step">
+          <span class="step-n">1</span>
+          <div class="step-body">
+            <h4>Open your browser's extensions page</h4>
+            <p>Copy this, paste it into the address bar, and press Enter.</p>
+            <div class="copy-row">
+              <code class="copy-val" id="extUrl">chrome://extensions</code>
+              <button class="ghost sm" data-copy="extUrl">Copy</button>
+              <span class="muted">Using Edge? Copy <code>edge://extensions</code> instead.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-n">2</span>
+          <div class="step-body">
+            <h4>Turn on “Developer mode”</h4>
+            <p>It's the switch in the top-right of that page. This is the normal way to install an
+              in-house tool that isn't in the Chrome Web Store.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-n">3</span>
+          <div class="step-body">
+            <h4>Click “Load unpacked”, then choose this folder</h4>
+            <p>A file window opens. Paste the path below into it, or click <b>Show me the folder</b>
+              and drag it in.</p>
+            <div class="copy-row">
+              <code class="copy-val path" id="extPath"></code>
+              <button class="ghost sm" data-copy="extPath">Copy</button>
+              <button class="ghost sm" id="openExtFolder" hidden>Show me the folder</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-n">4</span>
+          <div class="step-body">
+            <h4>Pin it to your toolbar</h4>
+            <p>Click the puzzle-piece icon next to the address bar, then the pin next to
+              <b>NiCE Cognigy Demo Studio</b>, so it's always one click away.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-n">5</span>
+          <div class="step-body">
+            <h4>Turn on “Show demos” when you want to present</h4>
+            <p>Click the extension icon and flip the switch. It starts <b>off</b> on purpose — demos
+              only appear when you turn it on, so they never surprise you in other tabs.</p>
+          </div>
+        </div>
       </div>
+
+      <details class="drawer">
+        <summary>Updating the extension later</summary>
+        <div class="drawer-body">
+          <p>When someone ships a change, the extension doesn't update itself. Two steps:</p>
+          <ol class="tight">
+            <li>Get the new files — usually <code>git pull</code> in the project folder, or
+              re-download it from your team's link.</li>
+            <li>Go back to the extensions page and click <b>Reload</b> (the ↻ icon) on the
+              Demo Studio card, then refresh the tab you're testing.</li>
+          </ol>
+          <p class="muted">Only changes inside the <code>extension</code> folder need this. New demos,
+            template updates and Studio changes appear on their own.</p>
+        </div>
+      </details>
     </section>
 
-    <section class="set-card">
-      <h3>Files</h3>
-      <div class="set-kv">
-        <div><span>Your demos</span><code id="dataDir"></code></div>
-        <div><span>Application</span><code id="repoRoot"></code></div>
-      </div>
-      <p class="soft">Demos live outside the application folder, so updating the app never touches
-        your work.</p>
-    </section>
+    <div class="card-grid">
+      <section class="card">
+        <div class="card-head"><div>
+          <h3>Back up &amp; move demos</h3>
+          <p class="card-sub">Save everything to one file, or bring demos in from another machine.</p>
+        </div></div>
+        <div class="btn-row">
+          <button class="primary" id="exportBtn">Export demos</button>
+          <button class="ghost" id="importBtn">Import…</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+        </div>
+        <p class="muted">Includes every demo's settings and branding, plus your folders, voice
+          gateways and Outbound Trigger setup. Custom code you've vibe-coded lives in the demo
+          folders — copy those separately. Import also accepts an old Cognigy Injector export.</p>
+      </section>
 
-    <section class="set-card">
-      <h3>About</h3>
-      <div class="set-kv">
-        <div><span>Application</span><code id="aboutName"></code></div>
-        <div><span>Version</span><code id="aboutVersion"></code></div>
-        <div><span>Last updated</span><code id="aboutUpdated"></code></div>
-        <div><span>Demos</span><code id="aboutCount"></code></div>
+      <section class="card">
+        <div class="card-head"><div>
+          <h3>Where your files live</h3>
+          <p class="card-sub">Your demos are stored outside the app, so updating it is always safe.</p>
+        </div></div>
+        <div class="kv">
+          <div><span>Your demos</span><code id="dataDir"></code></div>
+          <div><span>The app</span><code id="repoRoot"></code></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card about">
+      <div class="about-mark"><img src="favicon.png" alt="" /></div>
+      <div class="about-body">
+        <h3 id="aboutName">Cognigy Demo Studio</h3>
+        <p class="muted">
+          <span id="aboutVersion"></span> · updated <span id="aboutUpdated"></span> ·
+          <span id="aboutCount"></span>
+        </p>
       </div>
     </section>
   </main>

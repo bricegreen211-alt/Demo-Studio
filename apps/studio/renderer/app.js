@@ -469,29 +469,51 @@
   function loadSettings() {
     api("/api/about").then(function (a) {
       $("aboutName").textContent = a.name;
-      $("aboutVersion").textContent = "v" + a.version + (a.commit ? " (" + a.commit + ")" : "");
+      $("aboutVersion").textContent = "Version " + a.version + (a.commit ? " (" + a.commit + ")" : "");
       $("aboutUpdated").textContent = fmtDate(a.updatedAt);
       $("aboutCount").textContent = a.demoCount + (a.demoCount === 1 ? " demo" : " demos");
       $("dataDir").textContent = a.dataDir;
       $("repoRoot").textContent = a.repoRoot;
       $("extPath").textContent = a.extensionDir;
+      $("openExtFolder").hidden = !(window.cds && window.cds.openFolder);
 
-      var st = $("extStatus");
-      st.className = "set-status " + (a.extensionConnected ? "ok" : "warn");
-      st.innerHTML = a.extensionConnected
-        ? "\u2713 Extension is installed and talking to Demo Studio."
-        : "\u26a0 No extension heartbeat yet \u2014 install it with the steps below, or open a browser tab if it's already installed.";
-
-      $("openExtFolder").hidden = !(window.cds && window.cds.openPath);
+      // Someone who already has it working shouldn't have to read setup steps,
+      // so collapse them once we've heard from the extension.
+      var pill = $("extPill");
+      var banner = $("extBanner");
+      var steps = $("extSteps");
+      if (a.extensionConnected) {
+        pill.className = "pill ok";
+        pill.textContent = "Installed";
+        banner.hidden = false;
+        banner.innerHTML = "The extension is installed and talking to Demo Studio. " +
+          '<a href="#" id="showSteps">Show the setup steps</a> if you need to install it on another browser.';
+        steps.hidden = true;
+        var link = $("showSteps");
+        if (link) link.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          steps.hidden = false;
+          banner.hidden = true;
+        });
+      } else {
+        pill.className = "pill warn";
+        pill.textContent = "Not set up yet";
+        banner.hidden = true;
+        steps.hidden = false;
+      }
     }).catch(function (err) { alertErr(err); });
   }
 
-  $("copyExtPath").addEventListener("click", function () {
-    var p = $("extPath").textContent;
-    if (!p) return;
-    try { navigator.clipboard.writeText(p); } catch (e) {}
-    $("copyExtPath").textContent = "Copied \u2713";
-    setTimeout(function () { $("copyExtPath").textContent = "Copy path"; }, 1600);
+  // Copy buttons: data-copy points at the element holding the value.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
+    btn.addEventListener("click", function () {
+      var el = $(btn.getAttribute("data-copy"));
+      if (!el || !el.textContent) return;
+      try { navigator.clipboard.writeText(el.textContent); } catch (e) {}
+      var was = btn.textContent;
+      btn.textContent = "Copied \u2713";
+      setTimeout(function () { btn.textContent = was; }, 1600);
+    });
   });
 
   $("openExtFolder").addEventListener("click", function () {
