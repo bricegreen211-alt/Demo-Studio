@@ -1,15 +1,51 @@
 /*
  * Cognigy Demo Studio — filesystem layout.
+ *
  * SE data lives OUTSIDE the app install, so app updates never touch demos:
- *   ~/CognigyDemoStudio/
- *     demos/<slug>/   demo.json + index.html + src/ + dist/ + locked/
+ *   <Documents>/CognigyDemoStudio/
+ *     demos/<slug>/   demo.json + index.html + src/ + dist/
  *     settings.json
+ *
+ * Documents (rather than the bare home folder) because that's where people
+ * expect their own files on both macOS and Windows, and it survives the
+ * corporate Windows setups that don't allow writing to the drive root.
  */
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
 
-const DATA_ROOT = process.env.CDS_DATA_DIR || path.join(os.homedir(), "CognigyDemoStudio");
+const LEGACY_DATA_ROOT = path.join(os.homedir(), "CognigyDemoStudio");
+
+/*
+ * Where is the user's Documents folder?
+ *
+ * On Windows this is genuinely not "<home>/Documents": OneDrive commonly
+ * redirects it to <home>/OneDrive/Documents, and the folder can be renamed in
+ * localized installs. Electron's app.getPath asks the OS for the real known
+ * folder, so prefer it whenever we're running inside the app; the fallbacks
+ * are only for the standalone `npm run service` path.
+ */
+function resolveDocumentsDir() {
+  if (process.versions.electron) {
+    try {
+      const { app } = require("electron");
+      const docs = app && app.getPath && app.getPath("documents");
+      if (docs) return docs;
+    } catch (e) { /* not in the main process — fall through */ }
+  }
+
+  const home = os.homedir();
+  const candidates = [
+    path.join(home, "Documents"),
+    path.join(home, "OneDrive", "Documents"),  // redirected Windows profile
+  ];
+  for (const dir of candidates) {
+    try { if (fs.statSync(dir).isDirectory()) return dir; } catch (e) { /* next */ }
+  }
+  return home; // last resort — never fail to start over a missing folder
+}
+
+const DATA_ROOT = process.env.CDS_DATA_DIR || path.join(resolveDocumentsDir(), "CognigyDemoStudio");
 const DEMOS_ROOT = path.join(DATA_ROOT, "demos");
 const SETTINGS_FILE = path.join(DATA_ROOT, "settings.json");
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -17,7 +53,36 @@ const TEMPLATES_ROOT = path.join(REPO_ROOT, "templates");
 const EXTENSION_ROOT = path.join(REPO_ROOT, "extension");
 const SHARED_ROOT = path.join(REPO_ROOT, "packages", "shared");
 
+/*
+ * Demos used to live at <home>/CognigyDemoStudio. Move them once, so existing
+ * installs keep working without the SE doing anything. No-op for fresh
+ * installs and for anyone who already migrated.
+ */
+let migrationChecked = false;
+function migrateLegacyData() {
+  if (migrationChecked) return null;
+  migrationChecked = true;
+  if (process.env.CDS_DATA_DIR) return null;          // explicit override wins
+  if (path.resolve(LEGACY_DATA_ROOT) === path.resolve(DATA_ROOT)) return null;
+  if (fs.existsSync(DATA_ROOT)) return null;          // already using the new home
+  if (!fs.existsSync(LEGACY_DATA_ROOT)) return null;  // nothing to move
+
+  fs.mkdirSync(path.dirname(DATA_ROOT), { recursive: true });
+  try {
+    fs.renameSync(LEGACY_DATA_ROOT, DATA_ROOT);
+  } catch (err) {
+    // Different volume (Documents redirected to OneDrive, network home, …):
+    // copy then remove the original.
+    if (err.code !== "EXDEV") throw err;
+    fs.cpSync(LEGACY_DATA_ROOT, DATA_ROOT, { recursive: true });
+    fs.rmSync(LEGACY_DATA_ROOT, { recursive: true, force: true });
+  }
+  console.log("[paths] moved your demos:\n  from " + LEGACY_DATA_ROOT + "\n    to " + DATA_ROOT);
+  return { from: LEGACY_DATA_ROOT, to: DATA_ROOT };
+}
+
 function ensureDirs() {
+  migrateLegacyData();
   fs.mkdirSync(DEMOS_ROOT, { recursive: true });
 }
 
@@ -27,4 +92,7 @@ function demoDir(slug) {
   return path.join(DEMOS_ROOT, slug);
 }
 
-module.exports = { DATA_ROOT, DEMOS_ROOT, SETTINGS_FILE, REPO_ROOT, TEMPLATES_ROOT, EXTENSION_ROOT, SHARED_ROOT, ensureDirs, demoDir };
+module.exports = {
+  DATA_ROOT, DEMOS_ROOT, SETTINGS_FILE, REPO_ROOT, TEMPLATES_ROOT, EXTENSION_ROOT, SHARED_ROOT,
+  LEGACY_DATA_ROOT, resolveDocumentsDir, migrateLegacyData, ensureDirs, demoDir
+};

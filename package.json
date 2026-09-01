@@ -8,7 +8,8 @@
     "start": "electron .",
     "service": "node apps/studio/service/standalone.js",
     "build:templates": "node apps/studio/service/build-templates.js",
-    "seed:samples": "node assets/seed-samples.js"
+    "seed:samples": "node assets/seed-samples.js",
+    "doctor": "node assets/doctor.js"
   },
   "dependencies": {
     "@cognigy/click-to-call-sdk": "0.0.7",

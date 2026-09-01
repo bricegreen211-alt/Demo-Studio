@@ -55,20 +55,27 @@ Pick whichever of these feels more comfortable — both end with the same folder
 
 1. On the [repo page](https://github.com/bricegreen211-alt/Demo-Studio), click the green **Code**
    button → **Download ZIP**.
-2. Unzip it somewhere permanent — e.g. `~/Demo-Studio` on macOS or `C:\Demo-Studio` on Windows.
-   Don't run it from inside a zip file or a Downloads folder you plan to clear out.
+2. Unzip it into your **Documents** folder, so it sits with the rest of your files and doesn't
+   get cleared out:
+   - **macOS**: `~/Documents/Demo-Studio`
+   - **Windows**: `Documents\Demo-Studio` (i.e. `C:\Users\<you>\Documents\Demo-Studio`)
+
+   Don't run it from inside the zip, and avoid the Downloads folder.
 
 **Option B — `git clone` (if you already have git, or the app told you it's installed)**
 
 Open a terminal (see Step 2 below for how) and run:
 
 ```bash
+cd ~/Documents          # macOS
+cd %USERPROFILE%\Documents   # Windows (PowerShell: cd $HOME\Documents)
+
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git
 cd Demo-Studio
 ```
 
-This puts a `Demo-Studio` folder wherever you ran the command from (your home folder, by
-default), and — unlike the ZIP — makes it easy to pull future updates later with `git pull`.
+This puts a `Demo-Studio` folder inside your Documents folder and — unlike the ZIP — makes it easy
+to pull future updates later with `git pull`.
 
 ---
 
@@ -97,6 +104,15 @@ default), and — unlike the ZIP — makes it easy to pull future updates later 
    > **Windows note:** if this is the very first time you've run `npm` on this machine, Windows
    > may show a firewall prompt ("Windows Defender Firewall has blocked some features…") — click
    > **Allow access**.
+
+4. Check everything landed correctly:
+
+   ```bash
+   npm run doctor
+   ```
+
+   This prints where your files will live and flags anything missing. If it ends with
+   **"Everything looks good"** you're ready. If it lists a ✗, fix that first — it tells you how.
 
 ---
 
@@ -197,8 +213,8 @@ just need to get the app running again:
   simple double-clickable shortcut that runs `npm start` in that folder — ask a teammate familiar
   with the project to set one up.
 - **Windows**: reopen **PowerShell**, `cd` into the project folder, and run `npm start`. A
-  `.bat` file with `cd /d "C:\Demo-Studio" && npm start` saved to your Desktop gives you a
-  double-clickable shortcut — again, worth asking a teammate to set up once.
+  `.bat` file with `cd /d "%USERPROFILE%\Documents\Demo-Studio" && npm start` saved to your Desktop
+  gives you a double-clickable shortcut — again, worth asking a teammate to set up once.
 - The browser extension, once loaded, stays installed — you don't reload it each session. Just
   remember to turn **Show demos** on when you want demos to appear.
 
@@ -242,8 +258,10 @@ When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones
 
 ### Your demos are never touched by an update
 
-Demos live in `~/CognigyDemoStudio` (macOS) or `C:\Users\<you>\CognigyDemoStudio` (Windows) —
-a completely separate folder from the app. Updating, reinstalling, or even deleting the project
+Demos live in your Documents folder — `~/Documents/CognigyDemoStudio` (macOS) or
+`C:\Users\<you>\Documents\CognigyDemoStudio` (Windows) — a completely separate folder from the app.
+If you used an earlier version that stored them directly in your home folder, they're moved there
+automatically the first time you start this version; nothing is lost. Updating, reinstalling, or even deleting the project
 folder leaves them alone. **Settings → Back up & move demos → Export** writes them all to one
 file if you want a backup before a big change.
 
@@ -260,6 +278,8 @@ Newly created demos always start from the current templates, so this only applie
 ---
 
 ## Troubleshooting
+
+**Run `npm run doctor` first** — it checks the most common problems and tells you what to do.
 
 | Symptom | Fix |
 |---|---|

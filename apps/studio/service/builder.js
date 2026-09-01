@@ -15,15 +15,20 @@ const { DEMOS_ROOT, REPO_ROOT, SHARED_ROOT, demoDir } = require("./paths");
 
 const NM = path.join(REPO_ROOT, "node_modules");
 
+// Alias replacements are substituted into import specifiers, so they must use
+// forward slashes even on Windows — a raw path.join() result there would carry
+// backslashes into the module id and fail to resolve.
+const p = (...parts) => path.join(...parts).replace(/\\/g, "/");
+
 // Prefix aliases: "react/jsx-runtime" -> <NM>/react/jsx-runtime, etc.
 const ALIASES = [
-  { find: /^react-dom/, replacement: path.join(NM, "react-dom") },
-  { find: /^react/, replacement: path.join(NM, "react") },
-  { find: /^@cognigy\/socket-client/, replacement: path.join(NM, "@cognigy", "socket-client") },
-  { find: /^@cognigy\/click-to-call-sdk/, replacement: path.join(NM, "@cognigy", "click-to-call-sdk") },
-  { find: /^@cds\/shared/, replacement: SHARED_ROOT },
+  { find: /^react-dom/, replacement: p(NM, "react-dom") },
+  { find: /^react/, replacement: p(NM, "react") },
+  { find: /^@cognigy\/socket-client/, replacement: p(NM, "@cognigy", "socket-client") },
+  { find: /^@cognigy\/click-to-call-sdk/, replacement: p(NM, "@cognigy", "click-to-call-sdk") },
+  { find: /^@cds\/shared/, replacement: p(SHARED_ROOT) },
   // Both Cognigy SDKs import Node's "events"; alias to the browser shim.
-  { find: /^events$/, replacement: path.join(NM, "events") }
+  { find: /^events$/, replacement: p(NM, "events") }
 ];
 
 const state = {

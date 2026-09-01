@@ -31,9 +31,13 @@ people already working in this repo.
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git
 cd Demo-Studio
 npm install
+npm run doctor       # checks your setup and where files will live
 npm start            # Electron app (starts the service + opens the dashboard)
 npm run service      # or: service only, dashboard at http://localhost:41700
 ```
+
+Clone it into your **Documents** folder (`~/Documents/Demo-Studio`, or
+`%USERPROFILE%\Documents\Demo-Studio` on Windows) — that's what the docs assume.
 
 **Extension:** open `chrome://extensions` (or `edge://extensions`) → Developer mode →
 **Load unpacked** → select the `extension/` folder → pin it → click the icon and turn on
@@ -61,7 +65,7 @@ Then **reload the extension** at `chrome://extensions` (↻ on the Demo Studio c
 open customer tab — the browser keeps running the old copy until you do, which is the usual reason
 an update looks like it didn't apply. Confirm what you're running under **Settings → About**.
 
-Two things updates never break: your demos live in `~/CognigyDemoStudio`, outside the project, so
+Two things updates never break: your demos live in `~/Documents/CognigyDemoStudio`, outside the project, so
 they're untouched; and if an older demo doesn't pick up a new template feature, hit **Sync** on its
 row to refresh its code (previous source is backed up, settings kept).
 
@@ -196,8 +200,11 @@ returns is shown to the SE as confirmation.
 | `templates/` | The three Demo Experience templates (React + Vite + TS) |
 | `packages/shared/` | Endpoint normalization + demo.json schema (used by service, extension, templates) |
 
-SE data lives in `~/CognigyDemoStudio/demos/<slug>/` — `demo.json` (config, read at runtime, no
-rebuild needed), `src/` (vibe-codeable source) and `dist/` (auto-built).
+SE data lives in `~/Documents/CognigyDemoStudio/demos/<slug>/` (Windows:
+`Documents\CognigyDemoStudio`) — `demo.json` (config, read at runtime, no rebuild needed), `src/`
+(vibe-codeable source) and `dist/` (auto-built). Resolved by
+[`paths.js`](apps/studio/service/paths.js), overridable with `CDS_DATA_DIR`; demos from older
+versions are moved here automatically. See [CLAUDE.md](CLAUDE.md) for architecture notes.
 
 `@cognigy/click-to-call-sdk` is pinned exactly (SOW §10) — bump it deliberately per release,
 never right before a customer demo.

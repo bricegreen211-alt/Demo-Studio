@@ -209,9 +209,11 @@ function createApp() {
     let updatedAt = "";
     let commit = "";
     try {
-      const { execSync } = require("child_process");
-      const out = execSync('git log -1 --format="%cI|%h"', { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "ignore"] })
-        .toString().trim().replace(/^"|"$/g, "");
+      // execFileSync, not execSync: through cmd.exe on Windows the %cI|%h
+      // format string would be mangled by %VAR% expansion and the | pipe.
+      const { execFileSync } = require("child_process");
+      const out = execFileSync("git", ["log", "-1", "--format=%cI|%h"],
+        { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
       const parts = out.split("|");
       updatedAt = parts[0] || "";
       commit = parts[1] || "";
