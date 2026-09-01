@@ -23,6 +23,9 @@
       <a href="#remote" id="nav-remote" class="side-item">
         <span class="side-ico">☏</span> Remote Control
       </a>
+      <a href="#settings" id="nav-settings" class="side-item">
+        <span class="side-ico">⚙</span> Settings
+      </a>
     </nav>
     <div class="side-foot">
       <div class="side-version">Cognigy Demo Studio</div>
@@ -37,8 +40,6 @@
       <div class="list-actions">
         <input type="search" id="findInput" class="find" placeholder="Find demos…" />
         <button class="ghost" id="newFolderBtn" title="Create a folder to organize your demos">+ New Folder</button>
-        <button class="ghost" id="importBtn" title="Import demos from Cognigy Injector or another machine">Import</button>
-        <input type="file" id="importFile" accept="application/json" hidden />
         <button class="primary" id="newDemoBtn">+ New Demo</button>
       </div>
     </div>
@@ -271,6 +272,75 @@
             <span id="rc-call-text">In Call</span>
           </div>
         </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Settings ─────────────────────────────────────────────── -->
+  <main id="settingsView" hidden>
+    <div class="list-head"><h2>Settings</h2></div>
+
+    <section class="set-card">
+      <h3>Browser extension</h3>
+      <p class="soft">The extension puts your demo on the customer's website. It's loaded from this
+        project folder, so it updates when the project does.</p>
+
+      <div class="set-status" id="extStatus"></div>
+
+      <h4>Install it (first time)</h4>
+      <ol class="set-steps">
+        <li>Open <code>chrome://extensions</code> — or <code>edge://extensions</code> in Edge.</li>
+        <li>Turn on <b>Developer mode</b> (top-right).</li>
+        <li>Click <b>Load unpacked</b> and choose the folder below.</li>
+        <li>Pin <b>NiCE Cognigy Demo Studio</b> to your toolbar.</li>
+        <li>Click the icon and turn <b>Show demos</b> on when you want demos to appear.</li>
+      </ol>
+      <div class="set-path-row">
+        <code id="extPath" class="set-path"></code>
+        <button class="ghost" id="copyExtPath">Copy path</button>
+        <button class="ghost" id="openExtFolder" hidden>Open folder</button>
+      </div>
+
+      <h4>Update it (after someone ships a change)</h4>
+      <ol class="set-steps">
+        <li>Get the new code: <code>git pull</code> in the project folder (or re-download it).</li>
+        <li>Open <code>chrome://extensions</code> and click <b>Reload</b> (↻) on the Demo Studio card.</li>
+        <li>Refresh any tab you were testing on.</li>
+      </ol>
+      <p class="soft">Only changes inside <code>extension/</code> need this. Demo, template and
+        Studio changes are served live — no reload needed.</p>
+    </section>
+
+    <section class="set-card">
+      <h3>Back up &amp; move demos</h3>
+      <p class="soft">Export writes every demo's configuration and your folders, gateways and
+        Outbound Trigger settings to one JSON file — handy for moving to another machine or keeping
+        a backup. Vibe-coded source code isn't included; copy the demo folders (or use git) for that.</p>
+      <div class="set-actions">
+        <button class="primary" id="exportBtn">Export demos…</button>
+        <button class="ghost" id="importBtn">Import…</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+        <span class="soft">Import also accepts a Cognigy Injector v3 export.</span>
+      </div>
+    </section>
+
+    <section class="set-card">
+      <h3>Files</h3>
+      <div class="set-kv">
+        <div><span>Your demos</span><code id="dataDir"></code></div>
+        <div><span>Application</span><code id="repoRoot"></code></div>
+      </div>
+      <p class="soft">Demos live outside the application folder, so updating the app never touches
+        your work.</p>
+    </section>
+
+    <section class="set-card">
+      <h3>About</h3>
+      <div class="set-kv">
+        <div><span>Application</span><code id="aboutName"></code></div>
+        <div><span>Version</span><code id="aboutVersion"></code></div>
+        <div><span>Last updated</span><code id="aboutUpdated"></code></div>
+        <div><span>Demos</span><code id="aboutCount"></code></div>
       </div>
     </section>
   </main>

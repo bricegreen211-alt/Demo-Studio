@@ -14,6 +14,7 @@ const DEMOS_ROOT = path.join(DATA_ROOT, "demos");
 const SETTINGS_FILE = path.join(DATA_ROOT, "settings.json");
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES_ROOT = path.join(REPO_ROOT, "templates");
+const EXTENSION_ROOT = path.join(REPO_ROOT, "extension");
 const SHARED_ROOT = path.join(REPO_ROOT, "packages", "shared");
 
 function ensureDirs() {
@@ -26,4 +27,4 @@ function demoDir(slug) {
   return path.join(DEMOS_ROOT, slug);
 }
 
-module.exports = { DATA_ROOT, DEMOS_ROOT, SETTINGS_FILE, REPO_ROOT, TEMPLATES_ROOT, SHARED_ROOT, ensureDirs, demoDir };
+module.exports = { DATA_ROOT, DEMOS_ROOT, SETTINGS_FILE, REPO_ROOT, TEMPLATES_ROOT, EXTENSION_ROOT, SHARED_ROOT, ensureDirs, demoDir };

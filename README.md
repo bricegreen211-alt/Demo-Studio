@@ -66,8 +66,10 @@ older demo (backing its source up first) so it can pick up new features like the
    it, save — the demo rebuilds automatically. No terminal, no extension rebuild.
 6. **Preflight** → fix anything flagged → present.
 
-Old Cognigy Injector demos: **Import** in the dashboard accepts `cognigy-injector-demos.json`
-exports.
+**Settings** (sidebar) holds the system-wide bits: extension install/update instructions with the
+folder path to load, **Export / Import** of all demo configuration, where your files live, and the
+app version with its last-updated date. Import accepts both a Demo Studio export and an old
+Cognigy Injector v3 export.
 
 ### Try it without Cognigy — sample demos
 

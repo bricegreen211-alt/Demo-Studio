@@ -85,6 +85,13 @@ if (!app.requestSingleInstanceLock()) {
     try { shell.openPath(demoDir(String(slug))); } catch (e) {}
   });
 
+  // Settings page — open a folder we own (extension dir, data dir).
+  ipcMain.on("cds-open-folder", (ev, dir) => {
+    const { REPO_ROOT, DATA_ROOT } = require("./service/paths");
+    const target = path.resolve(String(dir || ""));
+    if (target.startsWith(REPO_ROOT) || target.startsWith(DATA_ROOT)) shell.openPath(target);
+  });
+
   // Cognigy Remote Control pop-out — the compact window the SE drags
   // off-screen while presenting (successor to the NiCE Voice Agent app).
   ipcMain.on("cds-open-remote", (ev, gatewayId) => {

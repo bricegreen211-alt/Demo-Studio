@@ -34,6 +34,7 @@
     $("listView").hidden = false;
     $("editView").hidden = true;
     $("remoteView").hidden = true;
+    $("settingsView").hidden = true;
     editingId = null;
     Promise.all([api("/api/demos"), api("/api/settings")]).then(function (results) {
       allDemos = results[0].demos || [];
@@ -201,6 +202,7 @@
     $("listView").hidden = true;
     $("editView").hidden = false;
     $("remoteView").hidden = true;
+    $("settingsView").hidden = true;
     editingId = slug || null;
     $("formTitle").textContent = slug ? "Edit Demo Experience" : "New Demo Experience";
     $("saveBtn").textContent = slug ? "Save" : "Create Demo";
@@ -395,6 +397,7 @@
           return r.ok ? "✓ " + esc(r.name) : "✗ " + esc(r.name) + " — " + esc(r.error || "failed");
         });
         modal("Import complete", '<div style="font-size:13.5px;line-height:1.9">' + lines.join("<br>") + "</div>");
+        location.hash = "#demos";
         loadList();
       }).catch(alertErr);
     };
@@ -451,18 +454,77 @@
   $("modalClose").addEventListener("click", function () { $("modal").hidden = true; });
   $("modal").addEventListener("click", function (ev) { if (ev.target === $("modal")) $("modal").hidden = true; });
 
+
+  /* ---------------- settings ---------------- */
+
+  function fmtDate(iso) {
+    if (!iso) return "unknown";
+    var d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleString(undefined, {
+      year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function loadSettings() {
+    api("/api/about").then(function (a) {
+      $("aboutName").textContent = a.name;
+      $("aboutVersion").textContent = "v" + a.version + (a.commit ? " (" + a.commit + ")" : "");
+      $("aboutUpdated").textContent = fmtDate(a.updatedAt);
+      $("aboutCount").textContent = a.demoCount + (a.demoCount === 1 ? " demo" : " demos");
+      $("dataDir").textContent = a.dataDir;
+      $("repoRoot").textContent = a.repoRoot;
+      $("extPath").textContent = a.extensionDir;
+
+      var st = $("extStatus");
+      st.className = "set-status " + (a.extensionConnected ? "ok" : "warn");
+      st.innerHTML = a.extensionConnected
+        ? "\u2713 Extension is installed and talking to Demo Studio."
+        : "\u26a0 No extension heartbeat yet \u2014 install it with the steps below, or open a browser tab if it's already installed.";
+
+      $("openExtFolder").hidden = !(window.cds && window.cds.openPath);
+    }).catch(function (err) { alertErr(err); });
+  }
+
+  $("copyExtPath").addEventListener("click", function () {
+    var p = $("extPath").textContent;
+    if (!p) return;
+    try { navigator.clipboard.writeText(p); } catch (e) {}
+    $("copyExtPath").textContent = "Copied \u2713";
+    setTimeout(function () { $("copyExtPath").textContent = "Copy path"; }, 1600);
+  });
+
+  $("openExtFolder").addEventListener("click", function () {
+    if (window.cds && window.cds.openFolder) window.cds.openFolder($("extPath").textContent);
+  });
+
+  $("exportBtn").addEventListener("click", function () {
+    // Let the browser save the file straight from the service.
+    window.location.href = "/api/export";
+  });
+
   /* ---------------- sidebar router ---------------- */
 
   function route() {
     var hash = (location.hash || "#demos").split("&")[0];
     var isRemote = hash === "#remote";
-    document.getElementById("nav-demos").classList.toggle("on", !isRemote);
-    document.getElementById("nav-remote").classList.toggle("on", isRemote);
+    var isSettings = hash === "#settings";
+    $("nav-demos").classList.toggle("on", !isRemote && !isSettings);
+    $("nav-remote").classList.toggle("on", isRemote);
+    $("nav-settings").classList.toggle("on", isSettings);
+
     if (isRemote) {
       $("listView").hidden = true;
       $("editView").hidden = true;
+      $("settingsView").hidden = true;
       $("remoteView").hidden = false;
       if (window.CDSRemote) window.CDSRemote.show();
+    } else if (isSettings) {
+      $("listView").hidden = true;
+      $("editView").hidden = true;
+      $("remoteView").hidden = true;
+      $("settingsView").hidden = false;
+      loadSettings();
     } else {
       loadList();
     }

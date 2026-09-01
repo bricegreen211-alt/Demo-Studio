@@ -194,6 +194,46 @@ function createApp() {
     catch (err) { fail(res, err); }
   });
 
+  app.get("/api/export", (req, res) => {
+    try {
+      const data = importer.exportAll(store, settingsStore.read());
+      res.set("Content-Type", "application/json; charset=utf-8");
+      res.set("Content-Disposition", 'attachment; filename="cognigy-demo-studio-export.json"');
+      res.send(JSON.stringify(data, null, 2));
+    } catch (err) { fail(res, err); }
+  });
+
+  // About: version + when the app's code was last updated, for the Settings page.
+  app.get("/api/about", (req, res) => {
+    const { REPO_ROOT, DATA_ROOT, EXTENSION_ROOT } = require("./paths");
+    let updatedAt = "";
+    let commit = "";
+    try {
+      const { execSync } = require("child_process");
+      const out = execSync('git log -1 --format="%cI|%h"', { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "ignore"] })
+        .toString().trim().replace(/^"|"$/g, "");
+      const parts = out.split("|");
+      updatedAt = parts[0] || "";
+      commit = parts[1] || "";
+    } catch (e) {
+      // Not a git checkout (e.g. downloaded as a ZIP) — fall back to file dates.
+      try { updatedAt = fs.statSync(path.join(REPO_ROOT, "package.json")).mtime.toISOString(); } catch (e2) {}
+    }
+    const lastSeen = settingsStore.read().extensionLastSeen || 0;
+    ok(res, {
+      name: "Cognigy Demo Studio",
+      version: VERSION,
+      updatedAt,
+      commit,
+      repoRoot: REPO_ROOT,
+      dataDir: DATA_ROOT,
+      extensionDir: EXTENSION_ROOT,
+      demoCount: store.list().length,
+      extensionConnected: Date.now() - lastSeen < 90 * 1000,
+      extensionLastSeen: lastSeen
+    });
+  });
+
   /* ------------- dashboard ------------- */
 
   // The Studio dashboard is a static web app served at "/" — the Electron
