@@ -6,7 +6,14 @@
     /* Extension pages are their own documents and cannot read the dashboard's
        style.css, so the palette is duplicated here. Keep it in step with the
        tier-1 block in apps/studio/renderer/style.css. Plain rgba only: MV3's
-       floor is Chrome 88 and color-mix() needs 111+. */
+       floor is Chrome 88 and color-mix() needs 111+.
+
+       Deliberately NOT theme-aware, unlike popup.html. This document is the
+       drawer the demo renders inside, on the CUSTOMER's website — its body is
+       the demo's own surface. Darkening it because the SE's laptop is in dark
+       mode would change what the customer sees. The chrome (header, buttons)
+       is already NiCE ink in every theme, which is the only part that is
+       ours to style. */
     :root {
       --nice-ink: #21212b;
       --nice-ink-rgb: 33,33,43;
