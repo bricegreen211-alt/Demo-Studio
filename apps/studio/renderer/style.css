@@ -156,7 +156,8 @@ body {
 }
 .side-item:hover { background: var(--rail-hover); color: var(--rail-ink); }
 .side-item.on { background: var(--rail-active); color: var(--primary); }
-.side-ico { font-size: 15px; width: 18px; text-align: center; }
+.side-ico { display: inline-flex; width: 19px; justify-content: center; flex: 0 0 auto; }
+.side-label { white-space: nowrap; }
 .side-foot { padding: 14px 16px 16px; border-top: 1px solid var(--rail-line); }
 .presentation { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; color: var(--rail-ink-soft); }
 .presentation input { accent-color: var(--teal); }
@@ -221,7 +222,7 @@ button { cursor: pointer; border-radius: 9px; border: 1px solid transparent; fon
 .ico { display: inline-block; vertical-align: -0.18em; flex: 0 0 auto; }
 /* Buttons that carry an icon beside a label. inline-flex rather than a
    margin so the gap is consistent whichever side the icon is on. */
-button, .side-item { display: inline-flex; align-items: center; gap: 7px; justify-content: center; }
+button { display: inline-flex; align-items: center; gap: 7px; justify-content: center; }
 button > .ico:only-child { margin: 0; }
 .primary { background: var(--primary); color: var(--on-primary); border: 0; padding: 10px 20px; font-weight: 600; }
 .primary:hover { background: var(--primary-deep); }

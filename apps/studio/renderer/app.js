@@ -31,10 +31,7 @@
   var collapsedFolders = {}; // session-local collapse state
 
   function loadList() {
-    $("listView").hidden = false;
-    $("editView").hidden = true;
-    $("remoteView").hidden = true;
-    $("settingsView").hidden = true;
+    showView("listView");
     editingId = null;
     Promise.all([api("/api/demos"), api("/api/settings")]).then(function (results) {
       allDemos = results[0].demos || [];
@@ -201,10 +198,7 @@
   /* ---------------- edit view ---------------- */
 
   function openEdit(slug) {
-    $("listView").hidden = true;
-    $("editView").hidden = false;
-    $("remoteView").hidden = true;
-    $("settingsView").hidden = true;
+    showView("editView");
     editingId = slug || null;
     $("formTitle").textContent = slug ? "Edit Demo Experience" : "New Demo Experience";
     $("saveBtn").textContent = slug ? "Save" : "Create Demo";
@@ -602,29 +596,63 @@
 
   /* ---------------- sidebar router ---------------- */
 
+  /*
+   * The sidebar sections. Adding one means an entry here plus a <main> in
+   * index.html — the rail markup, the active state and the view switching all
+   * follow from this array, so there is no third place to forget.
+   */
+  var NAV = [
+    {
+      id: "demos", hash: "#demos", label: "Demo Experiences", icon: "dashboard",
+      /*
+       * Deliberately declares no view. #demos owns TWO <main>s: loadList() and
+       * openEdit() move between listView and editView without a hash change,
+       * so they keep ownership of that pair. Giving this entry a view would
+       * make route() slam the list back over the demo editor.
+       */
+      onShow: loadList
+    },
+    {
+      id: "remote", hash: "#remote", label: "Remote Control", icon: "call",
+      view: "remoteView",
+      onShow: function () { if (window.CDSRemote) window.CDSRemote.show(); }
+    },
+    {
+      id: "settings", hash: "#settings", label: "Settings", icon: "settings",
+      view: "settingsView", onShow: loadSettings
+    }
+  ];
+
+  // Every <main> the router owns; showView() reveals one and hides the rest.
+  var VIEWS = ["listView", "editView", "remoteView", "settingsView"];
+
+  function showView(id) {
+    for (var i = 0; i < VIEWS.length; i++) $(VIEWS[i]).hidden = VIEWS[i] !== id;
+  }
+
+  function renderNav() {
+    $("sideNav").innerHTML = NAV.map(function (n) {
+      // title + aria-label unconditionally: the label collapses to zero width
+      // when the rail is minimised, and the accessible name must not go with it.
+      return '<a href="' + n.hash + '" id="nav-' + n.id + '" class="side-item"' +
+             ' title="' + n.label + '" aria-label="' + n.label + '">' +
+             '<span class="side-ico" data-ico="' + n.icon + '" data-size="19"></span>' +
+             '<span class="side-label">' + n.label + "</span></a>";
+    }).join("");
+    CDSIcons.hydrate($("sideNav"));
+  }
+
   function route() {
     var hash = (location.hash || "#demos").split("&")[0];
-    var isRemote = hash === "#remote";
-    var isSettings = hash === "#settings";
-    $("nav-demos").classList.toggle("on", !isRemote && !isSettings);
-    $("nav-remote").classList.toggle("on", isRemote);
-    $("nav-settings").classList.toggle("on", isSettings);
+    var item = NAV[0];
+    for (var i = 0; i < NAV.length; i++) if (NAV[i].hash === hash) item = NAV[i];
 
-    if (isRemote) {
-      $("listView").hidden = true;
-      $("editView").hidden = true;
-      $("settingsView").hidden = true;
-      $("remoteView").hidden = false;
-      if (window.CDSRemote) window.CDSRemote.show();
-    } else if (isSettings) {
-      $("listView").hidden = true;
-      $("editView").hidden = true;
-      $("remoteView").hidden = true;
-      $("settingsView").hidden = false;
-      loadSettings();
-    } else {
-      loadList();
+    for (var j = 0; j < NAV.length; j++) {
+      var a = $("nav-" + NAV[j].id);
+      if (a) a.classList.toggle("on", NAV[j] === item);
     }
+    if (item.view) showView(item.view);
+    if (item.onShow) item.onShow();
   }
   window.addEventListener("hashchange", route);
 
@@ -633,5 +661,6 @@
 
   /* ---------------- boot ---------------- */
   CDSIcons.hydrate();
+  renderNav();
   route();
 })();
