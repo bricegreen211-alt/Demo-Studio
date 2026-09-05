@@ -14,6 +14,7 @@ const importer = require("./importer");
 const outbound = require("./outbound");
 const { demoDir } = require("./paths");
 const normalize = require("../../../packages/shared/normalize");
+const schema = require("../../../packages/shared/demo-schema");
 
 const PORT = 41700;
 const VERSION = require("../../../package.json").version;
@@ -125,9 +126,18 @@ function createApp() {
       demo: demo && {
         id: demo.id, name: demo.name, template: demo.template,
         panelSide: demo.panelSide, panelWidth: demo.panelWidth, panelStyle: demo.panelStyle,
+        // The extension needs this to decide whether to draw its own launcher
+        // and panel at all, or just hand Cognigy's widget a bare frame.
+        chatUi: schema.usesWebchat3(demo) ? "webchat3" : "studio",
         launcher: demo.launcher, launcherText: demo.launcherText,
         showLauncherText: demo.showLauncherText, launcherSize: demo.launcherSize,
-        agentName: demo.agentName, theme: demo.theme, built: demo.built
+        agentName: demo.agentName, theme: demo.theme,
+        // The extension reads this as "is there anything to show" and refuses
+        // to mount the launcher when it's false. A Webchat v3 demo is served
+        // by the Studio's own host page and has no build of its own, so its
+        // dist/ being absent is normal rather than a reason to stay hidden.
+        built: demo.built || schema.usesWebchat3(demo),
+        debug: settingsStore.read().showDiagnostics !== false
       },
       via
     });
@@ -138,6 +148,7 @@ function createApp() {
     const body = req.body || {};
     const patch = {};
     if ("overrideDemoId" in body) patch.overrideDemoId = body.overrideDemoId || null;
+    if ("showDiagnostics" in body) patch.showDiagnostics = body.showDiagnostics !== false;
     if (Array.isArray(body.gateways)) {
       patch.gateways = body.gateways
         .filter((g) => g && typeof g === "object")
@@ -244,12 +255,68 @@ function createApp() {
   // Shared browser modules (endpoint normalization) for the dashboard.
   app.use("/shared", express.static(require("./paths").SHARED_ROOT, { cacheControl: false, etag: false }));
 
-  // Studio-owned assets injected into demo pages (see clear-mode.css).
-  app.get("/_cds/clear-mode.css", (req, res) => {
-    res.set("Content-Type", "text/css; charset=utf-8");
-    res.set("Cache-Control", "no-store");
-    res.sendFile(path.join(__dirname, "clear-mode.css"));
+  // The Webchat v3 bundle, straight from the pinned npm package. Unlike the
+  // small Studio assets below, this keeps sendFile's ETag/304 defaults instead
+  // of no-store — it's ~3 MB and the version is pinned exactly, so re-opening a
+  // panel should be a 304 rather than a re-download.
+  app.get("/_cds/webchat.js", (req, res) => {
+    const file = path.join(require("./paths").REPO_ROOT,
+      "node_modules", "@cognigy", "webchat", "dist", "webchat.js");
+    if (!fs.existsSync(file)) {
+      return res.status(503).type("application/javascript")
+        .send("/* @cognigy/webchat is not installed - run npm install in the Demo Studio folder */");
+    }
+    res.type("application/javascript");
+    res.sendFile(file);
   });
+
+  // Studio-owned assets injected into (or serving as) demo pages. Whitelisted
+  // by name so this route can never be walked out of the service folder.
+  // Registered AFTER the webchat.js route above: this ":file" pattern also
+  // matches "webchat.js", and Express takes the first route that matches.
+  const CDS_ASSETS = {
+    "clear-mode.css": "text/css; charset=utf-8",
+    "webchat3.css": "text/css; charset=utf-8",
+    "webchat3.js": "application/javascript; charset=utf-8"
+  };
+  app.get("/_cds/:file", (req, res) => {
+    const type = CDS_ASSETS[req.params.file];
+    if (!type) return res.sendStatus(404);
+    res.set("Content-Type", type);
+    res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(__dirname, req.params.file));
+  });
+
+  /*
+   * Serve the Studio-owned Webchat v3 host page in place of a demo's own
+   * build. Config is inlined as JSON so the page needs no extra round-trip,
+   * and the endpoint is normalized here, on the trusted side, with the same
+   * helper the templates use.
+   */
+  function sendWebchat3Host(res, cfg) {
+    const data = {
+      name: cfg.name || "",
+      endpoint: normalize.chatEndpoint((cfg.cognigy || {}).chatEndpoint),
+      userId: cfg.userId || "",
+      panelStyle: cfg.panelStyle || "solid",
+      panelSide: cfg.panelSide === "left" ? "left" : "right",
+      panelWidth: cfg.panelWidth || 0,
+      debug: settingsStore.read().showDiagnostics !== false
+    };
+    // Escaping "<" makes a </script> breakout impossible.
+    const blob = '<script type="application/json" id="cds-config">' +
+      JSON.stringify(data).replace(/</g, "\\u003c") + "</script>";
+    const html = fs.readFileSync(path.join(__dirname, "webchat3.html"), "utf8");
+    res.set("Cache-Control", "no-store");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    return res.send(html.replace("<!--CDS_CONFIG-->", blob));
+  }
+
+  // Studio-owned stylesheets injected into a demo's page, keyed by panelStyle.
+  // Every file named here must also be in CDS_ASSETS above to be servable.
+  const PANEL_STYLE_SHEETS = {
+    clear: ["clear-mode.css"]
+  };
 
   /* ------------- demo experiences ------------- */
 
@@ -268,21 +335,36 @@ function createApp() {
       res.set("Cache-Control", "no-store");
       return res.sendFile(cfg);
     }
+    // Read through the store rather than parsing demo.json raw: sanitize() is
+    // what the extension sees via /api/resolve, and the two deciding different
+    // things about the same demo is a bug that only shows up on one surface.
+    const isIndex = req.path === "/" || req.path === "/index.html";
+    let demoCfg = null;
+    if (isIndex) {
+      try { demoCfg = store.readDemo(slug); } catch (e) {}
+    }
+
+    // Webchat v3 demos are served by the Studio's own host page, so their
+    // dist/ is irrelevant — this has to come before the "no build yet" check
+    // or a demo that never needed a build would be reported as broken.
+    if (isIndex && schema.usesWebchat3(demoCfg)) return sendWebchat3Host(res, demoCfg);
+
     if (!fs.existsSync(path.join(root, "index.html"))) {
       return res.status(503).send("<h3 style='font-family:sans-serif'>Demo \"" + slug + "\" has no build yet.</h3><p style='font-family:sans-serif'>Save a source file or click Rebuild in Cognigy Demo Studio.</p>");
     }
 
-    // "Clear" panels need the demo's own surfaces to stop painting so the
-    // customer's website shows through. Injected here rather than built into
-    // the template so it reaches existing demos too (see clear-mode.css).
-    if (req.path === "/" || req.path === "/index.html") {
-      const cfgFile = path.join(dir, "demo.json");
-      let panelStyle = "solid";
-      try { panelStyle = JSON.parse(fs.readFileSync(cfgFile, "utf8")).panelStyle || "solid"; } catch (e) {}
-      if (panelStyle === "clear") {
+    // "Clear" panels need the built-in chat's own surfaces to stop painting so
+    // the customer's website shows through. Injected here rather than built
+    // into the templates so it reaches existing demos too, since a demo folder
+    // holds its own copy of the template source (see clear-mode.css). Webchat
+    // v3 demos never reach this — they return above with their own host page.
+    if (isIndex) {
+      const panelStyle = (demoCfg && demoCfg.panelStyle) || "solid";
+      const sheets = PANEL_STYLE_SHEETS[panelStyle] || [];
+      if (sheets.length) {
         let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-        const tag = '<link rel="stylesheet" href="/_cds/clear-mode.css">';
-        html = html.includes("</head>") ? html.replace("</head>", tag + "</head>") : html + tag;
+        const tags = sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
+        html = html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html + tags;
         res.set("Cache-Control", "no-store");
         res.set("Content-Type", "text/html; charset=utf-8");
         return res.send(html);

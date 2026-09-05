@@ -14,6 +14,7 @@
   "dependencies": {
     "@cognigy/click-to-call-sdk": "0.0.7",
     "@cognigy/socket-client": "^4.9.2",
+    "@cognigy/webchat": "3.49.0",
     "@vitejs/plugin-react": "^4.3.4",
     "chokidar": "^3.6.0",
     "events": "^3.3.0",

@@ -11,6 +11,8 @@ const { demoDir } = require("./paths");
 const settings = require("./settings");
 const builder = require("./builder");
 const normalize = require("../../../packages/shared/normalize");
+const schema = require("../../../packages/shared/demo-schema");
+const { REPO_ROOT } = require("./paths");
 
 const EXTENSION_FRESH_MS = 90 * 1000;
 
@@ -33,6 +35,9 @@ async function run(store, slug) {
   const demo = store.readDemo(slug);
   const wantsChat = demo.template === "webchat" || demo.template === "webchat-webrtc";
   const wantsVoice = demo.template === "webrtc" || demo.template === "webchat-webrtc";
+  // A Webchat v3 demo is served by the Studio's own host page, so it has no
+  // build of its own to check — and it needs the widget bundle instead.
+  const webchat3 = schema.usesWebchat3(demo);
   const checks = [];
 
   checks.push(check("studio", "Cognigy Demo Studio running", true, "Service is up"));
@@ -42,11 +47,20 @@ async function run(store, slug) {
   checks.push(check("extension", "Demo Studio Extension connected", extOk,
     extOk ? "Heartbeat received" : "No recent heartbeat — is the extension installed and enabled in Chrome/Edge?"));
 
-  const built = fs.existsSync(path.join(demoDir(slug), "dist", "index.html"));
-  const lastBuild = builder.lastResult(slug);
-  checks.push(check("built", "Demo Experience loaded", built && !(lastBuild && !lastBuild.ok),
-    !built ? "No build output — save a source file or use Rebuild." :
-    (lastBuild && !lastBuild.ok) ? "Last build failed: " + lastBuild.error : "Build output present"));
+  if (webchat3) {
+    // Without this the demo can't render at all, and the failure looks like a
+    // blank panel rather than anything to do with npm.
+    const bundle = path.join(REPO_ROOT, "node_modules", "@cognigy", "webchat", "dist", "webchat.js");
+    const hasBundle = fs.existsSync(bundle);
+    checks.push(check("webchat3", "Cognigy Webchat v3 installed", hasBundle,
+      hasBundle ? "Widget bundle present" : "Missing — run npm install in the Demo Studio folder."));
+  } else {
+    const built = fs.existsSync(path.join(demoDir(slug), "dist", "index.html"));
+    const lastBuild = builder.lastResult(slug);
+    checks.push(check("built", "Demo Experience loaded", built && !(lastBuild && !lastBuild.ok),
+      !built ? "No build output — save a source file or use Rebuild." :
+      (lastBuild && !lastBuild.ok) ? "Last build failed: " + lastBuild.error : "Build output present"));
+  }
 
   if (wantsChat) {
     const ep = normalize.chatEndpoint(demo.cognigy.chatEndpoint);

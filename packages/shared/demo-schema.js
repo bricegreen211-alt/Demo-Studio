@@ -14,20 +14,44 @@
   var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave", "chat"];
   var SIDES = ["left", "right"];
   var SIZES = ["small", "medium", "large"];
-  // How the slide-out shell renders over the customer's website:
-  //   solid — opaque panel (default)
-  //   clear — transparent frame; only the UI elements themselves are visible
-  //   phone — floating phone mockup, everything outside the device transparent
-  //   overlay — the extension only supplies a transparent, auto-sizing iframe;
-  //             the Demo Experience draws its own launcher icon and panel, so
-  //             both are vibe-codeable in the demo's own source
-  var PANEL_STYLES = ["solid", "clear", "phone", "overlay"];
+  /*
+   * How the frame renders over the customer's website. Only two the SE picks,
+   * because the frame's whole job is to get out of Cognigy Webchat v3's way:
+   *   solid — the frame expands into a full-height drawer when the chat opens
+   *   clear — the frame paints nothing, so Cognigy's own launcher and window
+   *           float on the customer's site as if they'd deployed it themselves
+   *
+   * overlay stays valid but only means anything for the built-in chat UI, where
+   * the demo's own src/shell/ draws the launcher and card.
+   */
+  var PANEL_STYLES = ["solid", "clear", "overlay"];
+
+  /*
+   * Retired styles, mapped to the nearest survivor. Aliasing rather than
+   * dropping matters because sanitize() runs on every read AND every write: an
+   * unknown value gets silently rewritten to "solid" the next time anything
+   * saves the demo — including POST /api/demos/:id/panel, the drag-resize
+   * handler, which no SE would think of as a config change.
+   */
+  var PANEL_STYLE_ALIASES = { phone: "solid", "solid-lower": "solid", opaque: "clear" };
+
+  // Which chat UI a demo renders:
+  //   webchat3 — the real Cognigy Webchat v3 widget (default). How it looks is
+  //              configured on the Cognigy Endpoint, never here.
+  //   studio   — the hand-built React chat in the demo's own source; the only
+  //              path that supports simulated "mock" demos
+  var CHAT_UIS = ["webchat3", "studio"];
 
   var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 500 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };
 
   function pick(value, allowed, fallback) {
     return allowed.indexOf(value) >= 0 ? value : fallback;
+  }
+
+  function pickPanelStyle(value, fallback) {
+    var v = PANEL_STYLE_ALIASES[value] || value;
+    return PANEL_STYLES.indexOf(v) >= 0 ? v : fallback;
   }
 
   function defaults() {
@@ -37,6 +61,7 @@
       website: "",
       folder: "",
       template: "webchat",
+      chatUi: "webchat3",
       panelSide: "right",
       panelStyle: "solid",
       panelWidth: 0,           // 0 = template default
@@ -54,6 +79,25 @@
     };
   }
 
+  /*
+   * Whether a demo is actually served by the real Webchat v3 widget.
+   *
+   * Deliberately not folded into sanitize(): the template and panelStyle
+   * constraints ARE coerced there, because they're structural, but the "mock"
+   * check can't be — the endpoint field can flip mock <-> real on its own, so
+   * only the code holding a current config can decide. Shared from here so the
+   * service, preflight and the dashboard can't drift apart on the answer.
+   */
+  function usesWebchat3(cfg) {
+    if (!cfg) return false;
+    var ep = (cfg.cognigy && cfg.cognigy.chatEndpoint) || "";
+    var isMock = String(ep).trim().toLowerCase() === "mock";
+    return cfg.chatUi === "webchat3"
+      && cfg.template === "webchat"
+      && (cfg.panelStyle || "solid") !== "overlay"
+      && !isMock;
+  }
+
   // Merge arbitrary input onto the defaults, keeping only known fields sane.
   function sanitize(input) {
     input = input || {};
@@ -64,8 +108,9 @@
       website: String(input.website || ""),
       folder: String(input.folder || "").slice(0, 80),
       template: pick(input.template, TEMPLATES, d.template),
+      chatUi: pick(input.chatUi, CHAT_UIS, d.chatUi),
       panelSide: pick(input.panelSide, SIDES, d.panelSide),
-      panelStyle: pick(input.panelStyle, PANEL_STYLES, d.panelStyle),
+      panelStyle: pickPanelStyle(input.panelStyle, d.panelStyle),
       panelWidth: Math.max(0, Math.min(1200, parseInt(input.panelWidth, 10) || 0)),
       launcher: pick(input.launcher, LAUNCHERS, ""),
       launcherText: String(input.launcherText || ""),
@@ -88,6 +133,11 @@
     };
     if (!out.launcher) out.launcher = DEFAULT_LAUNCHER[out.template];
     if (!out.panelWidth) out.panelWidth = DEFAULT_PANEL_WIDTH[out.template];
+    // Webchat v3 replaces the whole panel body, so it can't coexist with the
+    // voice half or with an overlay launcher drawn by the demo's own source.
+    // Coerced here rather than at the route so the invalid combination can't
+    // be represented in demo.json at all.
+    if (out.template !== "webchat" || out.panelStyle === "overlay") out.chatUi = "studio";
     return out;
   }
 
@@ -97,9 +147,11 @@
     SIDES: SIDES,
     SIZES: SIZES,
     PANEL_STYLES: PANEL_STYLES,
+    CHAT_UIS: CHAT_UIS,
     DEFAULT_PANEL_WIDTH: DEFAULT_PANEL_WIDTH,
     DEFAULT_LAUNCHER: DEFAULT_LAUNCHER,
     defaults: defaults,
-    sanitize: sanitize
+    sanitize: sanitize,
+    usesWebchat3: usesWebchat3
   };
 });

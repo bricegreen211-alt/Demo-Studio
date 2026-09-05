@@ -247,6 +247,7 @@
     setRadio("side", d ? d.panelSide : "right");
     setRadio("panelStyle", d ? (d.panelStyle || "solid") : "solid");
     syncPanelStyleHint();
+    setRadio("chatUi", d ? (d.chatUi || "webchat3") : "webchat3");
     $("f-width").value = d && [360, 420, 520, 650].indexOf(d.panelWidth) >= 0 ? String(d.panelWidth) : "0";
     $("f-agent").value = d ? d.agentName : "";
     $("f-label").value = d ? d.launcherText : "";
@@ -257,6 +258,7 @@
     $("f-logo").value = d ? d.theme.logo : "";
     $("f-userid").value = d ? d.userId : "followme";
     syncEndpointVisibility();
+    syncChatUi();
   }
 
   function formValues() {
@@ -267,6 +269,7 @@
       template: radio("template"),
       panelSide: radio("side"),
       panelStyle: radio("panelStyle"),
+      chatUi: radio("chatUi"),
       panelWidth: parseInt($("f-width").value, 10) || 0,
       launcher: radio("launcher"),
       launcherText: $("f-label").value.trim(),
@@ -289,10 +292,9 @@
   });
 
   var PANEL_STYLE_HINT = {
-    solid: "Opaque panel — the classic slide-out.",
-    clear: "See-through panel: the customer's site shows through, only the chat/voice elements paint.",
-    phone: "Floating phone mockup — great for simulating a call on a mobile device.",
-    overlay: "The demo draws its own launcher icon and panel — both vibe-codeable in src/shell/. The extension just supplies a transparent frame."
+    solid: "A white drawer slides in from the side when the chat opens — the classic slide-out.",
+    clear: "Nothing of ours paints. Cognigy's own launcher and chat window float on the customer's site, exactly as if they had deployed it themselves.",
+    overlay: "The demo draws its own launcher icon and panel — both vibe-codeable in src/shell/. Built-in chat UI only."
   };
   function syncPanelStyleHint() {
     $("panelStyleHint").textContent = PANEL_STYLE_HINT[radio("panelStyle")] || "";
@@ -300,6 +302,71 @@
   Array.prototype.forEach.call(document.querySelectorAll('input[name="panelStyle"]'), function (el) {
     el.addEventListener("change", syncPanelStyleHint);
   });
+
+  var CHAT_UI_HINT = {
+    webchat3: "The real Cognigy Webchat v3 widget, with its own launcher and window. Everything about how it looks — colors, logo, welcome text, style preset — comes from the Webchat v3 Endpoint in Cognigy, not from this form.",
+    studio: "Demo Studio's own React chat, vibe-codeable in the demo's src/chat/. The only option that can run a simulated (mock) demo."
+  };
+
+  /*
+   * Webchat v3 can't be combined with the voice half or with an overlay
+   * launcher (demo-schema coerces those back to "studio"), so show that here
+   * rather than let the SE pick something the save silently undoes.
+   */
+  function syncChatUi() {
+    var allowed = radio("template") === "webchat" && radio("panelStyle") !== "overlay";
+    if (!allowed) setRadio("chatUi", "studio");
+    var on = allowed && radio("chatUi") === "webchat3";
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="chatUi"]'), function (el) {
+      el.disabled = !allowed;
+    });
+    $("f-chatui-set").classList.toggle("is-disabled", !allowed);
+
+    // Overlay is meaningless for the real widget — it draws its own launcher.
+    $("ps-overlay").style.display = radio("chatUi") === "webchat3" && allowed ? "none" : "";
+
+    $("chatUiHint").textContent = !allowed
+      ? "Cognigy Webchat v3 needs the Webchat template and a non-overlay panel style — this demo uses the built-in chat."
+      : (CHAT_UI_HINT[radio("chatUi")] || "");
+
+    // Read only by the built-in chat. Webchat v3 takes all of this from the
+    // Cognigy Endpoint, so editing it here would do nothing — say so rather
+    // than leave the SE wondering why nothing changed.
+    [["f-welcome", "Welcome Message"], ["f-agent", "AI Agent Name"],
+     ["f-primary", "Primary Color"], ["f-secondary", "Secondary Color"],
+     ["f-logo", "Logo URL"], ["f-label", "Launcher Label"]].forEach(function (pair) {
+      var input = $(pair[0]);
+      if (!input) return;
+      var label = input.closest("label");
+      if (label) label.classList.toggle("is-inert", on);
+      input.title = on ? pair[1] + " comes from the Cognigy Endpoint when Chat UI is Cognigy Webchat v3." : "";
+    });
+
+    // Launcher choices belong to our launcher, which webchat3 doesn't draw.
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="launcher"]'), function (el) {
+      var lbl = el.closest("label");
+      if (lbl) lbl.classList.toggle("is-inert", on);
+    });
+  }
+  Array.prototype.forEach.call(
+    document.querySelectorAll('input[name="chatUi"], input[name="template"], input[name="panelStyle"]'),
+    function (el) { el.addEventListener("change", syncChatUi); }
+  );
+
+  var diagEl = $("f-diagnostics");
+  if (diagEl) {
+    diagEl.addEventListener("change", function () {
+      $("diagnosticsStatus").textContent = "Saving…";
+      api("/api/settings", putJson({ showDiagnostics: diagEl.checked }))
+        .then(function () {
+          $("diagnosticsStatus").textContent = diagEl.checked
+            ? "On — refresh a demo to see the badge."
+            : "Off — refresh a demo to hide it.";
+        })
+        .catch(function () { $("diagnosticsStatus").textContent = "Couldn't save."; });
+    });
+  }
 
   function setPreview(slug) {
     var frame = $("previewFrame");
@@ -467,6 +534,10 @@
   }
 
   function loadSettings() {
+    api("/api/settings").then(function (st) {
+      $("f-diagnostics").checked = st.showDiagnostics !== false;
+    }).catch(function () {});
+
     api("/api/about").then(function (a) {
       $("aboutName").textContent = a.name;
       $("aboutVersion").textContent = "Version " + a.version + (a.commit ? " (" + a.commit + ")" : "");

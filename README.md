@@ -103,7 +103,7 @@ Cognigy Injector v3 export.
 npm run seed:samples
 ```
 
-Creates six ready-built demos that run **simulated** (no Cognigy connection needed), all mapped to
+Creates eight ready-built demos that run **simulated** (no Cognigy connection needed), all mapped to
 **https://www.cognigy.com** so you can compare them on one real site:
 
 | Sample | Template | Panel style | Looks like |
@@ -114,6 +114,8 @@ Creates six ready-built demos that run **simulated** (no Cognigy connection need
 | Webchat — Clear side panel | Webchat | Clear | Full-height panel, site visible through it |
 | Voice — Phone mockup | WebRTC | Phone | A phone sitting on the page |
 | Webchat — Solid side panel | Webchat | Solid | The classic opaque slide-out |
+| Webchat — Solid lower third | Webchat | Solid — lower third | A band across the bottom that hides their own chat bubble |
+| Webchat — Opaque (frosted) panel | Webchat | Opaque | Frosted glass with the site blurred behind it |
 
 Only one demo can auto-match a domain, so use the extension popup's **Demo on this browser**
 override to switch between them. The chat samples answer with a scripted conversation (quick
@@ -125,29 +127,54 @@ still fails loudly, so a real customer demo can never quietly serve scripted ans
 came from a Cognigy agent. Anything simulated is badged **SIM** in the demo's header. To go live,
 just replace `mock` with your real endpoint in the demo form.
 
-### Panel Style — solid, clear, phone, or overlay
+### Chat UI — Cognigy Webchat v3, or the built-in chat
 
-Each demo picks how its slide-out renders over the customer's website:
+| Chat UI | What it is |
+|---|---|
+| **Cognigy Webchat v3** (default) | The real Cognigy Webchat v3 widget — the same one your customer would deploy, with its own launcher, teaser, chat window and close button. |
+| **Built-in** | Demo Studio's own chat UI, vibe-codeable in the demo's `src/chat/`. The only option that can run a **simulated** demo. |
+
+In Webchat v3 mode, **everything about how the chat looks comes from your Webchat v3 Endpoint in
+Cognigy** — colors, logo, avatar, welcome text, Home screen, teaser message and the Style Preset
+(Classic / Modern / Slick). Change it in Cognigy, refresh the demo, done. Demo Studio deliberately sends
+nothing cosmetic, so it can never fight your Endpoint. The demo form greys out the fields that no longer
+apply (Welcome Message, AI Agent Name, colors, logo, launcher) to make that obvious.
+
+Because the widget is served by the Studio itself, **any existing demo can switch to it with no rebuild
+and no Sync** — pick it and refresh. Simulated (`mock`) demos always fall back to the built-in UI, so the
+SIM badge and scripted conversation keep working exactly as before.
+
+It's available for the **Webchat** template on Solid or Clear panel style.
+
+### Panel Style — solid or clear
+
+All Demo Studio does in Webchat v3 mode is frame the widget. There are two ways:
 
 | Style | What the customer sees | Good for |
 |---|---|---|
-| **Solid** (default) | Opaque panel, classic slide-out with a title bar | Straightforward chat/voice demos |
-| **Clear** | The customer's website shows straight through the panel — only the chat bubbles, header, composer, and voice orb paint, each with its own shadow so they stay readable | Making the AI feel like it's floating on *their* site rather than boxed beside it |
-| **Phone** | A floating phone mockup (bezel, dynamic island, home indicator) with the demo running on its screen; everything around the device is transparent | Simulating a call or mobile app experience on top of their desktop site |
-| **Overlay** | The extension supplies only a transparent, self-sizing iframe — the demo draws its own launcher icon and compact panel | A small widget that looks like it was always part of the customer's site, and is fully vibe-codeable |
+| **Solid** (default) | Cognigy's launcher sits in the corner as normal; opening the chat slides in a full-height white drawer at your Panel Width, flush to your Panel Side | A clear "here is the assistant" moment, and long conversations |
+| **Clear** | Nothing of Demo Studio's paints at all. Cognigy's launcher, teaser and chat window float on the customer's site exactly as if they had deployed it themselves | The most realistic demo — what the customer's own site would look like |
 
-**Overlay is the one to reach for when you want it to look native.** Because the launcher and the
-panel live in the demo's own source (`src/shell/Launcher.tsx` and `src/shell/Shell.tsx`), you can
-vibe-code them like anything else: swap the icon, restyle the pill, change the opened size, or
-wrap the card in your own device frame. The extension just follows the size the demo reports —
-it hugs the launcher while collapsed (so it never swallows clicks meant for the customer's page)
-and grows to the panel size when opened. The other three styles have their shell drawn by the
-extension, which is why they can't be vibe-coded.
+**Panel Side** and **Panel Width** apply to Solid. **Overlay** stays available for the built-in chat UI,
+where the demo draws its own launcher and card in `src/shell/`.
 
-Clear mode works by serving an extra stylesheet ([`clear-mode.css`](apps/studio/service/clear-mode.css))
-into the demo page at request time, so **existing demos get it without a rebuild** — a demo folder
-keeps its own copy of the template source, so building it in would only ever reach new demos.
+The customer's page stays fully clickable in both styles, including while the chat is open — Demo Studio
+clips its frame to exactly what Cognigy is showing.
 
+Clear mode for the **built-in** chat still works by serving an extra stylesheet
+([`clear-mode.css`](apps/studio/service/clear-mode.css)) into the demo page at request time, so existing
+demos get it without a rebuild.
+
+### Something not looking right?
+
+Turn on **Settings → Show demo diagnostics** (on by default while Webchat v3 support settles). You get a
+small badge on the demo showing the panel style, chat UI, open/closed state, the measured widget size and
+the endpoint, plus verbose `[cds]` logging in the browser console. Screenshot the badge or paste the
+console output and it's usually obvious what went wrong.
+
+**If a panel style change seems to do nothing, reload the extension** at `chrome://extensions` (↻ on the
+Demo Studio card) and refresh the customer tab. The browser keeps running the old copy of the extension
+until you do, which is the single most common cause of "I changed it and nothing happened".
 
 ## Cognigy Remote Control
 

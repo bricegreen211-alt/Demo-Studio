@@ -431,3 +431,14 @@ ol.tight b { color: var(--ink); }
 @media (max-width: 820px) {
   .card-grid { grid-template-columns: 1fr; }
 }
+
+/* A fieldset whose choice isn't available for this demo (e.g. Chat UI when the
+   template rules Webchat v3 out) — visibly unavailable rather than silently
+   reverting on save. */
+fieldset.is-disabled { opacity: .55; }
+
+/* A field the current Chat UI doesn't read. Webchat v3 takes its branding and
+   welcome text from the Cognigy Endpoint, so these would otherwise look
+   editable but do nothing. */
+label.is-inert { opacity: .5; }
+label.is-inert input { cursor: not-allowed; }

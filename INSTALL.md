@@ -178,9 +178,9 @@ Repeat this in both Chrome and Edge if you use both.
 
 ## Step 5 — Create your first demo
 
-**Want something to look at right away?** Before building your own, you can load four ready-made
-sample demos that run without any Cognigy connection — one per panel style (solid, clear, phone)
-plus a multimodal one. In the terminal, in the project folder:
+**Want something to look at right away?** Before building your own, you can load five ready-made
+sample demos that run without any Cognigy connection — solid and clear side panels plus three overlay
+widgets. In the terminal, in the project folder:
 
 ```bash
 npm run seed:samples

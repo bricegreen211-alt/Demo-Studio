@@ -19,7 +19,11 @@ const DEFAULTS = {
   gatewayFolders: [],  // Voice Agent gateway folders
   preferredMicId: "",
   preferredSpeakerId: "",
-  outbound: { endpointUrl: "", endpointKey: "" }
+  outbound: { endpointUrl: "", endpointKey: "" },
+  // Draws a small state badge on the demo and logs verbosely. On by
+  // default while Webchat v3 support settles — turn it off in Settings
+  // before demoing to a customer.
+  showDiagnostics: true
 };
 
 function read() {

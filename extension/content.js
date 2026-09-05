@@ -16,15 +16,126 @@
   var SIZES = { small: 48, medium: 60, large: 72 };
   var MIN_W = 300;
 
+  /* ------------------------------------------------------------------ *
+   * Stacking. Third-party chat widgets routinely park at the very top of
+   * the z-index range — Chatbase's launcher is 2147483645 and its window
+   * 2147483646 — so anything short of the CSS maximum paints underneath
+   * them. 2147483647 is that maximum; the only remaining tie-break is DOM
+   * order, which we win by being the last child of <html>.
+   *
+   * !important on an inline style is the highest-priority author
+   * declaration in the cascade, so a page stylesheet can't demote us.
+   * ------------------------------------------------------------------ */
+  /*
+   * Verbose by default and deliberately so: the extension runs on the
+   * customer's page where there is no other way to see what it decided, and
+   * "the panel looks wrong" is otherwise unfalsifiable. Prefixed so it's easy
+   * to filter, and it never logs page content.
+   */
+  function log() {
+    var args = ["[cds]"];
+    for (var i = 0; i < arguments.length; i++) args.push(arguments[i]);
+    try { console.log.apply(console, args); } catch (e) {}
+  }
+
+  var API_ORIGIN = "http://localhost:41700";
+  var TOP_Z = "2147483647";
+
+  function makeHost() {
+    var host = document.createElement("div");
+    host.id = "cds-shell-host";
+    host.style.cssText = "all:initial;position:fixed;z-index:" + TOP_Z + ";";
+    host.style.setProperty("position", "fixed", "important");
+    host.style.setProperty("z-index", TOP_Z, "important");
+    return host;
+  }
+
+  /*
+   * Sites re-render their shell, and a few sweep unknown children off
+   * <html>. Re-assert our inline stacking, and re-attach if we've been
+   * detached — but NEVER move a still-attached host: moving an element
+   * re-attaches the panel iframe inside it, which reloads the demo and
+   * loses the conversation mid-sentence. DOM order only decides exact
+   * z-index ties, and we start last, so staying put is the right trade.
+   */
+  function keepInFront(host) {
+    var obs = new MutationObserver(schedule);
+    var queued = false, hits = 0, windowStart = Date.now();
+
+    function observe() {
+      obs.observe(document.documentElement, { childList: true });
+      obs.observe(host, { attributes: true, attributeFilter: ["style"] });
+    }
+    function apply() {
+      obs.disconnect(); // our own writes must not retrigger us
+      if (!host.isConnected) document.documentElement.appendChild(host);
+      if (host.style.zIndex !== TOP_Z ||
+          host.style.getPropertyPriority("z-index") !== "important") {
+        host.style.setProperty("position", "fixed", "important");
+        host.style.setProperty("z-index", TOP_Z, "important");
+      }
+      observe(); // records queued while disconnected are dropped
+    }
+    // rAF coalesces to a paint, which is what we want while visible — but it
+    // does NOT fire at all in a hidden tab, and `queued` would latch true and
+    // stall every later mutation. A page can rewrite our host while the SE is
+    // on another tab, so fall back to a timer when there are no frames.
+    function soon(fn) {
+      if (document.hidden) setTimeout(fn, 0);
+      else requestAnimationFrame(fn);
+    }
+    function schedule() {
+      if (queued) return;
+      queued = true;
+      soon(function () {
+        queued = false;
+        if (Date.now() - windowStart > 10000) { hits = 0; windowStart = Date.now(); }
+        // A page script that also insists on being last would ping-pong with
+        // us forever; give up loudly rather than burn every frame.
+        if (++hits > 50) {
+          obs.disconnect();
+          console.warn("[cds] stopped re-asserting stacking (page keeps fighting)");
+          return;
+        }
+        apply();
+      });
+    }
+    apply();
+    return obs;
+  }
+
+  /*
+   * Paint check. Whatever is topmost at the element's centre should be our
+   * host — a closed shadow root reports the host, and top-layer elements
+   * (dialog.showModal(), popover) report themselves. Anything else means
+   * we're covered by something no z-index can beat. Diagnostic only:
+   * tag/id/z-index, never page content.
+   */
+  function warnIfCovered(host, el) {
+    var r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var hit = document.elementFromPoint(
+      Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+    if (!hit || hit === host) return;
+    console.warn("[cds] Demo shell is covered by",
+      hit.tagName.toLowerCase() + (hit.id ? "#" + hit.id : ""),
+      "z-index", getComputedStyle(hit).zIndex);
+  }
+
   // Master switch (popup). Nothing is injected anywhere while this is off, so
   // demos don't follow you around every tab when you're not demoing.
   chrome.storage.local.get({ cdsEnabled: false }, function (state) {
     if (!state.cdsEnabled) return;
     chrome.runtime.sendMessage({ type: "CDS_RESOLVE", host: location.hostname }, function (res) {
-      if (chrome.runtime.lastError) return;
-      if (!res || !res.ok || !res.data || !res.data.demo) return;
+      if (chrome.runtime.lastError) { log("resolve failed", chrome.runtime.lastError.message); return; }
+      if (!res || !res.ok || !res.data || !res.data.demo) {
+        log("no demo mapped to", location.hostname, res && res.data && res.data.via);
+        return;
+      }
       var demo = res.data.demo;
-      if (!demo.built) return; // nothing to show yet
+      log("resolved", { demo: demo.id, via: res.data.via, chatUi: demo.chatUi,
+                        panelStyle: demo.panelStyle, built: demo.built });
+      if (!demo.built) { log("demo has no build yet — nothing to show"); return; }
       document.documentElement.dataset.cdsMounted = "1";
       mount(demo);
     });
@@ -44,16 +155,14 @@
     var side = demo.panelSide === "left" ? "left" : "right";
     var openW = Math.max(MIN_W, demo.panelWidth || 420);
 
-    var host = document.createElement("div");
-    host.id = "cds-shell-host";
-    host.style.cssText = "all:initial;position:fixed;z-index:2147483000;";
+    var host = makeHost();
     var root = host.attachShadow({ mode: "closed" });
 
     var style = document.createElement("style");
     style.textContent =
       ":host{all:initial;}" +
       ".cds-overlay-frame{position:fixed;bottom:20px;" + side + ":20px;border:0;" +
-      "background:transparent;z-index:2147483002;display:block;" +
+      "background:transparent;z-index:1;display:block;" +
       "transition:width .28s cubic-bezier(.32,.72,.28,1),height .28s cubic-bezier(.32,.72,.28,1);}";
     root.appendChild(style);
 
@@ -70,6 +179,8 @@
       "&style=overlay";
     root.appendChild(frame);
     document.documentElement.appendChild(host);
+    keepInFront(host);
+    setTimeout(function () { warnIfCovered(host, frame); }, 800);
 
     var collapsed = { w: 240, h: 120 };
     var opened = { w: openW, h: 560 };  // the demo tells us its opened size
@@ -104,7 +215,167 @@
     });
   }
 
+  /*
+   * Cognigy Webchat v3 mode.
+   *
+   * The whole point of this mode is that the demo is indistinguishable from the
+   * customer having deployed Webchat v3 themselves, so the extension draws
+   * NOTHING of its own — no launcher, no title bar, no resize handle. Cognigy's
+   * widget brings its own launcher bubble, its own window and its own close
+   * button.
+   *
+   * The frame is full-viewport and never resized. That is the important bit:
+   * the widget positions itself with position:fixed against the frame's
+   * viewport, so a frame sized to the widget would change the very viewport the
+   * widget measures itself against — measure, resize, re-measure, forever. At
+   * full size Cognigy lays itself out exactly as it would on the customer's own
+   * page, and the frame is clipped to the widget's footprint instead, because
+   * clip-path blocks hit-testing as well as painting. Everything outside the
+   * clip stays the customer's page, fully clickable.
+   *
+   * Protocol (host page -> panel.html -> here):
+   *   { type: "CDS_WC3_CLIP", open, top, right, bottom, left }  clip insets
+   *
+   * Two paint styles, one code path:
+   *   clear — the frame paints nothing; Cognigy's own shape is what shows
+   *   solid — closed, still just the launcher; opened, the frame paints a
+   *           full-height drawer behind the widget, which the host page pins
+   *           to the same edge and width
+   */
+  function mountWebchat3(demo) {
+    var side = demo.panelSide === "left" ? "left" : "right";
+    var panelStyle = demo.panelStyle === "clear" ? "clear" : "solid";
+    var drawerW = Math.max(MIN_W, demo.panelWidth || 420);
+
+    var host = makeHost();
+    var root = host.attachShadow({ mode: "closed" });
+
+    var style = document.createElement("style");
+    style.textContent =
+      ":host{all:initial;}" +
+      ".cds-wc3{position:fixed;inset:0;width:100vw;height:100vh;border:0;display:block;" +
+        "background:transparent;z-index:1;" +
+        /* Clip changes are stepwise, so don't tween them — but the drawer's
+           background fading in as it opens is worth animating. */
+        "transition:background-color .2s ease, box-shadow .2s ease;}" +
+      /* Solid, open: paint the drawer. The clip is what limits it to the
+         drawer's edge and width, so this can safely be a full-viewport box. */
+      ".cds-wc3-drawer{background:#fff;" +
+        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " 0 40px rgba(15,23,42,.25);}";
+    root.appendChild(style);
+
+    /*
+     * Where to clip before the host page has reported anything.
+     *
+     * NOT "hide everything": the frame is where the widget renders AND where
+     * its failure card renders, so clipping it away means every downstream
+     * problem — service down, bad endpoint, widget bundle missing — shows up
+     * as a silently blank page with nothing to go on. Reserve the corner the
+     * widget is about to appear in instead. Worst case that corner stops being
+     * clickable on the customer's site; that is a far better failure than
+     * "nothing happened and there is no way to tell why".
+     */
+    var FALLBACK_W = 460, FALLBACK_H = 680;
+    function fallbackClip() {
+      var top = Math.max(0, window.innerHeight - FALLBACK_H);
+      var edge = Math.max(0, window.innerWidth - FALLBACK_W);
+      return side === "right"
+        ? "inset(" + top + "px 0px 0px " + edge + "px)"
+        : "inset(" + top + "px " + edge + "px 0px 0px)";
+    }
+
+    var frame = document.createElement("iframe");
+    frame.className = "cds-wc3";
+    frame.title = "Demo Experience";
+    frame.setAttribute("allow", "microphone; autoplay; clipboard-write");
+    frame.style.clipPath = fallbackClip();
+    frame.src = chrome.runtime.getURL("panel.html") +
+      "?slug=" + encodeURIComponent(demo.id) +
+      "&name=" + encodeURIComponent(demo.name || "") +
+      "&agent=" + encodeURIComponent(demo.agentName || "") +
+      "&style=" + encodeURIComponent(panelStyle) +
+      "&chatui=webchat3";
+    root.appendChild(frame);
+    document.documentElement.appendChild(host);
+    keepInFront(host);
+
+    log("webchat3 mounted", { demo: demo.id, panelStyle: panelStyle, side: side, drawerW: drawerW });
+
+    /*
+     * A visible state readout on the customer's page, so "it didn't work" can
+     * be a screenshot instead of a description. Lives in our shadow root, so it
+     * can't inherit or disturb the site's styling. Settings -> Show demo
+     * diagnostics turns it off.
+     */
+    var badge = null;
+    if (demo.debug) {
+      badge = document.createElement("div");
+      badge.className = "cds-badge";
+      var bstyle = document.createElement("style");
+      bstyle.textContent =
+        ".cds-badge{position:fixed;left:6px;bottom:6px;z-index:9;max-width:calc(100vw - 12px);" +
+        "padding:4px 8px;border-radius:6px;background:rgba(15,23,42,.82);color:#fff;" +
+        "font:10px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;" +
+        "pointer-events:none;}";
+      root.appendChild(bstyle);
+      root.appendChild(badge);
+    }
+    function setBadge(state) {
+      if (!badge) return;
+      badge.textContent = "ext · " + demo.id + " · " + panelStyle + " " + side +
+        " · webchat3 · " + state;
+    }
+    setBadge("waiting for demo page…");
+
+    var clipped = false;
+    // Keep the reserved corner correct if the window is resized before the
+    // host page ever reports, so the fallback stays where the widget will be.
+    window.addEventListener("resize", function () {
+      if (!clipped) frame.style.clipPath = fallbackClip();
+    });
+    setTimeout(function () {
+      if (clipped) return;
+      setBadge("NO REPORT after 8s — demo page never answered");
+      console.warn("[cds] Webchat v3 never reported its position after 8s. The frame is showing its " +
+        "fallback corner, so whatever the demo page rendered (widget or error) should be visible there. " +
+        "If that corner is blank, open " + API_ORIGIN + "/" + demo.id + "/ in a tab to see the demo " +
+        "page's own console. If it shows the widget but nothing is clickable, panel.js may be stale — " +
+        "reload the extension at chrome://extensions.");
+    }, 8000);
+
+    window.addEventListener("message", function (ev) {
+      if (!frame.contentWindow || ev.source !== frame.contentWindow) return;
+      var d = ev.data || {};
+      if (d.type !== "CDS_WC3_CLIP") return;
+
+      var open = !!d.open;
+      var ins = [d.top, d.right, d.bottom, d.left].map(function (v) {
+        return Math.max(0, Math.round(Number(v) || 0)) + "px";
+      });
+
+      if (open && panelStyle === "solid") {
+        // Drawer: flush to the edge, full height, exactly panelWidth wide. The
+        // host page pins the widget to match, so the two agree.
+        var w = Math.min(window.innerWidth, drawerW);
+        frame.style.clipPath = side === "right"
+          ? "inset(0px 0px 0px " + (window.innerWidth - w) + "px)"
+          : "inset(0px " + (window.innerWidth - w) + "px 0px 0px)";
+      } else {
+        frame.style.clipPath = "inset(" + ins.join(" ") + ")";
+      }
+      frame.className = "cds-wc3" + (open && panelStyle === "solid" ? " cds-wc3-drawer" : "");
+
+      if (!clipped) { clipped = true; log("first clip received"); }
+      log("clip", { open: open, insets: ins.join(" "), drawer: open && panelStyle === "solid" });
+      setBadge((open ? (panelStyle === "solid" ? "OPEN (drawer)" : "OPEN") : "closed") +
+               " · clip " + ins.join("/"));
+    });
+  }
+
   function mount(demo) {
+    // Cognigy Webchat v3 brings its own launcher and window, so it gets a
+    // bare transparent frame rather than this file's launcher and panel.
+    if (demo.chatUi === "webchat3") return mountWebchat3(demo);
     if ((demo.panelStyle || "solid") === "overlay") return mountOverlay(demo);
 
     var size = SIZES[demo.launcherSize] || SIZES.medium;
@@ -113,9 +384,7 @@
     var panelStyle = demo.panelStyle || "solid";
     var width = Math.max(MIN_W, demo.panelWidth || 420);
 
-    var host = document.createElement("div");
-    host.id = "cds-shell-host";
-    host.style.cssText = "all:initial;position:fixed;z-index:2147483000;";
+    var host = makeHost();
     var root = host.attachShadow({ mode: "closed" });
 
     var style = document.createElement("style");
@@ -151,21 +420,11 @@
     frameSlot.className = "cds-frame-slot";
     panel.appendChild(frameSlot);
 
-    // Phone mockup keeps a real device aspect ratio, so width and height are
-    // computed together and clamped to the viewport; the other styles are
-    // full-height and only the width varies.
-    var PHONE_AR = 375 / 812;
+    // solid and clear are both full-height; only the width varies.
     function layoutPanel(w) {
       width = Math.round(Math.min(window.innerWidth * 0.9, Math.max(MIN_W, w)));
-      if (panelStyle === "phone") {
-        var h = Math.min(window.innerHeight - 40, width / PHONE_AR);
-        var phoneW = Math.round(h * PHONE_AR);
-        panel.style.width = phoneW + "px";
-        panel.style.height = Math.round(h) + "px";
-      } else {
-        panel.style.width = width + "px";
-        panel.style.height = "";
-      }
+      panel.style.width = width + "px";
+      panel.style.height = "";
     }
     layoutPanel(width);
     window.addEventListener("resize", function () { layoutPanel(width); });
@@ -176,6 +435,9 @@
     root.appendChild(launcherWrap);
     root.appendChild(panel);
     document.documentElement.appendChild(host);
+    keepInFront(host);
+    // Let the page finish injecting its own widgets before checking who won.
+    setTimeout(function () { warnIfCovered(host, launcher); }, 800);
 
     var frame = null;
     var open = false;
@@ -203,6 +465,7 @@
       open = true;
       panel.classList.remove("cds-hidden");
       launcherWrap.classList.add("cds-launcher-open");
+      requestAnimationFrame(function () { warnIfCovered(host, panel); });
     }
     function hide(destroy) {
       open = false;
@@ -225,13 +488,7 @@
       else if (d.type === "CDS_PANEL_MIN") hide(false);
       else if (d.type === "CDS_PANEL_FULL") {
         fullscreen = !fullscreen;
-        if (panelStyle === "phone") {
-          // A phone can't go full-bleed without stopping being a phone — grow
-          // it to the tallest the viewport allows instead.
-          layoutPanel(fullscreen ? window.innerWidth : (demo.panelWidth || 420));
-        } else {
-          panel.classList.toggle("cds-full", fullscreen);
-        }
+        panel.classList.toggle("cds-full", fullscreen);
       } else if (d.type === "CDS_VOICE_STATE") {
         launcher.className = launcher.className.replace(/cds-vstate-\S+/, "cds-vstate-" + (d.state || "idle"));
       }
@@ -277,12 +534,13 @@
 
   /* ---------- styles ---------- */
   function css(size, side, primary, panelStyle) {
+    var edge = side === "right" ? "-12px" : "12px";
     return [
       ":host{all:initial;}",
       "*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}",
 
       /* launcher */
-      ".cds-launcher-wrap{position:fixed;bottom:24px;" + side + ":24px;display:flex;align-items:center;gap:10px;z-index:2147483001;flex-direction:" + (side === "right" ? "row" : "row-reverse") + ";}",
+      ".cds-launcher-wrap{position:fixed;bottom:24px;" + side + ":24px;display:flex;align-items:center;gap:10px;z-index:1;flex-direction:" + (side === "right" ? "row" : "row-reverse") + ";}",
       ".cds-launcher-open{opacity:0;pointer-events:none;transition:opacity .25s;}",
       ".cds-label{background:#fff;color:#0f172a;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;box-shadow:0 2px 12px rgba(15,23,42,.18);white-space:nowrap;}",
       ".cds-launcher{position:relative;width:" + size + "px;height:" + size + "px;border-radius:50%;border:0;cursor:pointer;overflow:hidden;display:grid;place-items:center;" +
@@ -318,14 +576,16 @@
       ".cds-vstate-speaking .cds-bars i{animation-play-state:running;animation-duration:.55s;}",
       ".cds-vstate-error{background:radial-gradient(circle at 32% 28%, #fca5a5, #dc2626 72%) !important;}",
 
-      /* panel — shared */
-      ".cds-panel{position:fixed;max-width:90vw;z-index:2147483002;display:flex;" +
+      /* panel — shared. The z-indexes in this stylesheet are small on
+         purpose: the host element owns the page-level stacking (TOP_Z),
+         so these only order siblings inside the shadow root. */
+      ".cds-panel{position:fixed;max-width:90vw;z-index:2;display:flex;" +
         "transition:transform .34s cubic-bezier(.32,.72,.28,1),opacity .3s ease;}",
       ".cds-frame-slot{flex:1;height:100%;min-width:0;}",
       ".cds-frame{width:100%;height:100%;border:0;display:block;background:transparent;}",
       ".cds-resize{position:absolute;top:0;" + (side === "right" ? "left" : "right") + ":-3px;width:8px;height:100%;cursor:ew-resize;z-index:3;}",
       ".cds-resize:hover{background:color-mix(in srgb," + primary + " 35%, transparent);}",
-      ".cds-drag-overlay{position:fixed;inset:0;z-index:2147483003;cursor:ew-resize;}",
+      ".cds-drag-overlay{position:fixed;inset:0;z-index:3;cursor:ew-resize;}",
 
       /* edge-anchored styles (solid + clear) */
       ".cds-style-solid,.cds-style-clear{top:0;" + side + ":0;height:100vh;}",
@@ -333,28 +593,12 @@
       ".cds-style-solid.cds-full,.cds-style-clear.cds-full{width:100vw !important;max-width:100vw;}",
 
       /* solid — opaque panel (default) */
-      ".cds-style-solid{background:#fff;" +
-        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " 0 40px rgba(15,23,42,.25);}",
+      ".cds-style-solid{background:#fff;box-shadow:" + edge + " 0 40px rgba(15,23,42,.25);}",
 
       /* clear — see straight through to the customer's site; only the demo's
          own UI elements (bubbles, orb, controls) paint anything. */
       ".cds-style-clear{background:transparent;box-shadow:none;}",
 
-      /* phone — floating device mockup, fully transparent around the body */
-      ".cds-style-phone{bottom:20px;" + side + ":24px;background:#0f0f12;" +
-        "border-radius:54px;padding:12px;" +
-        "box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.07) inset;}",
-      ".cds-style-phone.cds-hidden{transform:translateY(120%);opacity:0;}",
-      // Screen is black edge-to-edge; the demo is inset into the safe area so
-      // the dynamic island and home indicator never sit on top of its UI.
-      ".cds-style-phone .cds-frame-slot{border-radius:42px;overflow:hidden;background:#000;" +
-        "padding:34px 0 22px;}",
-      /* dynamic island */
-      ".cds-style-phone::before{content:'';position:absolute;top:24px;left:50%;transform:translateX(-50%);" +
-        "width:32%;height:24px;background:#0f0f12;border-radius:999px;z-index:4;pointer-events:none;}",
-      /* home indicator */
-      ".cds-style-phone::after{content:'';position:absolute;bottom:20px;left:50%;transform:translateX(-50%);" +
-        "width:34%;height:4px;background:rgba(255,255,255,.55);border-radius:999px;z-index:4;pointer-events:none;}"
     ].join("\n");
   }
 })();

@@ -101,9 +101,17 @@
           <legend>Panel Style</legend>
           <label class="radio"><input type="radio" name="panelStyle" value="solid" checked /> Solid</label>
           <label class="radio"><input type="radio" name="panelStyle" value="clear" /> Clear</label>
-          <label class="radio"><input type="radio" name="panelStyle" value="phone" /> Phone</label>
-          <label class="radio"><input type="radio" name="panelStyle" value="overlay" /> Overlay</label>
+          <!-- Overlay only means anything for the built-in chat UI, where the
+               demo's own src/shell/ draws the launcher; shown conditionally. -->
+          <label class="radio" id="ps-overlay"><input type="radio" name="panelStyle" value="overlay" /> Overlay</label>
           <span class="soft" id="panelStyleHint"></span>
+        </fieldset>
+
+        <fieldset id="f-chatui-set">
+          <legend>Chat UI</legend>
+          <label class="radio"><input type="radio" name="chatUi" value="webchat3" checked /> Cognigy Webchat v3</label>
+          <label class="radio"><input type="radio" name="chatUi" value="studio" /> Built-in (vibe-codeable)</label>
+          <span class="soft" id="chatUiHint"></span>
         </fieldset>
 
         <div class="grid2">
@@ -279,6 +287,18 @@
   <!-- ── Settings ─────────────────────────────────────────────── -->
   <main id="settingsView" hidden>
     <div class="list-head"><h2>Settings</h2></div>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Demo diagnostics</h3>
+          <p class="card-sub">Shows a small state badge on the demo and logs verbosely to the browser
+            console. Handy when a demo doesn't look right — turn it off before demoing to a customer.</p>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-diagnostics" /> Show demo diagnostics</label>
+      <p class="soft" id="diagnosticsStatus"></p>
+    </section>
 
     <!-- Extension: the one thing people actually need help with -->
     <section class="card">
