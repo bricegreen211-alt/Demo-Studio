@@ -64,7 +64,18 @@
         var params = url.slice(q + 1).split("&");
         for (var i = 0; i < params.length; i++) {
           var kv = params[i].split("=");
-          if (decodeURIComponent(kv[0]) === "token") { token = decodeURIComponent(kv[1] || ""); break; }
+          if (decodeURIComponent(kv[0]) !== "token") continue;
+          /*
+           * Everything after the first "=" is the token, cut at the next
+           * delimiter. Splitting on "=" alone breaks on a doubled query
+           * string — a real one from a copied hyperlink looked like
+           *   ...?token=<hex>?user=test
+           * which yielded "<hex>?user" and was handed to the SDK as if it
+           * were the token. A bad token fails deep inside the widget with no
+           * useful error, so it is worth being strict here.
+           */
+          token = decodeURIComponent(params[i].slice(params[i].indexOf("=") + 1).split(/[?&#]/)[0]);
+          break;
         }
       }
       if (token) return "https://endpoint-" + staticLink[1] + ".cognigy.ai/" + token;

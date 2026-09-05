@@ -9,6 +9,7 @@
     "service": "node apps/studio/service/standalone.js",
     "build:templates": "node apps/studio/service/build-templates.js",
     "seed:samples": "node assets/seed-samples.js",
+    "seed:test-sites": "node assets/seed-test-sites.js",
     "doctor": "node assets/doctor.js"
   },
   "dependencies": {
