@@ -30,7 +30,8 @@
     #title { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     button {
       border: 0; background: var(--btn); color: var(--on-dark); cursor: pointer;
-      width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
+      width: 26px; height: 26px; border-radius: 6px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
     }
     button:hover { background: var(--btn-hover); }
     /* min-height:0 — a replaced element won't shrink below its intrinsic
@@ -71,9 +72,9 @@
 <body>
   <header>
     <div id="title">Demo Experience</div>
-    <button id="min" title="Minimize">–</button>
-    <button id="full" title="Full screen">⛶</button>
-    <button id="close" title="Close">✕</button>
+    <button id="min" title="Minimize" aria-label="Minimize"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M240-440q-17 0-28.5-11.5T200-480q0-17 11.5-28.5T240-520h480q17 0 28.5 11.5T760-480q0 17-11.5 28.5T720-440H240Z"/></svg></button>
+    <button id="full" title="Full screen" aria-label="Full screen"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M200-200h80q17 0 28.5 11.5T320-160q0 17-11.5 28.5T280-120H160q-17 0-28.5-11.5T120-160v-120q0-17 11.5-28.5T160-320q17 0 28.5 11.5T200-280v80Zm560 0v-80q0-17 11.5-28.5T800-320q17 0 28.5 11.5T840-280v120q0 17-11.5 28.5T800-120H680q-17 0-28.5-11.5T640-160q0-17 11.5-28.5T680-200h80ZM200-760v80q0 17-11.5 28.5T160-640q-17 0-28.5-11.5T120-680v-120q0-17 11.5-28.5T160-840h120q17 0 28.5 11.5T320-800q0 17-11.5 28.5T280-760h-80Zm560 0h-80q-17 0-28.5-11.5T640-800q0-17 11.5-28.5T680-840h120q17 0 28.5 11.5T840-800v120q0 17-11.5 28.5T800-640q-17 0-28.5-11.5T760-680v-80Z"/></svg></button>
+    <button id="close" title="Close" aria-label="Close"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M480-424 284-228q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536-480l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480-424Z"/></svg></button>
   </header>
   <iframe id="demo" allow="microphone; autoplay; clipboard-write"></iframe>
   <div id="err"><b>Cognigy Demo Studio isn't running.</b><br />Start the Demo Studio app, then close and reopen this panel.</div>

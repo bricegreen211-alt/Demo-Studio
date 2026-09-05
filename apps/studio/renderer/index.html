@@ -55,7 +55,7 @@
   <main id="editView" hidden>
     <div class="edit-cols">
       <section class="form-col">
-        <button class="ghost back" id="backBtn">← All demos</button>
+        <button class="ghost back" id="backBtn"><span data-ico="arrow_back"></span> All demos</button>
         <h2 id="formTitle">New Demo Experience</h2>
 
         <label>Customer <input id="f-name" placeholder="ABC Airlines" /></label>
@@ -264,16 +264,16 @@
         <div id="rc-error" class="rc-error" hidden></div>
         <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
           <span class="rc-sid-id" id="rcSidText"></span>
-          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard">⧉</button>
+          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard" aria-label="Copy to clipboard"><span data-ico="content_copy" data-size="15"></span></button>
         </div>
         <div id="rc-widget-wrap"></div>
         <div id="rc-device-bar">
           <div class="rc-dev-group">
-            <span class="rc-dev-ico">🎙</span>
+            <span class="rc-dev-ico" data-ico="mic" data-size="15"></span>
             <select id="rcMicSelect"><option value="">Default microphone</option></select>
           </div>
           <div class="rc-dev-group">
-            <span class="rc-dev-ico">🔊</span>
+            <span class="rc-dev-ico" data-ico="volume_up" data-size="15"></span>
             <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
           </div>
           <div id="rc-call-state" hidden>
@@ -435,6 +435,7 @@
     </div>
   </div>
 
+  <script src="icons.js"></script>
   <script src="/shared/normalize.js"></script>
   <script src="vendor/webRTCWidget.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>

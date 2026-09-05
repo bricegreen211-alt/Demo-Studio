@@ -93,7 +93,9 @@
       if (q && groups[f].length === 0) return; // hide empty folders while searching
       var head = document.createElement("div");
       head.className = "folder-head" + (collapsedFolders[f] && !q ? " collapsed" : "");
-      head.innerHTML = '<span class="folder-caret">▾</span><span class="folder-ico">📁</span> <b></b> <span class="folder-count"></span>';
+      head.innerHTML = '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
+        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> <span class="folder-count"></span>';
+      CDSIcons.hydrate(head);
       head.querySelector("b").textContent = f;
       head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " demo" : " demos");
       head.addEventListener("click", function () {
@@ -445,7 +447,7 @@
     var p = $("demoPath").textContent;
     if (!p) return;
     try { navigator.clipboard.writeText(p); } catch (e) {}
-    $("copyPathBtn").textContent = "Copied ✓";
+    $("copyPathBtn").innerHTML = CDSIcons.svg("check", 15) + " Copied";
     setTimeout(function () { $("copyPathBtn").textContent = "Copy folder path"; }, 1600);
   });
 
@@ -461,7 +463,8 @@
       try { parsed = JSON.parse(reader.result); } catch (e) { alert("Not a valid JSON export."); return; }
       api("/api/import", postJson(parsed)).then(function (res) {
         var lines = (res.results || []).map(function (r) {
-          return r.ok ? "✓ " + esc(r.name) : "✗ " + esc(r.name) + " — " + esc(r.error || "failed");
+          return (r.ok ? CDSIcons.svg("check", 15) : CDSIcons.svg("close", 15)) + " " +
+            esc(r.name) + (r.ok ? "" : " — " + esc(r.error || "failed"));
         });
         modal("Import complete", '<div style="font-size:13.5px;line-height:1.9">' + lines.join("<br>") + "</div>");
         location.hash = "#demos";
@@ -502,7 +505,8 @@
       var ready = checks.every(function (c) { return c.ok; });
       var html = '<div class="pf-verdict ' + (ready ? "ok" : "bad") + '">' + (ready ? "READY TO DEMO" : "ISSUES FOUND") + "</div>";
       checks.forEach(function (c) {
-        html += '<div class="pf-check ' + (c.ok ? "ok" : "bad") + '"><span class="mark">' + (c.ok ? "✓" : "✗") + "</span><span>" +
+        html += '<div class="pf-check ' + (c.ok ? "ok" : "bad") + '"><span class="mark">' +
+          CDSIcons.svg(c.ok ? "check" : "close", 16) + "</span><span>" +
           esc(c.label) + (c.detail && !c.ok ? '<span class="detail">' + esc(c.detail) + "</span>" : "") + "</span></div>";
       });
       $("modalBody").innerHTML = html;
@@ -628,5 +632,6 @@
   if (/popout=1/.test(location.hash)) document.body.classList.add("popout");
 
   /* ---------------- boot ---------------- */
+  CDSIcons.hydrate();
   route();
 })();

@@ -196,7 +196,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
   padding: 10px 6px 4px; font-size: 13.5px; color: var(--ink);
 }
 .folder-head:hover b { color: var(--primary); }
-.folder-caret { font-size: 11px; color: var(--soft); transition: transform .15s; }
+.folder-caret { display: inline-flex; color: var(--soft); transition: transform .15s; }
 .folder-head.collapsed .folder-caret { transform: rotate(-90deg); }
 .folder-count { font-size: 11.5px; color: var(--soft); }
 .chip {
@@ -214,6 +214,15 @@ main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
 
 /* ── buttons ─────────────────────────────────────────────── */
 button { cursor: pointer; border-radius: 9px; border: 1px solid transparent; font-size: 13.5px; font-family: inherit; }
+
+/* ── icons (Material Symbols Rounded, inlined by icons.js) ───────────── */
+/* currentColor + vertical-align do the work, so an icon needs no colour of
+   its own and sits on the text baseline wherever it is dropped in. */
+.ico { display: inline-block; vertical-align: -0.18em; flex: 0 0 auto; }
+/* Buttons that carry an icon beside a label. inline-flex rather than a
+   margin so the gap is consistent whichever side the icon is on. */
+button, .side-item { display: inline-flex; align-items: center; gap: 7px; justify-content: center; }
+button > .ico:only-child { margin: 0; }
 .primary { background: var(--primary); color: var(--on-primary); border: 0; padding: 10px 20px; font-weight: 600; }
 .primary:hover { background: var(--primary-deep); }
 .ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 8px 14px; }
@@ -323,7 +332,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 .rc-sid-id { font-family: Menlo, Consolas, monospace; font-size: 10.5px; color: var(--rc-ink); }
 .rc-sid-copy {
   background: var(--primary-soft-3); border: 0; border-radius: 10px; color: var(--primary);
-  width: 22px; height: 22px; font-size: 11px;
+  width: 22px; height: 22px; padding: 0;
 }
 .rc-sid-copy.copied { background: var(--teal-soft-4); color: var(--teal); }
 #rc-device-bar {
@@ -333,7 +342,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 }
 .rc-dev-group { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .rc-dev-group + .rc-dev-group { padding-left: 12px; border-left: 1px solid var(--rail-line-2); }
-.rc-dev-ico { font-size: 13px; opacity: .6; }
+.rc-dev-ico { display: inline-flex; opacity: .6; }
 .rc-dev-group select {
   flex: 1; min-width: 0; background: var(--rail-surface);
   border: 1px solid var(--rail-line-3); border-radius: 7px;
@@ -431,8 +440,8 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 .pf-verdict { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
 .pf-verdict.ok { color: var(--ok-text); }
 .pf-verdict.bad { color: var(--pink); }
-.pf-check { display: flex; gap: 9px; margin: 7px 0; font-size: 13.5px; align-items: baseline; }
-.pf-check .mark { flex: 0 0 auto; }
+.pf-check { display: flex; gap: 9px; margin: 7px 0; font-size: 13.5px; align-items: flex-start; }
+.pf-check .mark { flex: 0 0 auto; display: inline-flex; padding-top: 2px; }
 .pf-check.ok .mark { color: var(--ok-text); }
 .pf-check.bad .mark { color: var(--pink); }
 .pf-check .detail { display: block; color: var(--soft); font-size: 12px; margin-top: 2px; }

@@ -3,8 +3,8 @@
  *
  * Voice Agent tab — a gateway LIST mirroring the Demo Experiences layout:
  * Find at the top, collapsible folders, and per-row actions — inline
- * 📞 Call / Mute / End (via the vendored @cognigy/click-to-call-sdk bundle,
- * window.CdsVoice), Edit, ⧉ Pop Out (full widget view with mic/speaker
+ * Call / Mute / End (via the vendored @cognigy/click-to-call-sdk bundle,
+ * window.CdsVoice), Edit, Pop Out (full widget view with mic/speaker
  * devices and end-call, in a compact window for off-screen use), Delete.
  *
  * Outbound Trigger tab — contacts mini-CRM posting to a Cognigy Agent flow
@@ -104,7 +104,9 @@
       if (q && groups[f].length === 0) return;
       var head = document.createElement("div");
       head.className = "folder-head" + (gwCollapsed[f] && !q ? " collapsed" : "");
-      head.innerHTML = '<span class="folder-caret">▾</span><span class="folder-ico">📁</span> <b></b> <span class="folder-count"></span>';
+      head.innerHTML = '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
+        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> <span class="folder-count"></span>';
+      CDSIcons.hydrate(head);
       head.querySelector("b").textContent = f;
       head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " gateway" : " gateways");
       head.addEventListener("click", function () { gwCollapsed[f] = !gwCollapsed[f]; renderGwList(); });
@@ -123,7 +125,8 @@
 
     var callControls;
     if (!onCall) {
-      callControls = '<button class="primary" data-act="call"' + (inlineCall ? " disabled" : "") + ">📞 Call</button>";
+      callControls = '<button class="primary" data-act="call"' + (inlineCall ? " disabled" : "") + ">" +
+        CDSIcons.svg("call", 15) + " Call</button>";
     } else {
       callControls =
         '<span class="gw-state ' + inlineCall.status + '"><i class="gw-dot"></i>' +
@@ -131,9 +134,10 @@
          inlineCall.status === "ringing" ? "Calling…" : "Connecting…") +
         "</span>" +
         (inlineCall.status === "active"
-          ? '<button class="ghost gw-mute' + (inlineCall.muted ? " on" : "") + '" data-act="mute">' + (inlineCall.muted ? "🔇 Unmute" : "🎙 Mute") + "</button>"
+          ? '<button class="ghost gw-mute' + (inlineCall.muted ? " on" : "") + '" data-act="mute">' +
+            (inlineCall.muted ? CDSIcons.svg("mic_off", 15) + " Unmute" : CDSIcons.svg("mic", 15) + " Mute") + "</button>"
           : "") +
-        '<button class="gw-end" data-act="end">✕ End</button>';
+        '<button class="gw-end" data-act="end">' + CDSIcons.svg("close", 15) + " End</button>";
     }
 
     el.innerHTML =
@@ -141,8 +145,9 @@
       '<div class="demo-actions">' +
       callControls +
       '<button class="ghost" data-act="edit">Edit</button>' +
-      '<button class="ghost" data-act="popout" title="Full view with mic/speaker devices — move it off-screen during the demo">⧉ Pop Out</button>' +
-      '<button class="danger" data-act="delete">✕</button>' +
+      '<button class="ghost" data-act="popout" title="Full view with mic/speaker devices — move it off-screen during the demo">' +
+      CDSIcons.svg("open_in_new", 15) + ' Pop Out</button>' +
+      '<button class="danger" data-act="delete" aria-label="Delete">' + CDSIcons.svg("close", 15) + '</button>' +
       "</div>";
     el.querySelector("h3").textContent = g.name || "(unnamed gateway)";
     el.querySelector(".demo-site").textContent = host || g.endpointUrl || "No endpoint";
@@ -341,8 +346,11 @@
     try { navigator.clipboard.writeText(id); } catch (e) {}
     var btn = $("rcSidCopy");
     btn.classList.add("copied");
-    btn.textContent = "✓";
-    setTimeout(function () { btn.classList.remove("copied"); btn.textContent = "⧉"; }, 1600);
+    btn.innerHTML = CDSIcons.svg("check", 15);
+    setTimeout(function () {
+      btn.classList.remove("copied");
+      btn.innerHTML = CDSIcons.svg("content_copy", 15);
+    }, 1600);
   }
   $("rc-sid").addEventListener("click", copySid);
 
@@ -523,11 +531,11 @@
         "<td>" + esc(c.sms) + "</td>" +
         "<td>" + esc(c.email) + "</td>" +
         '<td><div class="ob-actions">' +
-        '<button class="ob-call" data-act="voice">📞 Call</button>' +
+        '<button class="ob-call" data-act="voice">' + CDSIcons.svg("call", 15) + ' Call</button>' +
         '<button class="ob-beta" data-act="sms">SMS<small>beta</small></button>' +
         '<button class="ob-beta" data-act="email">Email<small>beta</small></button>' +
         '<button class="ghost" data-act="edit">Edit</button>' +
-        '<button class="danger" data-act="del">✕</button>' +
+        '<button class="danger" data-act="del" aria-label="Delete">' + CDSIcons.svg("close", 15) + '</button>' +
         "</div></td>";
       tr.addEventListener("click", function (ev) {
         var act = ev.target.closest("button") && ev.target.closest("button").getAttribute("data-act");
@@ -589,11 +597,11 @@
     rcToast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
     api("/api/contacts/" + c.id + "/trigger", postJson({ channel: channel }))
       .then(function (res) {
-        rcToast("✓ Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
+        rcToast(CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
           (res.flowReply ? "<br>Flow says: " + esc(res.flowReply) : ""), true);
       })
       .catch(function (err) {
-        rcToast("✗ Trigger failed: " + esc(String(err.message || err)) +
+        rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
           "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false);
       });
   }
