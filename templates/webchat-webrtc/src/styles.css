@@ -245,9 +245,19 @@ body {
   padding: 8px 10px; background: var(--bg); border-bottom: 1px solid #e2e8f0; flex: 0 0 auto;
 }
 .cds-tabs button {
+  display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid #e2e8f0; background: #fff; color: var(--ink-soft);
-  border-radius: 999px; padding: 6px 16px; font-size: 13px; cursor: pointer;
+  border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer;
 }
+/* "on a call" dot on the Voice tab — a shape, not a colour, so it still reads
+   for anyone who can't distinguish the green. */
+.cds-live {
+  width: 7px; height: 7px; border-radius: 50%; background: #00e2a0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #00e2a0 28%, transparent);
+  animation: cdsLive 1.6s ease-in-out infinite;
+}
+@keyframes cdsLive { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .cds-live { animation: none; } }
 .cds-tabs button.on {
   background: color-mix(in srgb, var(--brand-primary) 12%, #fff);
   border-color: var(--brand-primary); color: var(--brand-primary); font-weight: 600;
@@ -321,13 +331,22 @@ html.cds-overlay body { overflow: hidden; }
 }
 .cds-shell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .cds-shell-body > * { flex: 1; min-height: 0; }
+/*
+ * In this template the card's top row is the light Chat/Voice tab bar, not a
+ * coloured header, so the close button is styled for a light surface — the
+ * white-on-transparent version the single-mode templates use is invisible here.
+ */
 .cds-shell-close {
-  position: absolute; top: 10px; right: 10px; z-index: 6;
-  width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
-  background: rgba(255, 255, 255, .18); color: #fff; font-size: 12px; line-height: 1;
+  position: absolute; top: 9px; right: 10px; z-index: 6;
+  width: 28px; height: 28px; border: 0; border-radius: 8px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--ink-soft);
 }
-.cds-shell-close:hover { background: rgba(255, 255, 255, .32); }
+.cds-shell-close:hover { background: rgba(15, 23, 42, .08); color: var(--ink); }
 
-/* room for the shell's close button in overlay mode */
+/* Room for the close button in overlay mode. The tab bar needs it too: it is
+   what actually sits under the button here, and the Call pill is right-aligned
+   into exactly that corner. */
+html.cds-overlay .cds-tabs { padding-right: 44px; }
 html.cds-overlay .cds-header,
 html.cds-overlay .cds-vheader { padding-right: 46px; }

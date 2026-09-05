@@ -81,11 +81,29 @@
       fetch(API + "/api/resolve?host=" + encodeURIComponent(host))
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.demo) {
-            mapped.innerHTML = "This site shows <b></b>" + (data.via === "override" ? " (manual override)" : "");
+          mapped.className = "row mapped";
+          if (data.demo && data.via === "override") {
+            /*
+             * An override is not "this site" — it pins one demo to EVERY site
+             * in this browser. It is the natural thing to reach for when a
+             * demo has no Website set, and then it is easy to forget and find
+             * the launcher on unrelated pages mid-meeting. So say what it
+             * really does, and make clearing it one click.
+             */
+            mapped.className = "row mapped warn";
+            mapped.innerHTML = "<b></b> is forced on <b>every site</b>, not just its own." +
+              '<button type="button" id="clearOverride">Use website mapping instead</button>';
+            mapped.querySelector("b").textContent = data.demo.name;
+            mapped.querySelector("#clearOverride").addEventListener("click", function () {
+              override.value = "";
+              override.dispatchEvent(new Event("change"));
+            });
+          } else if (data.demo) {
+            mapped.innerHTML = "This site shows <b></b>";
             mapped.querySelector("b").textContent = data.demo.name;
           } else {
-            mapped.textContent = "No demo mapped to " + host + ". Pick one below or set the demo's Website in Demo Studio.";
+            mapped.textContent = "No demo mapped to " + host +
+              ". Set that demo's Website in Demo Studio, or force one below.";
           }
         })
         .catch(function () { mapped.textContent = ""; });

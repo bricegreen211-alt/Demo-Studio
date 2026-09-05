@@ -16,6 +16,7 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DemoConfig } from "../config";
 import Launcher from "./Launcher";
+import { Icon } from "../icons";
 
 function post(msg: Record<string, unknown>) {
   try { window.parent.postMessage(msg, "*"); } catch { /* not embedded */ }
@@ -68,7 +69,9 @@ export default function Shell({ cfg, children }: { cfg: DemoConfig; children: Re
     <div className="cds-shell">
       {/* Card stays mounted while closed so the conversation isn't lost. */}
       <div className="cds-shell-card" style={{ display: open ? "flex" : "none" }}>
-        <button className="cds-shell-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+        <button className="cds-shell-close" onClick={() => setOpen(false)} aria-label="Close">
+          <Icon name="close" size={18} />
+        </button>
         <div className="cds-shell-body">{children}</div>
       </div>
 

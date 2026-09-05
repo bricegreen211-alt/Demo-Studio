@@ -24,6 +24,8 @@
       --line-strong: #cbd5e1;
       --on-dark: #fff;
       --primary-soft: rgba(54,148,252,.08);
+      --warn-soft: #fef3c7;
+      --warn-text: #92400e;
     }
     /* The popup is pure browser chrome — only the SE ever sees it — so it
        follows the browser rather than the dashboard's own setting. Wiring it
@@ -41,6 +43,8 @@
         --line: rgba(255,255,255,.10);
         --line-strong: #4e4e56;
         --primary-soft: rgba(54,148,252,.16);
+        --warn-soft: rgba(245,158,11,.16);
+        --warn-text: #fcd34d;
       }
       /* The blue is a fill here, not text, so it stays --nice-blue; the one
          place it reads as text gets the lighter step. */
@@ -93,6 +97,15 @@
     select:focus { outline: none; border-color: var(--nice-blue); }
     .hint { font-size: 12px; color: var(--soft); line-height: 1.5; }
     .mapped { font-size: 12.5px; background: var(--surface-3); border-radius: 8px; padding: 8px 10px; line-height: 1.5; }
+    /* An override is global — it shows one demo on EVERY site, which is easy
+       to set for a demo with no website and then forget. Make it loud. */
+    .mapped.warn { background: var(--warn-soft); color: var(--warn-text); }
+    .mapped.warn b { color: inherit; }
+    .mapped button {
+      display: block; margin-top: 7px; border: 1px solid currentColor; background: transparent;
+      color: inherit; border-radius: 7px; padding: 4px 9px; font-size: 11.5px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
     .mapped b { color: var(--nice-blue); }
     .footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
     .footer a { font-size: 12px; color: var(--nice-blue); text-decoration: none; cursor: pointer; }
@@ -113,8 +126,8 @@
     <div id="connected" style="display:none">
       <div class="row mapped" id="mapped"></div>
       <div class="row">
-        <label class="lbl" for="override">Demo on this browser</label>
-        <select id="override"><option value="">Auto (match by website)</option></select>
+        <label class="lbl" for="override">Force a demo on every site</label>
+        <select id="override"><option value="">Off — match by website (recommended)</option></select>
       </div>
     </div>
 

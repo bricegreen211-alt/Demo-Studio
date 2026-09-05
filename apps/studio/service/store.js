@@ -72,10 +72,27 @@ function update(slug, input) {
   const current = readDemo(slug);
   const demo = schema.sanitize(Object.assign({}, current, input, {
     id: slug,
-    // template changes are not supported in-place (would need re-copying source)
-    template: current.template,
     createdAt: current.createdAt
   }));
+
+  /*
+   * A demo folder holds its own copy of one template's source, so changing the
+   * template means the folder now holds the wrong code. Swap it, backing up
+   * whatever was there exactly as Sync does.
+   *
+   * This used to be pinned to the current template with a note that in-place
+   * changes "are not supported" — but the form's Template radios were never
+   * disabled, so picking a different one looked like it worked, saved, and was
+   * silently discarded. Either the radios had to be disabled or this had to
+   * work; doing the copy is the useful half.
+   *
+   * The chokidar watcher sees the new source and rebuilds within ~350ms, so
+   * there is nothing to trigger here.
+   */
+  if (demo.template !== current.template) {
+    replaceSrc(demoDir(slug), demo.template);
+  }
+
   demo.updatedAt = new Date().toISOString();
   writeDemoJson(slug, demo);
   return readDemo(slug);
@@ -106,9 +123,15 @@ function remove(slug) {
  * demo, keeping demo.json — and snapshots the previous source first, so a
  * vibe-coded demo can always be recovered from the backup folder.
  */
-function syncTemplate(slug) {
-  const dir = demoDir(slug);
-  const demo = readDemo(slug);
+/*
+ * Back up a demo's source and lay down a fresh copy of `templateName`.
+ *
+ * Two callers want exactly this: Sync (re-copy the SAME template to pick up
+ * template updates) and a template change on save (copy a DIFFERENT one).
+ * Both must snapshot first, because the demo folder is where vibe-coded
+ * customisation lives and it is about to be replaced.
+ */
+function replaceSrc(dir, templateName) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupDir = path.join(dir, "_backup-" + stamp);
 
@@ -126,9 +149,15 @@ function syncTemplate(slug) {
         entry === ".vite-cache" || entry === "demo.json") continue;
     fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
-  copyTemplateSrc(demo.template, dir);
+  copyTemplateSrc(templateName, dir);
+  return backupDir;
+}
 
-  return { demo: readDemo(slug), backup: backupDir };
+function syncTemplate(slug) {
+  const dir = demoDir(slug);
+  const demo = readDemo(slug);
+  const backup = replaceSrc(dir, demo.template);
+  return { demo: readDemo(slug), backup };
 }
 
 module.exports = { list, readDemo, create, update, duplicate, remove, syncTemplate, slugify };

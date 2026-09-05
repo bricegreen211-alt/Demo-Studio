@@ -11,6 +11,7 @@ import Shell from "./shell/Shell";
 import VoiceView from "./voice/VoiceView";
 import { useCognigyChat } from "./chat/useCognigyChat";
 import { useCognigyVoice } from "./voice/useCognigyVoice";
+import { Icon } from "./icons";
 
 export default function App({ cfg }: { cfg: DemoConfig }) {
   const chat = useCognigyChat(cfg);
@@ -42,12 +43,22 @@ export default function App({ cfg }: { cfg: DemoConfig }) {
   const view = (
     <div className="cds-multi">
       <nav className="cds-tabs">
-        <button className={mode === "chat" ? "on" : ""} onClick={() => setMode("chat")}>💬 Chat</button>
-        <button className={mode === "voice" ? "on" : ""} onClick={() => setMode("voice")}>
-          🎙 Voice{inCall ? " ●" : ""}
+        <button className={mode === "chat" ? "on" : ""} onClick={() => setMode("chat")}>
+          <Icon name="chat" /> Chat
         </button>
+        <button className={mode === "voice" ? "on" : ""} onClick={() => setMode("voice")}>
+          <Icon name="mic" /> Voice{inCall && <span className="cds-live" aria-label="on a call" />}
+        </button>
+        {/*
+          Voice launch from chat. One tap switches to voice AND places the
+          call, so the customer never sees a dead "now press call" step — the
+          whole point of the multimodal demo.
+        */}
         {mode === "chat" && !inCall && (
-          <button className="cds-launch-voice" onClick={launchVoice} title={"Talk to " + cfg.agentName}>✆ Call</button>
+          <button className="cds-launch-voice" onClick={launchVoice}
+                  title={"Talk to " + cfg.agentName} aria-label={"Talk to " + cfg.agentName}>
+            <Icon name="call" /> Call
+          </button>
         )}
       </nav>
       <div className="cds-pane" style={{ display: mode === "chat" ? "flex" : "none" }}>
