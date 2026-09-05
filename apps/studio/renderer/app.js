@@ -252,7 +252,6 @@
     $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#3694fc";
     $("f-secondary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.secondaryColor) ? d.theme.secondaryColor : "#f1f5f9";
     $("f-logo").value = d ? d.theme.logo : "";
-    $("f-userid").value = d ? d.userId : "followme";
     syncEndpointVisibility();
     syncChatUi();
   }
@@ -272,7 +271,6 @@
       showLauncherText: $("f-showlabel").checked,
       agentName: $("f-agent").value.trim() || "AI Assistant",
       welcomeMessage: $("f-welcome").value.trim(),
-      userId: $("f-userid").value.trim() || "followme",
       cognigy: { chatEndpoint: $("f-chat").value.trim(), voiceEndpoint: $("f-voice").value.trim() },
       theme: { primaryColor: $("f-primary").value, secondaryColor: $("f-secondary").value, logo: $("f-logo").value.trim() }
     };
@@ -349,6 +347,27 @@
     document.querySelectorAll('input[name="chatUi"], input[name="template"], input[name="panelStyle"]'),
     function (el) { el.addEventListener("change", syncChatUi); }
   );
+
+  var followEl = $("f-followme");
+  if (followEl) {
+    var followSaveTimer = null;
+    followEl.addEventListener("input", function () {
+      clearTimeout(followSaveTimer);
+      $("followMeStatus").textContent = "Saving…";
+      // Debounced: this is a free-text field, and every keystroke would
+      // otherwise be a settings write.
+      followSaveTimer = setTimeout(function () {
+        var v = followEl.value.trim() || "followme";
+        api("/api/settings", putJson({ followMeUserId: v }))
+          .then(function () {
+            $("followMeStatus").textContent = v === "followme"
+              ? "Live Follow will track this conversation."
+              : 'Using "' + v + '" — Live Follow only tracks "followme".';
+          })
+          .catch(function () { $("followMeStatus").textContent = "Couldn't save."; });
+      }, 400);
+    });
+  }
 
   var diagEl = $("f-diagnostics");
   if (diagEl) {
@@ -534,6 +553,11 @@
   function loadSettings() {
     api("/api/settings").then(function (st) {
       $("f-diagnostics").checked = st.showDiagnostics !== false;
+      var fm = st.followMeUserId || "followme";
+      $("f-followme").value = fm;
+      $("followMeStatus").textContent = fm === "followme"
+        ? "Live Follow will track this conversation."
+        : 'Using "' + fm + '" — Live Follow only tracks "followme".';
     }).catch(function () {});
 
     api("/api/about").then(function (a) {

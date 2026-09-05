@@ -6,6 +6,9 @@
  *   preferredMicId/preferredSpeakerId : Remote Control device preferences
  *   outbound           : { endpointUrl, endpointKey } — Agent flow REST endpoint
  *                        the Outbound Trigger posts contacts to
+ *   followMeUserId     : the Cognigy user ID every demo and gateway connects
+ *                        with. Global: Live Follow tracks one ID, and it is a
+ *                        property of how this machine demos, not of a demo.
  *   theme              : dashboard appearance — "system" | "light" | "dark"
  *   sidebarCollapsed   : sidebar shown as an icon-only rail
  */
@@ -30,7 +33,9 @@ const DEFAULTS = {
   // of these into localStorage so the inline <head> script can apply them
   // before first paint; this file stays the source of truth.
   theme: "system",
-  sidebarCollapsed: false
+  sidebarCollapsed: false,
+  // "followme" is what Cognigy Live Follow / the Interaction Panel watch for.
+  followMeUserId: "followme"
 };
 
 function read() {

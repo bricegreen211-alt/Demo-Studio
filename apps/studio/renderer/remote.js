@@ -234,7 +234,10 @@
     inlineCall = { gwId: g.id, client: null, status: "connecting", muted: false, seconds: 0, timer: null };
     renderGwList();
 
-    window.CdsVoice.createWebRTCClient({ endpointUrl: endpointUrl, userId: "followme" })
+    window.CdsVoice.createWebRTCClient({
+      endpointUrl: endpointUrl,
+      userId: (settings && settings.followMeUserId) || "followme"
+    })
       .then(function (client) {
         if (!inlineCall || inlineCall.gwId !== g.id) { client.destroy().catch(function () {}); return; }
         inlineCall.client = client;

@@ -141,9 +141,6 @@
 
         <div class="advanced-block">
           <div class="advanced-title">Advanced</div>
-          <label>Follow <input id="f-userid" placeholder="followme" /></label>
-          <span class="soft">The user ID this demo connects with — keep <b>followme</b> to track the
-            conversation in Cognigy Live Follow / the Interaction Panel.</span>
           <div class="advanced-title vc-title">Vibe-code customization</div>
           <div id="vibecodeRow" class="folder-row">
             <button class="ghost" id="openFolderBtn" hidden>Open project folder</button>
@@ -314,6 +311,21 @@
         <button type="button" class="seg-btn" data-theme-choice="dark"   role="radio">Dark</button>
       </div>
       <p class="soft" id="themeStatus"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Live Follow</h3>
+          <p class="card-sub">The Cognigy user ID every demo connects with — webchat, WebRTC and
+            Remote Control alike. Keep <b>followme</b> so you can watch the conversation in Cognigy
+            Live Follow and the Interaction Panel.</p>
+        </div>
+      </div>
+      <label class="setting-field">Follow me user ID
+        <input id="f-followme" placeholder="followme" spellcheck="false" autocomplete="off" />
+      </label>
+      <p class="soft" id="followMeStatus"></p>
     </section>
 
     <section class="card">

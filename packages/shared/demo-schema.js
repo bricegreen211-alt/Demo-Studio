@@ -71,6 +71,11 @@
       launcherSize: "medium",
       agentName: "AI Assistant",
       welcomeMessage: "",
+      // DEPRECATED — Follow Me is now global, in settings.json as
+      // followMeUserId. Kept in the schema on purpose: sanitize() runs on
+      // every read AND every write, so dropping the field would silently
+      // rewrite every demo.json on disk the next time anything saved. Nothing
+      // reads it any more; the service migrates a non-default value once.
       userId: "followme",
       cognigy: { chatEndpoint: "", voiceEndpoint: "" },
       theme: { primaryColor: "#3694fc", secondaryColor: "#f1f5f9", logo: "" },
@@ -118,7 +123,7 @@
       launcherSize: pick(input.launcherSize, SIZES, d.launcherSize),
       agentName: String(input.agentName || d.agentName),
       welcomeMessage: String(input.welcomeMessage || ""),
-      userId: String(input.userId || d.userId), // default "followme" for Live Follow
+      userId: String(input.userId || d.userId), // deprecated, see defaults()
       cognigy: {
         chatEndpoint: String((input.cognigy && input.cognigy.chatEndpoint) || ""),
         voiceEndpoint: String((input.cognigy && input.cognigy.voiceEndpoint) || "")

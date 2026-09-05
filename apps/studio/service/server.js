@@ -156,6 +156,9 @@ function createApp() {
       patch.theme = ["light", "dark", "system"].indexOf(body.theme) >= 0 ? body.theme : "system";
     }
     if ("sidebarCollapsed" in body) patch.sidebarCollapsed = body.sidebarCollapsed === true;
+    if ("followMeUserId" in body) {
+      patch.followMeUserId = String(body.followMeUserId || "").trim().slice(0, 120) || "followme";
+    }
     if (Array.isArray(body.gateways)) {
       patch.gateways = body.gateways
         .filter((g) => g && typeof g === "object")
@@ -312,7 +315,9 @@ function createApp() {
     const data = {
       name: cfg.name || "",
       endpoint: normalize.chatEndpoint((cfg.cognigy || {}).chatEndpoint),
-      userId: cfg.userId || "",
+      // Global, not per demo: Live Follow tracks one user ID, and the same
+      // value has to reach webchat, WebRTC and Remote Control alike.
+      userId: settingsStore.read().followMeUserId || "followme",
       panelStyle: cfg.panelStyle || "solid",
       panelSide: cfg.panelSide === "left" ? "left" : "right",
       panelWidth: cfg.panelWidth || 0,
@@ -392,9 +397,39 @@ function createApp() {
   return app;
 }
 
+/*
+ * Follow Me used to be per demo (demo.json userId). It is global now, so a
+ * machine upgrading from the old layout would silently lose a customised
+ * value. Adopt it once, only when the global setting is still untouched and
+ * exactly one non-default value exists — anything ambiguous is left alone and
+ * logged rather than guessed at.
+ */
+function migrateFollowMe() {
+  try {
+    const current = settingsStore.read();
+    if ((current.followMeUserId || "followme") !== "followme") return;
+    const custom = [...new Set(
+      store.list()
+        .map((d) => String(d.userId || "").trim())
+        .filter((v) => v && v !== "followme")
+    )];
+    if (custom.length === 1) {
+      settingsStore.write({ followMeUserId: custom[0] });
+      console.log('[service] Follow Me is now a single global setting; adopted "' + custom[0] + '" from your demos.');
+    } else if (custom.length > 1) {
+      console.log("[service] Follow Me is now a single global setting, but your demos used " +
+        custom.length + " different values (" + custom.join(", ") + "). Left as \"followme\" — " +
+        "set the one you want in Settings.");
+    }
+  } catch (e) {
+    console.error("[service] Follow Me migration skipped:", e.message);
+  }
+}
+
 function start() {
   const { ensureDirs } = require("./paths");
   ensureDirs();
+  migrateFollowMe();
   const app = createApp();
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log("[service] Cognigy Demo Studio service on http://localhost:" + PORT);
