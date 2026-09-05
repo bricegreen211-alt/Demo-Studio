@@ -594,6 +594,105 @@
     window.location.href = "/api/export";
   });
 
+  /* ---------------- appearance ---------------- */
+
+  /*
+   * Theme + rail state live in settings.json (so they survive a reinstall and
+   * are shared with the Remote Control pop-out, which loads the same origin),
+   * and are mirrored into localStorage purely so the inline <head> script can
+   * apply them before first paint. settings.json wins on boot.
+   */
+  var THEMES = ["system", "light", "dark"];
+  var THEME_ICON = { system: "contrast", light: "light_mode", dark: "dark_mode" };
+  var THEME_LABEL = { system: "Match my system", light: "Light", dark: "Dark" };
+  var theme = "system";
+  var railMini = false;
+
+  function applyTheme(next) {
+    theme = THEMES.indexOf(next) >= 0 ? next : "system";
+    var root = document.documentElement;
+    // No attribute at all = follow the OS, which the media query handles.
+    if (theme === "system") delete root.dataset.theme;
+    else root.dataset.theme = theme;
+    try { localStorage.setItem("cdsTheme", theme); } catch (e) {}
+
+    var btn = $("themeBtn");
+    if (btn) {
+      btn.innerHTML = CDSIcons.svg(THEME_ICON[theme], 18);
+      btn.title = "Appearance: " + THEME_LABEL[theme];
+      btn.setAttribute("aria-label", btn.title);
+    }
+    var seg = $("themeSeg");
+    if (seg) {
+      Array.prototype.forEach.call(seg.querySelectorAll("[data-theme-choice]"), function (b) {
+        var on = b.getAttribute("data-theme-choice") === theme;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+    var st = $("themeStatus");
+    if (st) {
+      st.textContent = theme === "system"
+        ? "Following your system setting."
+        : THEME_LABEL[theme] + " — always, whatever your system is set to.";
+    }
+  }
+
+  function applyRail(mini) {
+    railMini = !!mini;
+    var root = document.documentElement;
+    if (railMini) root.dataset.rail = "mini"; else delete root.dataset.rail;
+    try { localStorage.setItem("cdsRail", railMini ? "mini" : "full"); } catch (e) {}
+
+    var btn = $("railBtn");
+    if (btn) {
+      btn.innerHTML = CDSIcons.svg(railMini ? "chevron_right" : "chevron_left", 18);
+      btn.title = railMini ? "Expand sidebar" : "Collapse sidebar";
+      btn.setAttribute("aria-label", btn.title);
+      btn.setAttribute("aria-expanded", railMini ? "false" : "true");
+    }
+  }
+
+  function saveAppearance(patch) {
+    api("/api/settings", putJson(patch)).catch(function () {});
+  }
+
+  function initAppearance() {
+    applyTheme(theme);
+    applyRail(railMini);
+
+    $("themeBtn").addEventListener("click", function () {
+      var next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+      applyTheme(next);
+      saveAppearance({ theme: next });
+    });
+    $("railBtn").addEventListener("click", function () {
+      applyRail(!railMini);
+      saveAppearance({ sidebarCollapsed: railMini });
+    });
+    $("themeSeg").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-theme-choice]");
+      if (!b) return;
+      var next = b.getAttribute("data-theme-choice");
+      applyTheme(next);
+      saveAppearance({ theme: next });
+    });
+    // Cmd/Ctrl+B is the conventional sidebar toggle.
+    document.addEventListener("keydown", function (e) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        applyRail(!railMini);
+        saveAppearance({ sidebarCollapsed: railMini });
+      }
+    });
+
+    // Reconcile the paint-time guess against the real source of truth.
+    api("/api/settings").then(function (st) {
+      if (st.theme !== theme) applyTheme(st.theme);
+      if (!!st.sidebarCollapsed !== railMini) applyRail(st.sidebarCollapsed);
+    }).catch(function () {});
+  }
+
   /* ---------------- sidebar router ---------------- */
 
   /*
@@ -660,7 +759,13 @@
   if (/popout=1/.test(location.hash)) document.body.classList.add("popout");
 
   /* ---------------- boot ---------------- */
+  try {
+    var t0 = localStorage.getItem("cdsTheme");
+    if (THEMES.indexOf(t0) >= 0) theme = t0;
+    railMini = localStorage.getItem("cdsRail") === "mini";
+  } catch (e) {}
   CDSIcons.hydrate();
   renderNav();
+  initAppearance();
   route();
 })();

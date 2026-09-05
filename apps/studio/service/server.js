@@ -149,6 +149,13 @@ function createApp() {
     const patch = {};
     if ("overrideDemoId" in body) patch.overrideDemoId = body.overrideDemoId || null;
     if ("showDiagnostics" in body) patch.showDiagnostics = body.showDiagnostics !== false;
+    // Appearance. Whitelisted like everything else — an unknown key sent to
+    // this route is dropped silently, so a new setting that skips this block
+    // appears to save and then vanishes on restart.
+    if ("theme" in body) {
+      patch.theme = ["light", "dark", "system"].indexOf(body.theme) >= 0 ? body.theme : "system";
+    }
+    if ("sidebarCollapsed" in body) patch.sidebarCollapsed = body.sidebarCollapsed === true;
     if (Array.isArray(body.gateways)) {
       patch.gateways = body.gateways
         .filter((g) => g && typeof g === "object")

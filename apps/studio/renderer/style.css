@@ -93,6 +93,9 @@
   --rail-ink-ghost: rgba(255,255,255,.3);
   --rail-hover:     rgba(255,255,255,.07);
   --rail-active:    rgba(54,148,252,.16);
+  /* The rail is dark in BOTH themes, so its accent text always needs the
+     lighter blue to clear AA. */
+  --rail-accent:    var(--nice-blue-300);
   --rail-line:      rgba(255,255,255,.08);
   --rail-line-2:    rgba(255,255,255,.09);
   --rail-line-3:    rgba(255,255,255,.1);
@@ -125,6 +128,112 @@
   --sidebar-w: 232px;
   --sidebar-w-mini: 68px;
 }
+
+/* ── dark theme ───────────────────────────────────────────────────────────
+   Three states, two in the DOM: an explicit choice stamps data-theme on
+   <html>; "system" stamps nothing and the media query decides.
+
+   The order below is exact and both halves are load-bearing:
+     - :not([data-theme="light"]) lets an explicit LIGHT choice win on a dark OS
+     - the attribute rule coming AFTER the media query lets an explicit DARK
+       choice win on a light OS
+   The block is duplicated because there is no build step here to share it —
+   change one, change the other.
+
+   color-scheme is not optional: the dashboard has <select>, <details>,
+   accent-color checkboxes and input[type=color], and without it those keep
+   rendering white-on-dark.                                                */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  color-scheme: dark;
+
+  --bg:            var(--nice-ink-deep);   /* #16161d page */
+  --surface:       var(--nice-ink);        /* #21212b cards */
+  --surface-2:     #2a2a36;
+  --surface-3:     var(--nice-ink-2);      /* #373741 */
+  --surface-4:     #2a2a36;
+  --ink:           var(--nice-cream);      /* cream reads softer than pure white on ink */
+  --soft:          var(--nice-grey-600);
+
+  --line:          rgba(255,255,255,.10);
+  --line-strong:   var(--nice-grey-900);
+  --line-hover:    var(--nice-grey-600);
+
+  --primary-deep:  var(--nice-blue-200);
+  --primary-text:  var(--nice-blue-200);   /* AA on #21212b; --primary stays for fills */
+  --primary-soft:  rgba(54,148,252,.16);
+  --primary-soft-2:rgba(54,148,252,.22);
+  --primary-soft-3:rgba(54,148,252,.20);
+
+  --ok-text:       var(--nice-mint);       /* #0b8f7c is unreadable on ink */
+  --ok-text-2:     var(--nice-mint);
+  --warn-soft:     rgba(245,158,11,.16);
+  --warn-soft-2:   rgba(245,158,11,.28);
+  --warn-text:     #fcd34d;
+  --warn-text-2:   #fcd34d;
+
+  --rail-bg:       var(--nice-ink-deep);   /* the rail sinks below the cards */
+  --rail-bg-2:     var(--nice-ink);
+  --rail-active:   rgba(54,148,252,.24);
+  --rail-border:   rgba(255,255,255,.08);  /* it needs an edge once content is dark too */
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-2: 0 2px 12px rgba(0,0,0,.45);
+  --shadow-3: 0 10px 34px rgba(0,0,0,.50);
+  --shadow-4: 0 18px 50px rgba(0,0,0,.55);
+  --scrim:    rgba(0,0,0,.62);
+
+  /* light-surface artwork flips too, since those surfaces are now dark */
+  --logo-wordmark-light: url("brand/cognigy-white-and-blue.svg");
+  }
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--nice-ink-deep);   /* #16161d page */
+  --surface:       var(--nice-ink);        /* #21212b cards */
+  --surface-2:     #2a2a36;
+  --surface-3:     var(--nice-ink-2);      /* #373741 */
+  --surface-4:     #2a2a36;
+  --ink:           var(--nice-cream);      /* cream reads softer than pure white on ink */
+  --soft:          var(--nice-grey-600);
+
+  --line:          rgba(255,255,255,.10);
+  --line-strong:   var(--nice-grey-900);
+  --line-hover:    var(--nice-grey-600);
+
+  --primary-deep:  var(--nice-blue-200);
+  --primary-text:  var(--nice-blue-200);   /* AA on #21212b; --primary stays for fills */
+  --primary-soft:  rgba(54,148,252,.16);
+  --primary-soft-2:rgba(54,148,252,.22);
+  --primary-soft-3:rgba(54,148,252,.20);
+
+  --ok-text:       var(--nice-mint);       /* #0b8f7c is unreadable on ink */
+  --ok-text-2:     var(--nice-mint);
+  --warn-soft:     rgba(245,158,11,.16);
+  --warn-soft-2:   rgba(245,158,11,.28);
+  --warn-text:     #fcd34d;
+  --warn-text-2:   #fcd34d;
+
+  --rail-bg:       var(--nice-ink-deep);   /* the rail sinks below the cards */
+  --rail-bg-2:     var(--nice-ink);
+  --rail-active:   rgba(54,148,252,.24);
+  --rail-border:   rgba(255,255,255,.08);  /* it needs an edge once content is dark too */
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-2: 0 2px 12px rgba(0,0,0,.45);
+  --shadow-3: 0 10px 34px rgba(0,0,0,.50);
+  --shadow-4: 0 18px 50px rgba(0,0,0,.55);
+  --scrim:    rgba(0,0,0,.62);
+
+  /* light-surface artwork flips too, since those surfaces are now dark */
+  --logo-wordmark-light: url("brand/cognigy-white-and-blue.svg");
+}
+
+/* The rail carries an edge in dark mode, where it no longer contrasts with
+   the content area on brightness alone. */
+#sidebar { border-right: 1px solid var(--rail-border); }
+
 body {
   font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg); color: var(--ink); min-height: 100vh;
@@ -155,15 +264,78 @@ body {
   transition: background .12s, color .12s;
 }
 .side-item:hover { background: var(--rail-hover); color: var(--rail-ink); }
-.side-item.on { background: var(--rail-active); color: var(--primary); }
+.side-item:focus-visible { outline: 2px solid var(--rail-accent); outline-offset: -2px; }
+.side-item.on { background: var(--rail-active); color: var(--rail-accent); }
 .side-ico { display: inline-flex; width: 19px; justify-content: center; flex: 0 0 auto; }
 .side-label { white-space: nowrap; }
-.side-foot { padding: 14px 16px 16px; border-top: 1px solid var(--rail-line); }
+.side-foot { padding: 12px 16px 16px; border-top: 1px solid var(--rail-line); }
+.side-tools { display: flex; gap: 6px; margin-bottom: 10px; }
+.rail-btn {
+  width: 32px; height: 32px; padding: 0; border-radius: 8px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--rail-ink-dim); cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.rail-btn:hover { background: var(--rail-hover); color: var(--rail-ink); }
+.rail-btn:focus-visible { outline: 2px solid var(--rail-accent); outline-offset: 2px; }
+
+/* Segmented control (Appearance). Reuses the pill language of .rc-tabs. */
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-pill, 999px);
+       background: var(--surface-4); border: 1px solid var(--line); }
+.seg-btn {
+  border: 0; background: transparent; color: var(--soft);
+  padding: 7px 16px; border-radius: 999px; font-weight: 600; font-size: 12.5px;
+}
+.seg-btn:hover { color: var(--ink); }
+.seg-btn.on { background: var(--surface); color: var(--primary-text); box-shadow: var(--shadow-1); }
+.seg-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .presentation { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; color: var(--rail-ink-soft); }
 .presentation input { accent-color: var(--teal); }
 .side-version { margin-top: 10px; font-size: 10.5px; color: var(--rail-ink-ghost); }
 
 #content { margin-left: var(--sidebar-w); }
+
+/* ── collapsed rail ───────────────────────────────────────────────────────
+   Redefining --sidebar-w is the whole trick: #sidebar's width, #content's
+   margin and .ob-toast's offset already all read it, so one variable moves
+   everything. The attribute sits on <html> (not #sidebar) so the inline
+   <head> script can set it before first paint — applying it after the
+   settings round-trip gives a visible 232 -> 68px jump on every launch.
+
+   Do NOT try to animate --sidebar-w itself: custom properties are not
+   animatable without @property, and the two consumers animate independently
+   anyway. Animate width and margin-left.
+   68px = 12 + 44 (minimum hit target) + 12.                              */
+html[data-rail="mini"] { --sidebar-w: var(--sidebar-w-mini); }
+
+#sidebar { transition: width .18s ease; }
+#content { transition: margin-left .18s ease; }
+
+html[data-rail="mini"] .side-brand { padding: 18px 0 20px; }
+/* No symbol-only lockup exists in the brand package, so the stacked one is
+   used here — official artwork, just a different lockup. */
+html[data-rail="mini"] .side-logo {
+  width: 44px; height: 33px; margin: 0 auto;
+  background-image: var(--logo-stacked);
+  background-position: center;
+}
+html[data-rail="mini"] .side-logo-sub,
+html[data-rail="mini"] .side-version { display: none; }
+
+html[data-rail="mini"] .side-nav { padding: 6px 12px; }
+html[data-rail="mini"] .side-item { justify-content: center; padding: 11px 0; gap: 0; }
+/* The label is collapsed, never display:none — it stays in the DOM so the
+   accessible name is identical in both states (aria-label backs it up). */
+html[data-rail="mini"] .side-label {
+  width: 0; opacity: 0; overflow: hidden;
+  transition: opacity .1s ease, width .18s ease;
+}
+html[data-rail="mini"] .side-tools { flex-direction: column; align-items: center; }
+html[data-rail="mini"] .side-foot { padding: 12px 0 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #sidebar, #content, .side-label { transition: none; }
+}
 main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
 
 /* ── list view ───────────────────────────────────────────── */
@@ -196,7 +368,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
   display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
   padding: 10px 6px 4px; font-size: 13.5px; color: var(--ink);
 }
-.folder-head:hover b { color: var(--primary); }
+.folder-head:hover b { color: var(--primary-text); }
 .folder-caret { display: inline-flex; color: var(--soft); transition: transform .15s; }
 .folder-head.collapsed .folder-caret { transform: rotate(-90deg); }
 .folder-count { font-size: 11.5px; color: var(--soft); }
@@ -227,7 +399,7 @@ button > .ico:only-child { margin: 0; }
 .primary { background: var(--primary); color: var(--on-primary); border: 0; padding: 10px 20px; font-weight: 600; }
 .primary:hover { background: var(--primary-deep); }
 .ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 8px 14px; }
-.ghost:hover { border-color: var(--primary); color: var(--primary); }
+.ghost:hover { border-color: var(--primary); color: var(--primary-text); }
 .danger { background: var(--surface); border: 1px solid var(--pink-line-2); color: var(--pink); padding: 6px 10px; }
 .danger:hover { background: var(--pink-soft); }
 
@@ -292,7 +464,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
   border-radius: 999px; padding: 8px 20px; font-size: 13.5px; font-weight: 500;
 }
 .rc-tabs button.on {
-  background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600;
+  background: var(--primary-soft); border-color: var(--primary); color: var(--primary-text); font-weight: 600;
 }
 .rc-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .rc-gw-label { font-size: 12.5px; color: var(--soft); font-weight: 600; }
@@ -332,7 +504,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 .rc-sid:hover { border-color: var(--primary-ring-2); }
 .rc-sid-id { font-family: Menlo, Consolas, monospace; font-size: 10.5px; color: var(--rc-ink); }
 .rc-sid-copy {
-  background: var(--primary-soft-3); border: 0; border-radius: 10px; color: var(--primary);
+  background: var(--primary-soft-3); border: 0; border-radius: 10px; color: var(--rail-accent);
   width: 22px; height: 22px; padding: 0;
 }
 .rc-sid-copy.copied { background: var(--teal-soft-4); color: var(--teal); }
@@ -420,7 +592,7 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
   background: var(--surface); border: 1px solid var(--line); color: var(--soft);
   padding: 7px 10px; font-size: 12px; position: relative;
 }
-.ob-beta:hover { border-color: var(--primary); color: var(--primary); }
+.ob-beta:hover { border-color: var(--primary); color: var(--primary-text); }
 .ob-beta small { font-size: 8.5px; text-transform: uppercase; margin-left: 3px; color: var(--teal); font-weight: 700; }
 .ob-toast {
   position: fixed; bottom: 22px; left: calc(var(--sidebar-w) + 26px); right: 26px; max-width: 720px;
@@ -518,7 +690,7 @@ code { font-family: Menlo, Consolas, monospace; font-size: 12px; }
 /* collapsible drawer */
 .drawer { margin-top: 20px; border-top: 1px solid var(--surface-4); padding-top: 16px; }
 .drawer summary {
-  cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--primary);
+  cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--primary-text);
   list-style: none;
 }
 .drawer summary::-webkit-details-marker { display: none; }

@@ -4,7 +4,7 @@
  * dashboard, which is the same web app the service serves at "/". SEs launch
  * the app like any other program — no terminal, ever (SOW §2).
  */
-const { app, BrowserWindow, shell, ipcMain, session, systemPreferences } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, session, systemPreferences, nativeTheme } = require("electron");
 const path = require("path");
 const { demoDir } = require("./service/paths");
 
@@ -33,7 +33,20 @@ if (!app.requestSingleInstanceLock()) {
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
 
-  app.whenReady().then(async () => {
+  /*
+ * The window's own background, painted before the page loads. Without it
+ * Chromium shows a white frame on every launch — which in dark mode is a
+ * flash of exactly the wrong colour. settings.js is a synchronous
+ * readFileSync module the service already requires, so this costs nothing.
+ */
+function windowBackground() {
+  let pref = "system";
+  try { pref = require("./service/settings").read().theme || "system"; } catch (e) {}
+  const dark = pref === "dark" || (pref !== "light" && nativeTheme.shouldUseDarkColors);
+  return dark ? "#16161d" : "#f2f0eb";   // --bg, dark and light
+}
+
+app.whenReady().then(async () => {
     try {
       service = require("./service/server").start();
     } catch (err) {
@@ -55,6 +68,8 @@ if (!app.requestSingleInstanceLock()) {
       height: 860,
       title: "Cognigy Demo Studio",
       icon: ICON_PNG,
+      backgroundColor: windowBackground(),
+      show: false,
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
         contextIsolation: true,
@@ -62,6 +77,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     win.removeMenu();
+    win.once("ready-to-show", () => win.show());
     win.loadURL("http://localhost:41700/");
 
     // External links (Launch website, web_url buttons) open in the real browser
@@ -108,9 +124,12 @@ if (!app.requestSingleInstanceLock()) {
       minHeight: 540,
       title: "Cognigy Remote Control",
       icon: ICON_PNG,
+      backgroundColor: windowBackground(),
+      show: false,
       webPreferences: { contextIsolation: true, nodeIntegration: false }
     });
     remoteWin.removeMenu();
+    remoteWin.once("ready-to-show", () => remoteWin.show());
     remoteWin.loadURL("http://localhost:41700/#remote&popout=1" + (gw ? "&gw=" + gw : ""));
     remoteWin.on("closed", () => { remoteWin = null; });
   });

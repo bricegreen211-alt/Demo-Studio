@@ -6,6 +6,8 @@
  *   preferredMicId/preferredSpeakerId : Remote Control device preferences
  *   outbound           : { endpointUrl, endpointKey } — Agent flow REST endpoint
  *                        the Outbound Trigger posts contacts to
+ *   theme              : dashboard appearance — "system" | "light" | "dark"
+ *   sidebarCollapsed   : sidebar shown as an icon-only rail
  */
 const fs = require("fs");
 const { SETTINGS_FILE, ensureDirs } = require("./paths");
@@ -23,7 +25,12 @@ const DEFAULTS = {
   // Draws a small state badge on the demo and logs verbosely. On by
   // default while Webchat v3 support settles — turn it off in Settings
   // before demoing to a customer.
-  showDiagnostics: true
+  showDiagnostics: true,
+  // Dashboard appearance. "system" follows the OS. The renderer mirrors both
+  // of these into localStorage so the inline <head> script can apply them
+  // before first paint; this file stays the source of truth.
+  theme: "system",
+  sidebarCollapsed: false
 };
 
 function read() {

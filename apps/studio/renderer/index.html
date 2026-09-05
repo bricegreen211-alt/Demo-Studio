@@ -7,6 +7,20 @@
   <link rel="icon" href="favicon.png" />
   <link rel="stylesheet" href="brand/fonts.css" />
   <link rel="stylesheet" href="style.css" />
+  <script>
+    /*
+     * Paint-time only. settings.json is the source of truth; app.js reconciles
+     * on boot and rewrites this mirror. It has to be inline and synchronous:
+     * the settings API round-trip lands long after first paint, so reading the
+     * preference from there alone means a white flash on every launch, and a
+     * visible 232 -> 68px jump when the rail is collapsed.
+     */
+    try {
+      var t = localStorage.getItem("cdsTheme");
+      if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      if (localStorage.getItem("cdsRail") === "mini") document.documentElement.dataset.rail = "mini";
+    } catch (e) { /* private mode / storage disabled — fall back to system */ }
+  </script>
 </head>
 <body>
   <!-- ── Left sidebar ─────────────────────────────────────────── -->
@@ -20,6 +34,12 @@
     <!-- Rendered from the NAV array in app.js — add a section there, not here. -->
     <nav class="side-nav" id="sideNav"></nav>
     <div class="side-foot">
+      <div class="side-tools">
+        <button id="themeBtn" class="rail-btn" type="button" title="Appearance"
+                aria-label="Appearance"></button>
+        <button id="railBtn" class="rail-btn" type="button" title="Collapse sidebar"
+                aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar"></button>
+      </div>
       <div class="side-version">Cognigy Demo Studio</div>
     </div>
   </aside>
@@ -279,6 +299,22 @@
   <!-- ── Settings ─────────────────────────────────────────────── -->
   <main id="settingsView" hidden>
     <div class="list-head"><h2>Settings</h2></div>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Appearance</h3>
+          <p class="card-sub">How Demo Studio itself looks. This is your workspace only — it never
+            changes what a customer sees in a demo.</p>
+        </div>
+      </div>
+      <div class="seg" id="themeSeg" role="radiogroup" aria-label="Appearance">
+        <button type="button" class="seg-btn" data-theme-choice="system" role="radio">System</button>
+        <button type="button" class="seg-btn" data-theme-choice="light"  role="radio">Light</button>
+        <button type="button" class="seg-btn" data-theme-choice="dark"   role="radio">Dark</button>
+      </div>
+      <p class="soft" id="themeStatus"></p>
+    </section>
 
     <section class="card">
       <div class="card-head">
