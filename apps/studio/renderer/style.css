@@ -1,20 +1,111 @@
 /* Cognigy Demo Studio — dashboard, NiCE Cognigy brand.
-   Palette: dark #21212b · blue #3694fc · teal #36ead0 · pink #ff5b8a.
-   Layout: fixed dark left sidebar + light content area.  */
+   Layout: fixed dark left sidebar + light content area.
+
+   Two tiers of tokens:
+     tier 1  --nice-*   the official NiCE palette, straight off the brand
+                        guidelines. Theme-invariant: these never change.
+     tier 2  everything else — semantic roles. THESE are what the rest of
+                        the file uses, and they are what a dark theme
+                        overrides. Never reference a --nice-* directly
+                        outside this block.
+
+   Rule: no raw hex or rgba below this block. If you need a new colour,
+   give it a semantic name here first, or a dark theme will miss it.  */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
 :root {
-  --primary: #3694fc;
-  --primary-deep: #2578d4;
-  --dark: #21212b;
-  --dark-2: #2a2a36;
-  --teal: #36ead0;
-  --pink: #ff5b8a;
-  --ink: #16161d;
-  --soft: #64748b;
-  --line: #e2e8f0;
-  --bg: #f7f8fa;
+  color-scheme: light;
+
+  /* ── tier 1: NiCE brand palette ──────────────────────────────────── */
+  --nice-ink:        #21212b;   /* NiCE black — the sidebar/rail ground   */
+  --nice-ink-deep:   #16161d;
+  --nice-ink-2:      #373741;
+  --nice-grey-900:   #4e4e56;
+  --nice-grey-600:   #918f94;
+  --nice-grey-400:   #c8c8ca;
+  --nice-grey-200:   #e6e7e8;
+  --nice-cream:      #f2f0eb;   /* the brand's warm off-white ground      */
+  --nice-white:      #ffffff;
+  --nice-blue:       #3694fc;   /* NiCE / Cognigy blue — the logo colour   */
+  --nice-blue-deep:  #025afb;
+  --nice-blue-300:   #90b6fd;
+  --nice-blue-200:   #a7d0fe;
+  --nice-teal:       #36ead0;
+  --nice-mint:       #9cedd1;
+  --nice-aqua:       #abf7f2;
+  --nice-green:      #00e2a0;
+  --nice-pink:       #ff5c8a;
+  --nice-purple:     #6100ff;
+  --nice-purple-200: #b98fff;
+  --nice-red:        #d8282f;
+
+  /* ── tier 2: semantic ────────────────────────────────────────────── */
+  /* surfaces + text */
+  --bg:            #f7f8fa;
+  --surface:       #fff;
+  --surface-2:     #fafbfc;
+  --surface-3:     #f4f6f9;
+  --surface-4:     #f1f5f9;
+  --ink:           #16161d;
+  --soft:          #64748b;
+  --on-primary:    #fff;      /* text/icons sitting on a --primary fill  */
+  --on-dark:       #fff;      /* text/icons sitting on the dark rail     */
+
+  /* lines */
+  --line:          #e2e8f0;
+  --line-strong:   #cbd5e1;
+  --line-hover:    #c6d6ea;
+
+  /* brand accents */
+  --primary:       #3694fc;
+  --primary-deep:  #2578d4;
+  --primary-soft:  rgba(54,148,252,.12);
+  --primary-soft-2:rgba(54,148,252,.16);
+  --teal:          #36ead0;
+  --teal-soft:     rgba(54,234,208,.16);
+  --teal-soft-2:   rgba(54,234,208,.18);
+  --teal-soft-3:   rgba(54,234,208,.13);
+  --teal-soft-4:   rgba(54,234,208,.2);
+  --pink:          #ff5b8a;
+  --pink-soft:     rgba(255,91,138,.08);
+  --pink-soft-2:   rgba(255,91,138,.15);
+  --pink-line:     rgba(255,91,138,.4);
+  --pink-line-2:   rgba(255,91,138,.45);
+
+  /* status */
+  --ok-text:       #0b8f7c;
+  --ok-text-2:     #0b7d6d;
+  --warn-soft:     #fef3c7;
+  --warn-soft-2:   #fde68a;
+  --warn-line:     #f59e0b;
+  --warn-text:     #92400e;
+  --warn-text-2:   #b45309;
+  --danger-solid:  #dc2626;
+  --danger-solid-h:#b91c1c;
+
+  /* the rail — its own surface set, dark in both themes */
+  --rail-bg:        #21212b;
+  --rail-bg-2:      #2a2a36;
+  --rail-ink:       #fff;
+  --rail-ink-dim:   rgba(255,255,255,.72);
+  --rail-ink-soft:  rgba(255,255,255,.85);
+  --rail-ink-faint: rgba(255,255,255,.45);
+  --rail-ink-ghost: rgba(255,255,255,.3);
+  --rail-hover:     rgba(255,255,255,.07);
+  --rail-active:    rgba(54,148,252,.16);
+  --rail-line:      rgba(255,255,255,.08);
+  --rail-border:    transparent;
+
+  /* elevation */
+  --shadow-1: 0 1px 2px rgba(22,22,29,.06);
+  --shadow-2: 0 2px 12px rgba(22,22,29,.10);
+  --shadow-3: 0 10px 34px rgba(15,23,42,.25);
+  --shadow-4: 0 18px 50px rgba(0,0,0,.35);
+  --scrim:    rgba(22,22,29,.5);
+
+  /* layout */
   --sidebar-w: 232px;
+  --sidebar-w-mini: 68px;
 }
 body {
   font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -24,7 +115,7 @@ body {
 /* ── sidebar ─────────────────────────────────────────────── */
 #sidebar {
   position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
-  background: var(--dark); color: #fff; display: flex; flex-direction: column;
+  background: var(--rail-bg); color: #fff; display: flex; flex-direction: column;
   z-index: 20;
 }
 .side-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 20px; }
@@ -180,7 +271,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
   font-size: 13px; font-family: inherit; background: #fff;
 }
 #rc-widget-shell {
-  position: relative; background: var(--dark); border-radius: 16px; overflow: hidden;
+  position: relative; background: var(--rail-bg); border-radius: 16px; overflow: hidden;
   height: 560px; max-height: 70vh; display: flex; flex-direction: column;
   box-shadow: 0 10px 34px rgba(15,23,42,.25);
 }
@@ -204,7 +295,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 .rc-sid {
   position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 8px;
-  background: var(--dark-2); border: 1px solid rgba(54,148,252,.35); border-radius: 20px;
+  background: var(--rail-bg-2); border: 1px solid rgba(54,148,252,.35); border-radius: 20px;
   padding: 5px 8px 5px 12px; z-index: 5; cursor: pointer;
   font-size: 11px; color: rgba(255,255,255,.6);
 }
@@ -216,7 +307,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
 }
 .rc-sid-copy.copied { background: rgba(54,234,208,.2); color: var(--teal); }
 #rc-device-bar {
-  flex: 0 0 auto; height: 52px; background: var(--dark-2);
+  flex: 0 0 auto; height: 52px; background: var(--rail-bg-2);
   border-top: 1px solid rgba(255,255,255,.07);
   display: flex; align-items: center; padding: 0 14px; gap: 12px;
 }
@@ -230,7 +321,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
   font-family: inherit; outline: none;
 }
 .rc-dev-group select:focus { border-color: var(--primary); }
-.rc-dev-group select option { background: var(--dark); color: #fff; }
+.rc-dev-group select option { background: var(--rail-bg); color: #fff; }
 #rc-call-state { display: flex; align-items: center; gap: 6px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,.09); }
 #rc-call-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); }
 #rc-call-dot.connecting { background: var(--primary); animation: rcPulse 1s ease-in-out infinite; }
@@ -303,7 +394,7 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 .ob-beta small { font-size: 8.5px; text-transform: uppercase; margin-left: 3px; color: var(--teal); font-weight: 700; }
 .ob-toast {
   position: fixed; bottom: 22px; left: calc(var(--sidebar-w) + 26px); right: 26px; max-width: 720px;
-  background: var(--dark); color: #fff; border-radius: 12px; padding: 13px 16px; font-size: 13px;
+  background: var(--rail-bg); color: #fff; border-radius: 12px; padding: 13px 16px; font-size: 13px;
   box-shadow: 0 10px 30px rgba(0,0,0,.35); z-index: 60; line-height: 1.5;
 }
 .ob-toast.ok { border-left: 4px solid var(--teal); }
