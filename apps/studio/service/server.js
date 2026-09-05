@@ -251,9 +251,17 @@ function createApp() {
 
   // The Studio dashboard is a static web app served at "/" — the Electron
   // window loads this same URL, and the extension popup can open it in a tab.
-  app.use(express.static(path.join(__dirname, "..", "renderer"), { cacheControl: false, etag: false }));
+  //
+  // no-store, not just "no Cache-Control": with no header, no ETag and no
+  // Last-Modified, browsers fall back to heuristic freshness and happily serve
+  // a stale style.css or app.js — so an SE updates the app and still sees the
+  // old dashboard. Same treatment the demo routes already give their assets.
+  const noStore = (res) => res.set("Cache-Control", "no-store");
+  app.use(express.static(path.join(__dirname, "..", "renderer"),
+    { cacheControl: false, etag: false, lastModified: false, setHeaders: noStore }));
   // Shared browser modules (endpoint normalization) for the dashboard.
-  app.use("/shared", express.static(require("./paths").SHARED_ROOT, { cacheControl: false, etag: false }));
+  app.use("/shared", express.static(require("./paths").SHARED_ROOT,
+    { cacheControl: false, etag: false, lastModified: false, setHeaders: noStore }));
 
   // The Webchat v3 bundle, straight from the pinned npm package. Unlike the
   // small Studio assets below, this keeps sendFile's ETag/304 defaults instead
