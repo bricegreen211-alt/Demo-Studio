@@ -16,6 +16,23 @@
   var SIZES = { small: 48, medium: 60, large: 72 };
   var MIN_W = 300;
 
+  /*
+   * Elevation. Mirrors --shadow-* in apps/studio/renderer/style.css and is
+   * kept as literals on purpose: this is a content script inside a closed
+   * shadow root on the customer's page, so it cannot read the dashboard's
+   * stylesheet, and there is no build step to inline the values. Change one,
+   * change the other.
+   *
+   * CARD_RADIUS must stay equal to .cds-shell-card's border-radius in
+   * templates/*\/src/styles.css, or the overlay's shadow paints square around
+   * a rounded card.
+   */
+  var ELEV = {
+    drawer: "0 40px rgba(15,23,42,.25)",   // edge-anchored: solid + webchat3
+    card: "0 18px 56px rgba(15,23,42,.30)" // free-floating: the overlay widget
+  };
+  var CARD_RADIUS = "18px";
+
   /* ------------------------------------------------------------------ *
    * Stacking. Third-party chat widgets routinely park at the very top of
    * the z-index range — Chatbase's launcher is 2147483645 and its window
@@ -161,9 +178,24 @@
     var style = document.createElement("style");
     style.textContent =
       ":host{all:initial;}" +
+      /*
+       * The shadow lives on the IFRAME, not on the card inside it.
+       * .cds-shell-card already has one, but an iframe clips its own content
+       * to its box and the frame is sized to hug the card — so the entire
+       * blur was painted outside the iframe and discarded, and the widget
+       * read as pasted flat onto the customer's page. box-shadow on the
+       * iframe element paints outside that box and is not clipped. Same
+       * arrangement .cds-style-solid and .cds-wc3-drawer already use.
+       *
+       * Open only: collapsed, the frame is a transparent box around a
+       * circular launcher, and a rectangular shadow there would read as a
+       * floating grey card. The launcher draws its own glow.
+       */
       ".cds-overlay-frame{position:fixed;bottom:20px;" + side + ":20px;border:0;" +
-      "background:transparent;z-index:1;display:block;" +
-      "transition:width .28s cubic-bezier(.32,.72,.28,1),height .28s cubic-bezier(.32,.72,.28,1);}";
+      "background:transparent;z-index:1;display:block;border-radius:" + CARD_RADIUS + ";" +
+      "transition:width .28s cubic-bezier(.32,.72,.28,1)," +
+      "height .28s cubic-bezier(.32,.72,.28,1),box-shadow .22s ease;}" +
+      ".cds-overlay-frame.cds-open{box-shadow:" + ELEV.card + ";}";
     root.appendChild(style);
 
     var frame = document.createElement("iframe");
@@ -210,6 +242,7 @@
         isOpen = !!d.open;
         if (d.width) opened.w = Math.max(MIN_W, Math.min(900, Math.ceil(d.width)));
         if (d.height) opened.h = Math.max(200, Math.min(900, Math.ceil(d.height)));
+        frame.classList.toggle("cds-open", isOpen);
         applySize();
       }
     });
@@ -260,8 +293,12 @@
         "transition:background-color .2s ease, box-shadow .2s ease;}" +
       /* Solid, open: paint the drawer. The clip is what limits it to the
          drawer's edge and width, so this can safely be a full-viewport box. */
+      /* Blur stays at ELEV.drawer's 40px: this frame is clipped by clip-path
+         and CLIP_PAD in webchat3.js reserves exactly 28px of shadow room, so
+         a larger blur would be sliced. If that ever changes, CLIP_PAD has to
+         change with it. */
       ".cds-wc3-drawer{background:#fff;" +
-        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " 0 40px rgba(15,23,42,.25);}";
+        "box-shadow:" + (side === "right" ? "-12px" : "12px") + " " + ELEV.drawer + ";}";
     root.appendChild(style);
 
     /*
@@ -593,7 +630,7 @@
       ".cds-style-solid.cds-full,.cds-style-clear.cds-full{width:100vw !important;max-width:100vw;}",
 
       /* solid — opaque panel (default) */
-      ".cds-style-solid{background:#fff;box-shadow:" + edge + " 0 40px rgba(15,23,42,.25);}",
+      ".cds-style-solid{background:#fff;box-shadow:" + edge + " " + ELEV.drawer + ";}",
 
       /* clear — see straight through to the customer's site; only the demo's
          own UI elements (bubbles, orb, controls) paint anything. */
