@@ -115,6 +115,12 @@
   --shadow-4: 0 18px 50px rgba(0,0,0,.35);
   --scrim:    rgba(22,22,29,.5);
 
+  /* brand artwork — the rail is dark in both themes, so it always takes the
+     white-and-blue lockup; --logo-wordmark-light is for light content cards. */
+  --logo-wordmark:       url("brand/cognigy-white-and-blue.svg");
+  --logo-wordmark-light: url("brand/cognigy-black-and-blue.svg");
+  --logo-stacked:        url("brand/cognigy-stacked-white-and-blue.svg");
+
   /* layout */
   --sidebar-w: 232px;
   --sidebar-w-mini: 68px;
@@ -130,14 +136,16 @@ body {
   background: var(--rail-bg); color: var(--surface); display: flex; flex-direction: column;
   z-index: 20;
 }
-.side-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 20px; }
-.side-mark { width: 34px; height: 34px; border-radius: 8px; }
-.side-word { line-height: 1.15; font-size: 15px; letter-spacing: .01em; }
-.side-word b { font-weight: 700; color: var(--rail-ink); }
-.side-word span { color: var(--primary); font-weight: 500; }
-.side-word small {
-  display: block; font-size: 9px; letter-spacing: .22em; color: var(--rail-ink-faint);
-  font-weight: 500; margin-top: 2px;
+.side-brand { padding: 18px 16px 20px; }
+/* The lockup is artwork: never recolour it or change its proportions — swap
+   the file per surface instead (--logo-wordmark is the dark-surface one). */
+.side-logo {
+  display: block; width: 176px; height: 29px;
+  background: var(--logo-wordmark) left center / contain no-repeat;
+}
+.side-logo-sub {
+  display: block; margin-top: 7px; font-size: 9px; letter-spacing: .22em;
+  color: var(--rail-ink-faint); font-weight: 500; text-transform: uppercase;
 }
 .side-nav { flex: 1; padding: 6px 10px; }
 .side-item {
@@ -527,7 +535,10 @@ ol.tight b { color: var(--ink); }
 
 /* about strip */
 .card.about { display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
-.about-mark img { width: 38px; height: 38px; border-radius: 9px; display: block; }
+.about-mark {
+  width: 132px; height: 22px; flex: 0 0 auto;
+  background: var(--logo-wordmark-light) left center / contain no-repeat;
+}
 .about-body h3 { font-size: 14.5px; font-weight: 600; }
 .about-body .muted { margin-top: 2px; }
 

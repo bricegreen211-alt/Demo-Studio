@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cognigy Demo Studio</title>
   <link rel="icon" href="favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="brand/fonts.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- ── Left sidebar ─────────────────────────────────────────── -->
   <aside id="sidebar">
     <div class="side-brand">
-      <img src="favicon.png" alt="" class="side-mark" />
-      <div class="side-word"><b>NiCE</b> <span>Cognigy</span><small>DEMO STUDIO</small></div>
+      <!-- Official lockup, referenced (not inlined) so its internal .cls-* rules
+           stay scoped to the SVG. See brand/README.txt. -->
+      <span class="side-logo" role="img" aria-label="NiCE Cognigy"></span>
+      <span class="side-logo-sub">Demo Studio</span>
     </div>
     <nav class="side-nav">
       <a href="#demos" id="nav-demos" class="side-item">
@@ -413,7 +414,7 @@
     </div>
 
     <section class="card about">
-      <div class="about-mark"><img src="favicon.png" alt="" /></div>
+      <div class="about-mark" role="img" aria-label="NiCE Cognigy"></div>
       <div class="about-body">
         <h3 id="aboutName">Cognigy Demo Studio</h3>
         <p class="muted">

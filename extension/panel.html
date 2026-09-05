@@ -3,28 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <style>
+    /* Extension pages are their own documents and cannot read the dashboard's
+       style.css, so the palette is duplicated here. Keep it in step with the
+       tier-1 block in apps/studio/renderer/style.css. Plain rgba only: MV3's
+       floor is Chrome 88 and color-mix() needs 111+. */
+    :root {
+      --nice-ink: #21212b;
+      --nice-ink-rgb: 33,33,43;
+      --surface: #fff;
+      --soft: #64748b;
+      --on-dark: #fff;
+      --btn: rgba(255,255,255,.12);
+      --btn-hover: rgba(255,255,255,.25);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
     body {
       display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      background: #fff;
+      background: var(--surface);
     }
     header {
       flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; background: #0f172a; color: #fff;
+      padding: 8px 10px; background: var(--nice-ink); color: var(--on-dark);
     }
     #title { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     button {
-      border: 0; background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
+      border: 0; background: var(--btn); color: var(--on-dark); cursor: pointer;
       width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
     }
-    button:hover { background: rgba(255,255,255,.25); }
+    button:hover { background: var(--btn-hover); }
     /* min-height:0 — a replaced element won't shrink below its intrinsic
        150px height without it, which overflows a launcher-sized overlay. */
     iframe { flex: 1; border: 0; width: 100%; height: 100%; min-height: 0; background: transparent; }
     #err {
-      display: none; padding: 24px; color: #64748b; font-size: 13px; line-height: 1.6;
+      display: none; padding: 24px; color: var(--soft); font-size: 13px; line-height: 1.6;
     }
 
     /* Clear: the wrapper itself paints nothing, so the customer's site shows
@@ -33,7 +46,7 @@
     body.chromeless { background: transparent; }
     body.chromeless header {
       position: absolute; top: 10px; right: 10px; z-index: 5;
-      padding: 4px; gap: 4px; background: rgba(15,23,42,.55);
+      padding: 4px; gap: 4px; background: rgba(var(--nice-ink-rgb),.55);
       border-radius: 10px; backdrop-filter: blur(8px);
       opacity: 0; transition: opacity .18s ease;
     }
@@ -51,7 +64,7 @@
     body.chat-webchat3 { background: transparent; }
     body.chromeless #err {
       background: rgba(255,255,255,.94); border-radius: 14px; margin: 16px;
-      box-shadow: 0 8px 30px rgba(15,23,42,.2);
+      box-shadow: 0 8px 30px rgba(var(--nice-ink-rgb),.2);
     }
   </style>
 </head>
