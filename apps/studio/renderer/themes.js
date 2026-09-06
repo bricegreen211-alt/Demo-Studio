@@ -4,7 +4,7 @@
  * Names and order come from packages/shared/demo-schema.js THEMES; this file
  * adds only what a *picker* needs — a human label, one line of description, and
  * a few swatches to render a tile. The actual token values live in
- * assets/themes/<id>.json and are applied by the service, not here.
+ * assets/themes/<endpoint>/<id>.json and are applied by the service, not here.
  *
  * Kept as a separate script (no build step in this dashboard) so the picker and
  * anything later — a Theme Designer, an export — read one list.
@@ -56,12 +56,23 @@
     { id: "card", name: "Card", note: "Modal card with an orb — the most present of the three.", swatch: ["#ffffff", "#8b5cf6", "#f2564f"] }
   ];
 
-  /* Combined layouts. Cognigy Default here means BOTH real widgets. */
+  /*
+   * Combined layouts. Cognigy Default here means BOTH of Cognigy's own widgets.
+   *
+   * "nebula" also exists in the Webchat list above — a CognigyWindowThemeBuilder
+   * preset — and is an entirely different theme applied by an entirely different
+   * mechanism. The theme FILES are namespaced by endpoint for exactly this
+   * reason; the ids only have to be unique within a list.
+   */
   var COMBO = [
-    { id: "dark-orb",      name: "Dark Orb Panel", note: "Right-hand dark panel, Voice/Chat tabs, iridescent orb.", swatch: ["#0b1020", "#6ea8ff", "#c4b5fd"] },
-    { id: "light-side",    name: "Light Side Panel", note: "Right-hand light panel, xApp inline under the transcript.", swatch: ["#f7f9fc", "#3b82f6", "#e0e7ff"] },
-    { id: "wide-dock",     name: "Wide Dock", note: "Docked across the foot, transcript and xApp side by side.", swatch: ["#ffffff", "#0f5f5c", "#9cedd1"] },
-    { id: "detached-xapp", name: "Detached xApp", note: "The xApp floats as its own card beside the panel.", swatch: ["#faf8ff", "#6d28d9", "#c4b5fd"] }
+    { id: "nebula",  name: "Nebula",  note: "Immersive dark glass. A luminous orb is the centrepiece, transcript beneath.",
+      swatch: ["#0b1020", "#6ea8ff", "#c4b5fd"] },
+    { id: "halo",    name: "Halo",    note: "White and vertical. Call status, transcript, then the xApp embedded below it.",
+      swatch: ["#ffffff", "#3b82f6", "#e3e9f5"] },
+    { id: "horizon", name: "Horizon", note: "Wide, across the lower page. Transcript left, xApp right, toolbars top and bottom.",
+      swatch: ["#ffffff", "#0f5f5c", "#9cedd1"] },
+    { id: "prism",   name: "Prism",   note: "Compact assistant with the xApp as a separate companion card beside it.",
+      swatch: ["#faf8ff", "#6d28d9", "#c4b5fd"] }
   ];
 
   var BY_TEMPLATE = {

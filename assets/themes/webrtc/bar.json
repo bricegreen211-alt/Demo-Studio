@@ -4,7 +4,7 @@
   "for": [
     "webrtc"
   ],
-  "note": "Wide dock, teal on white, squared edges.",
+  "note": "Wide dock across the foot, teal on white, squared edges.",
   "tokens": {
     "--bg": "#ffffff",
     "--surface": "#ffffff",

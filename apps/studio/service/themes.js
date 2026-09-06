@@ -26,21 +26,29 @@ const THEMES_DIR = path.join(__dirname, "..", "..", "..", "assets", "themes");
 // the same live-editing property the rest of the demo pipeline has.
 const cache = new Map();
 
-function load(id) {
+/*
+ * Themes live under assets/themes/<endpoint>/<id>.json, namespaced because the
+ * id space genuinely collides: "nebula" is both a CognigyWindowThemeBuilder
+ * Webchat preset and one of the combination layouts, and they are entirely
+ * different themes applied by entirely different mechanisms.
+ */
+function load(id, template) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(String(id || ""))) return null;
-  const file = path.join(THEMES_DIR, id + ".json");
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(String(template || ""))) return null;
+  const file = path.join(THEMES_DIR, template, id + ".json");
   let stat;
   try { stat = fs.statSync(file); } catch (e) { return null; }
 
-  const hit = cache.get(id);
+  const key = template + "/" + id;
+  const hit = cache.get(key);
   if (hit && hit.mtime === stat.mtimeMs) return hit.theme;
 
   try {
     const theme = JSON.parse(fs.readFileSync(file, "utf8"));
-    cache.set(id, { mtime: stat.mtimeMs, theme });
+    cache.set(key, { mtime: stat.mtimeMs, theme });
     return theme;
   } catch (err) {
-    console.error("[themes] " + id + ".json is not valid JSON:", err.message);
+    console.error("[themes] " + key + ".json is not valid JSON:", err.message);
     return null;
   }
 }
@@ -77,11 +85,12 @@ function block(selector, tokens) {
  */
 function styleFor(cfg) {
   const preset = (cfg && cfg.theme && cfg.theme.preset) || "cognigy-default";
+  const template = (cfg && cfg.template) || "webchat";
   const custom = (cfg && cfg.theme && cfg.theme.custom) || {};
 
   let css = "";
   if (preset !== "cognigy-default") {
-    const theme = load(preset === "custom" ? null : preset);
+    const theme = load(preset === "custom" ? null : preset, template);
     if (theme) {
       css += block(":root", theme.tokens);
       // The click-to-call widget scopes its variables to its own container.
@@ -101,9 +110,9 @@ function styleFor(cfg) {
   return '<style data-cds-theme="' + preset + '">\n' + css + "</style>";
 }
 
-function list() {
+function list(template) {
   try {
-    return fs.readdirSync(THEMES_DIR)
+    return fs.readdirSync(path.join(THEMES_DIR, template))
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.slice(0, -5));
   } catch (e) {

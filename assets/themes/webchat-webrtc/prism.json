@@ -1,10 +1,10 @@
 {
-  "id": "detached-xapp",
-  "name": "Detached xApp",
+  "id": "prism",
+  "name": "Prism",
   "for": [
     "webchat-webrtc"
   ],
-  "note": "The xApp floats as its own card beside the panel.",
+  "note": "Compact assistant bottom-right with the xApp as a separate companion card beside it.",
   "tokens": {
     "--bg": "#ffffff",
     "--surface": "#ffffff",

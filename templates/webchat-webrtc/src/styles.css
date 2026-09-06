@@ -386,11 +386,6 @@ body {
   background: var(--accent-tint-12);
   border-color: var(--accent); color: var(--accent); font-weight: 600;
 }
-.cds-launch-voice {
-  margin-left: auto;
-  background: var(--accent) !important; color: var(--on-primary) !important;
-  border-color: var(--accent) !important; font-weight: 600;
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    OVERLAY SHELL  (panelStyle "overlay")

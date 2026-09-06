@@ -56,15 +56,17 @@
    *                    straight in rather than being re-authored.
    *   webrtc         — three shells. Live transcript is a separate toggle
    *                    (showTranscript), not three more themes.
-   *   webchat-webrtc — four combined layouts.
+   *   webchat-webrtc — four combined layouts. Note "nebula" appears in BOTH
+   *                    this list and the webchat one and is a different theme
+   *                    in each, which is why the files are namespaced by
+   *                    endpoint under assets/themes/<endpoint>/.
    */
   var COGNIGY_DEFAULT = "cognigy-default";
   var THEMES = {
     "webchat": [COGNIGY_DEFAULT, "aurora", "tech", "bloom", "hibiscus", "trailhead",
                 "minimal", "nebula", "sunset", "ivory", "custom"],
     "webrtc": [COGNIGY_DEFAULT, "bar", "pill", "card", "custom"],
-    "webchat-webrtc": [COGNIGY_DEFAULT, "dark-orb", "light-side", "wide-dock",
-                       "detached-xapp", "custom"]
+    "webchat-webrtc": [COGNIGY_DEFAULT, "nebula", "halo", "horizon", "prism", "custom"]
   };
 
   // Greeting on connect, or a button the visitor presses first. Cognigy's own

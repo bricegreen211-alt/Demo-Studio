@@ -1,10 +1,10 @@
 {
-  "id": "dark-orb",
-  "name": "Dark Orb Panel",
+  "id": "nebula",
+  "name": "Nebula",
   "for": [
     "webchat-webrtc"
   ],
-  "note": "Dark panel, iridescent orb.",
+  "note": "Immersive dark glass on the right. A luminous orb is the centrepiece, with the transcript beneath it.",
   "tokens": {
     "--bg": "#0b1020",
     "--surface": "#0b1020",

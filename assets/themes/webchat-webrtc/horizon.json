@@ -1,10 +1,10 @@
 {
-  "id": "wide-dock",
-  "name": "Wide Dock",
+  "id": "horizon",
+  "name": "Horizon",
   "for": [
     "webchat-webrtc"
   ],
-  "note": "Docked across the foot, transcript and xApp side by side.",
+  "note": "Wide panel across the lower page. Transcript left, xApp right, one toolbar top and bottom.",
   "tokens": {
     "--bg": "#ffffff",
     "--surface": "#ffffff",

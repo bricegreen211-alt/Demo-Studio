@@ -1,10 +1,10 @@
 {
-  "id": "light-side",
-  "name": "Light Side Panel",
+  "id": "halo",
+  "name": "Halo",
   "for": [
     "webchat-webrtc"
   ],
-  "note": "Light panel, xApp inline under the transcript.",
+  "note": "White, vertical, soft blue. Identity, compact call status, transcript, then the xApp embedded below it.",
   "tokens": {
     "--bg": "#ffffff",
     "--surface": "#ffffff",

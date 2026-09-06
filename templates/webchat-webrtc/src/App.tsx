@@ -1,8 +1,10 @@
 /*
  * Multimodal Demo Experience (SOW §9.3): chat and voice in one panel.
- * - Chat stays connected while on a call (persistent customer experience).
- * - "Voice launch from chat": phone button switches to voice and starts the call.
- * - When the call ends, one tap returns to chat with shared userId context.
+ * - Chat stays connected while on a call, so the conversation is persistent.
+ * - The Voice/Chat selector is the only way between them. There is no separate
+ *   "Call" button: voice is already one of the two modes, so a third control
+ *   that jumps to it was a duplicate of the tab beside it.
+ * - When the call ends, the panel returns to chat with the same userId.
  */
 import { useEffect, useRef, useState } from "react";
 import { DemoConfig } from "./config";
@@ -17,17 +19,7 @@ export default function App({ cfg }: { cfg: DemoConfig }) {
   const chat = useCognigyChat(cfg);
   const voice = useCognigyVoice(cfg);
   const [mode, setMode] = useState<"chat" | "voice">("chat");
-  const [autoCall, setAutoCall] = useState(false);
   const prevState = useRef(voice.state);
-
-  // Voice launch from chat: switch + start in one tap.
-  const launchVoice = () => { setMode("voice"); setAutoCall(true); };
-  useEffect(() => {
-    if (autoCall && mode === "voice" && voice.state === "idle") {
-      setAutoCall(false);
-      voice.start();
-    }
-  }, [autoCall, mode, voice]);
 
   // Return to chat after the call wraps up.
   useEffect(() => {
@@ -49,17 +41,6 @@ export default function App({ cfg }: { cfg: DemoConfig }) {
         <button className={mode === "voice" ? "on" : ""} onClick={() => setMode("voice")}>
           <Icon name="mic" /> Voice{inCall && <span className="cds-live" aria-label="on a call" />}
         </button>
-        {/*
-          Voice launch from chat. One tap switches to voice AND places the
-          call, so the customer never sees a dead "now press call" step — the
-          whole point of the multimodal demo.
-        */}
-        {mode === "chat" && !inCall && (
-          <button className="cds-launch-voice" onClick={launchVoice}
-                  title={"Talk to " + cfg.agentName} aria-label={"Talk to " + cfg.agentName}>
-            <Icon name="call" /> Call
-          </button>
-        )}
       </nav>
       <div className="cds-pane" style={{ display: mode === "chat" ? "flex" : "none" }}>
         <ChatView cfg={cfg} chat={chat} />
