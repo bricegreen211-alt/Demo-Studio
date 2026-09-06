@@ -426,10 +426,35 @@ function migrateFollowMe() {
   }
 }
 
+/*
+ * Chat UI stopped being a choice and became a consequence of endpoint + theme.
+ * A Webchat demo that had it pinned to "studio" under the old form now renders
+ * Cognigy's real widget, because a Webchat endpoint no longer has a built-in
+ * chat option — every Webchat theme styles the real widget instead of replacing
+ * it. That is intended, but it changes an existing demo, so say so once rather
+ * than let the SE discover it mid-demo.
+ */
+function reportChatUiChanges() {
+  try {
+    const moved = store.list()
+      .filter((d) => d.template === "webchat" && d.panelStyle !== "overlay" &&
+                     String((d.cognigy || {}).chatEndpoint || "").trim().toLowerCase() !== "mock")
+      .filter((d) => d.chatUi === "webchat3")
+      .map((d) => d.name);
+    if (!moved.length) return;
+    console.log("[service] Chat UI is now derived from the endpoint and theme. These demos use " +
+      "Cognigy's Webchat v3 widget: " + moved.join(", ") + ". Pick a theme in the demo form to " +
+      "restyle it, or switch the endpoint to Webchat + WebRTC for the built-in chat.");
+  } catch (e) {
+    console.error("[service] chat UI report skipped:", e.message);
+  }
+}
+
 function start() {
   const { ensureDirs } = require("./paths");
   ensureDirs();
   migrateFollowMe();
+  reportChatUiChanges();
   const app = createApp();
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log("[service] Cognigy Demo Studio service on http://localhost:" + PORT);
