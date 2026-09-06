@@ -11,6 +11,7 @@ const settingsStore = require("./settings");
 const builder = require("./builder");
 const preflight = require("./preflight");
 const importer = require("./importer");
+const themes = require("./themes");
 const outbound = require("./outbound");
 const { demoDir } = require("./paths");
 const normalize = require("../../../packages/shared/normalize");
@@ -381,9 +382,23 @@ function createApp() {
     if (isIndex) {
       const panelStyle = (demoCfg && demoCfg.panelStyle) || "solid";
       const sheets = PANEL_STYLE_SHEETS[panelStyle] || [];
-      if (sheets.length) {
+      /*
+       * The theme has to be composed per demo — it carries theme.custom from
+       * demo.json — so it cannot be a static file in CDS_ASSETS. Inlining it
+       * also saves a round-trip, the same reasoning as sendWebchat3Host's
+       * config blob. Empty string for Cognigy Default, which contributes
+       * nothing by design.
+       */
+      const themeStyle = themes.styleFor(demoCfg);
+      if (themeStyle || sheets.length) {
         let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-        const tags = sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
+        /*
+         * Order is load-bearing. The theme goes first so the demo's own
+         * stylesheet is overridden on equal specificity; clear-mode.css goes
+         * LAST because it is entirely !important and must win over both.
+         */
+        const tags = themeStyle +
+          sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
         html = html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html + tags;
         res.set("Cache-Control", "no-store");
         res.set("Content-Type", "text/html; charset=utf-8");
