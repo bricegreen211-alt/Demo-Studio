@@ -355,7 +355,9 @@
      */
     $("appearanceCard").hidden = isDefaultTheme();
     $("automationsCard").hidden = isDefaultTheme();
-    $("transcriptRow").hidden = form.template === "webchat" || isDefaultTheme();
+    // Inside the Appearance card, which is already hidden for Cognigy Default,
+    // so this only has to hide for the endpoint that has no voice at all.
+    $("transcriptRow").hidden = form.template === "webchat";
 
     paintSeg("sideSeg", "side", form.side);
     paintSeg("styleSeg", "style", form.panelStyle);

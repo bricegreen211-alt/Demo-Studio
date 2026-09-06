@@ -53,6 +53,57 @@ function reportState(state: string) {
   try { window.parent.postMessage({ type: "CDS_VOICE_STATE", state }, "*"); } catch { /* not embedded */ }
 }
 
+/*
+ * Read one transcription payload.
+ *
+ * The SDK only emits "transcription" for a SIP INFO whose JSON body carries a
+ * "_transcription" key, and it passes the INNER value — so the outer
+ * originator ("remote") is already gone, and the speaker has to come from
+ * inside the payload. Anything that reads payload.originator gets undefined
+ * and labels every line the same way.
+ *
+ * The shape also varies by Cognigy release: the documented one is an
+ * originator plus an ARRAY of message text, but plain strings and {text}
+ * forms exist too. Read all of them.
+ *
+ * Returning null rather than empty text matters: pushLine() ignores empty
+ * strings, so a shape we did not understand used to show up as no transcript
+ * at all — the caller logs the raw payload instead, which is the difference
+ * between "transcription is broken" and "here is what Cognigy actually sent".
+ */
+function readTranscription(payload: any): { role: "user" | "ai"; text: string } | null {
+  if (payload == null) return null;
+  if (typeof payload === "string") {
+    return payload.trim() ? { role: "ai", text: payload.trim() } : null;
+  }
+  const raw =
+    payload.message ?? payload.text ?? payload.transcript ??
+    payload.utterance ?? payload.content ?? payload.transcription;
+  const text = Array.isArray(raw)
+    ? raw.filter(Boolean).map(String).join(" ")
+    : typeof raw === "string" ? raw : "";
+  if (!text.trim()) return null;
+
+  const who = String(
+    payload.originator ?? payload.role ?? payload.speaker ??
+    payload.participant ?? payload.source ?? ""
+  );
+  // Default to the agent: Cognigy is the side sending these, so an unlabelled
+  // line is far more likely to be its own speech than the caller's.
+  const role: "user" | "ai" = /user|caller|human|local|customer/i.test(who) ? "user" : "ai";
+  return { role, text: text.trim() };
+}
+
+/*
+ * Verbose by default, like the extension's content script. A voice call is
+ * unfalsifiable from the outside — "the transcript is empty" could be Cognigy
+ * sending nothing, the endpoint having transcription switched off, or us
+ * misreading the payload — and this is the only place that can tell them apart.
+ */
+function vlog(...args: unknown[]) {
+  try { console.log("[cds-voice]", ...args); } catch { /* ignore */ }
+}
+
 let lineCounter = 0;
 const lineId = () => "t" + ++lineCounter + "-" + Date.now().toString(36);
 
@@ -172,8 +223,9 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
       });
       clientRef.current = client;
 
-      client.on("ringing", () => setStateReported("ringing"));
+      client.on("ringing", () => { vlog("ringing"); setStateReported("ringing"); });
       client.on("answered", () => {
+        vlog("answered — transcription will appear here if the endpoint sends it");
         setStateReported("active");
         stopTimer();
         timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -198,14 +250,31 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
         setError(String((err && err.message) || err));
         setStateReported("error");
       });
-      // Transcription where the endpoint supports it. Payload shape varies by
-      // release; handle the common fields defensively.
+      /*
+       * Transcription. Still cast: "transcription" is missing from the event
+       * union in the installed 0.0.7 typings even though the SDK emits it —
+       * sessionManager forwards it to the public client, verified in the dist.
+       */
       (client as any).on("transcription", (payload: any) => {
-        const text = payload && (payload.text || payload.transcript || (typeof payload === "string" ? payload : ""));
-        const who = payload && (payload.role || payload.participant || payload.originator || "");
-        const role: TranscriptLine["role"] = /agent|ai|bot|remote/i.test(String(who)) ? "ai" : "user";
-        if (role === "ai") markAiSpeaking();
-        pushLine(role, String(text || ""));
+        vlog("transcription", payload);
+        const line = readTranscription(payload);
+        if (!line) {
+          vlog("transcription payload had no readable text — shape not recognised", payload);
+          return;
+        }
+        if (line.role === "ai") markAiSpeaking();
+        pushLine(line.role, line.text);
+      });
+
+      /*
+       * Everything else Cognigy sends over SIP INFO lands here: the SDK routes
+       * a body with "_transcription" to the event above and emits infoReceived
+       * for the rest. That makes this the channel an agent uses to push a card
+       * or open an xApp mid-call, so it is logged now and will be routed to the
+       * stage once the built-in chat can render those.
+       */
+      client.on("infoReceived", (payload: any) => {
+        vlog("infoReceived", payload);
       });
 
       await client.connectAndCall();

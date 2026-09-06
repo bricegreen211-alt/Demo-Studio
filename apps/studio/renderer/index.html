@@ -121,9 +121,6 @@
             <p class="card-sub" id="themeSub"></p>
           </div></div>
           <div class="theme-list" id="themeList" role="radiogroup" aria-label="Theme"></div>
-          <label class="check" id="transcriptRow" hidden>
-            <input type="checkbox" id="f-transcript" /> Show the live transcript during a call
-          </label>
         </section>
 
         <!-- ── Appearance — only for non-default themes ───────────────── -->
@@ -149,6 +146,10 @@
               <div class="launcher-list" id="launcherList" role="radiogroup" aria-label="Launcher"></div>
               <input type="file" id="launcherFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden />
             </div>
+
+            <label class="check" id="transcriptRow">
+              <input type="checkbox" id="f-transcript" /> Show the live transcript during a call
+            </label>
 
             <label class="setting-field">Welcome message
               <input id="f-welcome" placeholder="Hi! I'm Ava. How can I help?" />
