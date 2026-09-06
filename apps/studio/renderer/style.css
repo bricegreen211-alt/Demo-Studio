@@ -305,6 +305,76 @@ body {
 
 #content { margin-left: var(--sidebar-w); }
 
+/* ══ demo form ═════════════════════════════════════════════════════════════
+   The form is built from the same cards as Settings; these are the few pieces
+   Settings has no equivalent for. */
+
+/* vertical rhythm inside a card — one gap value, no per-element margins */
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.stack > .grid2 { margin: 0; }
+
+/* a labelled group that isn't a single input (a segmented control, a picker) */
+.field-group { display: flex; flex-direction: column; gap: 8px; }
+.field-legend {
+  font-size: 12.5px; font-weight: 600; color: var(--soft);
+}
+.field-group .soft { margin: -2px 0 2px; }
+.starters input {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-md); font-size: 13.5px; font-family: inherit;
+  color: var(--ink); background: var(--surface);
+}
+.starters input:focus { outline: none; border-color: var(--primary); }
+
+/* ── theme picker ───────────────────────────────────────────────────────── */
+.theme-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 10px; }
+/* The rule between Cognigy's own presentation and everything we add. It spans
+   the grid so the split reads at any column count. */
+.theme-rule { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 4px 0 2px; }
+
+.theme-tile {
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  padding: 11px 12px 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+  transition: border-color .12s, box-shadow .12s;
+}
+.theme-tile:hover { border-color: var(--line-hover); }
+.theme-tile.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.theme-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.theme-swatch { display: flex; height: 30px; border-radius: var(--r-sm); overflow: hidden; }
+.theme-swatch i { flex: 1; display: block; }
+.theme-name { font-size: 13px; font-weight: 600; }
+.theme-note { font-size: 11.5px; color: var(--soft); line-height: 1.45; }
+
+/* ── launcher picker ────────────────────────────────────────────────────── */
+.launcher-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.launcher-tile {
+  width: 92px; padding: 12px 8px 10px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+}
+.launcher-tile:hover { border-color: var(--line-hover); }
+.launcher-tile.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.launcher-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.launcher-tile[disabled] { opacity: .45; cursor: not-allowed; }
+.launcher-art {
+  width: 42px; height: 42px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle at 32% 28%,
+    color-mix(in srgb, var(--primary) 45%, #fff), var(--primary) 72%);
+}
+.launcher-art svg { width: 20px; height: 20px; }
+.launcher-art.spark { background: radial-gradient(circle at 50% 55%, #1e293b, #16161d); }
+.launcher-art.upload {
+  background: var(--surface-4); color: var(--soft);
+  border: 1px dashed var(--line-strong);
+}
+.launcher-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.launcher-name { font-size: 11px; color: var(--soft); text-align: center; line-height: 1.3; }
+.launcher-tile.on .launcher-name { color: var(--ink); font-weight: 600; }
+
 /* ── collapsed rail ───────────────────────────────────────────────────────
    Redefining --sidebar-w is the whole trick: #sidebar's width, #content's
    margin and .ob-toast's offset already all read it, so one variable moves

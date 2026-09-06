@@ -202,8 +202,6 @@
     editingId = slug || null;
     $("formTitle").textContent = slug ? "Edit Demo Experience" : "New Demo Experience";
     $("saveBtn").textContent = slug ? "Save" : "Create Demo";
-    $("f-template-set").style.opacity = slug ? ".5" : "1";
-    $("f-template-set").style.pointerEvents = slug ? "none" : "auto";
     $("saveStatus").textContent = "";
     $("buildStatus").textContent = "";
     setVibecodeRow(null);
@@ -232,121 +230,243 @@
     $("demoPath").textContent = hasDemo ? demo.path : "";
   }
 
+  /* ---------------- demo form ---------------- */
+  /*
+   * Driven by two choices — Endpoint, then Theme — with everything else
+   * following. Chat UI used to be a third radio here; it is now derived in
+   * demo-schema.sanitize(), because it was always a consequence rather than a
+   * decision, which is why it kept appearing greyed out.
+   */
+
+  // Live state for the controls that aren't plain inputs.
+  var form = {
+    template: "webchat-webrtc",
+    theme: "cognigy-default",
+    launcher: "ai-orb",
+    launcherImage: "",
+    side: "right",
+    panelStyle: "clear",
+    startingBehavior: "greeting"
+  };
+
+  var LAUNCHER_ART = {
+    "ai-orb":     { name: "AI Orb",      cls: "",      icon: "blur_on" },
+    "ai-spark":   { name: "AI Spark",    cls: "spark", icon: "auto_awesome" },
+    "voice-wave": { name: "Voice Wave",  cls: "",      icon: "graphic_eq" },
+    "chat":       { name: "Chat Bubble", cls: "",      icon: "chat" }
+  };
+
+  var THEME_SUB = {
+    "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. The rest are CSS themes applied to that same widget.",
+    "webrtc": "Cognigy Default is Cognigy's own click-to-call widget. The rest are voice shells Demo Studio draws.",
+    "webchat-webrtc": "Cognigy Default runs both of Cognigy's own widgets together. The rest are combined layouts Demo Studio draws."
+  };
+
+  var PANEL_STYLE_HINT = {
+    solid: "A white drawer slides in from the side when the chat opens — the classic slide-out.",
+    clear: "Nothing of ours paints. Cognigy's own launcher and window float on the customer's site, exactly as if they had deployed it themselves.",
+    overlay: "The demo draws its own launcher and panel — both vibe-codeable in src/shell/."
+  };
+
+  var START_HINT = {
+    greeting: "The assistant speaks first as soon as the panel opens.",
+    button: "The visitor presses a button before anything is sent."
+  };
+
+  function isDefaultTheme() { return form.theme === "cognigy-default"; }
+
+  function renderThemeList() {
+    $("themeList").innerHTML = CDSThemes.listFor(form.template).map(function (t) {
+      if (t.rule) return '<div class="theme-rule" role="presentation"></div>';
+      var on = t.id === form.theme;
+      return '<button type="button" class="theme-tile' + (on ? " on" : "") + '"' +
+        ' role="radio" aria-checked="' + (on ? "true" : "false") + '" data-theme="' + t.id + '">' +
+        '<span class="theme-swatch" aria-hidden="true">' +
+          t.swatch.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("") +
+        '</span>' +
+        '<span class="theme-name">' + esc(t.name) + '</span>' +
+        '<span class="theme-note">' + esc(t.note) + '</span>' +
+      '</button>';
+    }).join("");
+    $("themeSub").textContent = THEME_SUB[form.template] || "";
+  }
+
+  function renderLauncherList() {
+    var tiles = Object.keys(LAUNCHER_ART).map(function (id) {
+      var a = LAUNCHER_ART[id];
+      var on = form.launcher === id && !form.launcherImage;
+      return '<button type="button" class="launcher-tile' + (on ? " on" : "") + '"' +
+        ' role="radio" aria-checked="' + (on ? "true" : "false") + '" data-launcher="' + id + '">' +
+        '<span class="launcher-art ' + a.cls + '">' + CDSIcons.svg(a.icon, 20) + '</span>' +
+        '<span class="launcher-name">' + esc(a.name) + '</span>' +
+      '</button>';
+    });
+    /*
+     * The upload tile shows the uploaded art once there is one, so the picker
+     * reflects what the demo will actually draw.
+     *
+     * Disabled until the upload route exists. A control that opens a file
+     * picker and then silently drops the file is the same bug the Template
+     * radios had — it looks like it worked. Better to say so.
+     */
+    var upOn = !!form.launcherImage;
+    tiles.push('<button type="button" class="launcher-tile' + (upOn ? " on" : "") + '"' +
+      ' disabled title="Not wired up yet — the upload route is next."' +
+      ' role="radio" aria-checked="' + (upOn ? "true" : "false") + '" data-launcher="__upload">' +
+      '<span class="launcher-art upload">' +
+        (upOn ? '<img src="' + esc(form.launcherImage) + '" alt="" />' : CDSIcons.svg("add_photo_alternate", 18)) +
+      '</span>' +
+      '<span class="launcher-name">' + (upOn ? "Your image" : "Upload") + '</span>' +
+    '</button>');
+    $("launcherList").innerHTML = tiles.join("");
+  }
+
+  function paintSeg(id, attr, value) {
+    var seg = $(id);
+    if (!seg) return;
+    Array.prototype.forEach.call(seg.querySelectorAll("[data-" + attr + "]"), function (b) {
+      var on = b.getAttribute("data-" + attr) === value;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
+  // The one function that keeps the form coherent.
+  function syncForm() {
+    $("l-chat").hidden = form.template === "webrtc";
+    $("l-voice").hidden = form.template === "webchat";
+
+    /*
+     * Overlay is drawn by the demo's own shell, so it only means anything when
+     * the demo is drawing — never for Cognigy's own widget. Hide the option
+     * rather than offer something that would be coerced away on save.
+     *
+     * But never hide it while it is the demo's CURRENT value: demos made before
+     * themes existed can be overlay AND default, and silently rewriting that on
+     * open would change a saved setting the SE never touched. Show it, let them
+     * resolve it.
+     */
+    $("ps-overlay").hidden = isDefaultTheme() && form.panelStyle !== "overlay";
+
+    /*
+     * Cognigy Default takes the launcher, agent name, greeting and starters
+     * from the Endpoint, so these cards are hidden rather than greyed out —
+     * the old half-state looked editable and did nothing.
+     */
+    $("appearanceCard").hidden = isDefaultTheme();
+    $("automationsCard").hidden = isDefaultTheme();
+    $("transcriptRow").hidden = form.template === "webchat" || isDefaultTheme();
+
+    paintSeg("sideSeg", "side", form.side);
+    paintSeg("styleSeg", "style", form.panelStyle);
+    paintSeg("startSeg", "start", form.startingBehavior);
+    $("panelStyleHint").textContent = PANEL_STYLE_HINT[form.panelStyle] || "";
+    $("startHint").textContent = START_HINT[form.startingBehavior] || "";
+    renderThemeList();
+    renderLauncherList();
+  }
+
   function fillForm(d) {
     $("f-name").value = d ? d.name : "";
     $("f-website").value = d ? d.website : "";
     $("f-folder").value = d ? (d.folder || "") : "";
-    setRadio("template", d ? d.template : "webchat-webrtc");
+
+    form.template = d ? d.template : "webchat-webrtc";
+    // What it was when opened. Changing the endpoint re-copies the demo's
+    // source, so the save path warns rather than doing it silently.
+    form.openedAs = d ? d.template : null;
+    form.theme = (d && d.theme && d.theme.preset) || "cognigy-default";
+    form.launcher = (d && d.launcher) || "ai-orb";
+    form.launcherImage = (d && d.launcherImage) || "";
+    form.side = d ? d.panelSide : "right";
+    form.panelStyle = d ? (d.panelStyle || "clear") : "clear";
+    form.startingBehavior = (d && d.startingBehavior) || "greeting";
+
+    $("f-endpoint").value = form.template;
     $("f-chat").value = d ? d.cognigy.chatEndpoint : "";
     $("f-voice").value = d ? d.cognigy.voiceEndpoint : "";
-    setRadio("launcher", d ? d.launcher : "ai-orb");
-    setRadio("side", d ? d.panelSide : "right");
-    setRadio("panelStyle", d ? (d.panelStyle || "solid") : "solid");
-    syncPanelStyleHint();
-    setRadio("chatUi", d ? (d.chatUi || "webchat3") : "webchat3");
     $("f-width").value = d && [360, 420, 520, 650].indexOf(d.panelWidth) >= 0 ? String(d.panelWidth) : "0";
     $("f-agent").value = d ? d.agentName : "";
     $("f-label").value = d ? d.launcherText : "";
     $("f-showlabel").checked = d ? !!d.showLauncherText : true;
     $("f-welcome").value = d ? d.welcomeMessage : "";
-    $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#3694fc";
-    $("f-secondary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.secondaryColor) ? d.theme.secondaryColor : "#f1f5f9";
-    $("f-logo").value = d ? d.theme.logo : "";
-    syncEndpointVisibility();
-    syncChatUi();
+    $("f-teaser").value = (d && d.teaserMessage) || "";
+    $("f-transcript").checked = d ? d.showTranscript !== false : true;
+
+    var starters = (d && d.starters) || [];
+    for (var i = 0; i < 3; i++) $("f-starter-" + i).value = starters[i] || "";
+
+    syncForm();
   }
 
   function formValues() {
+    var starters = [];
+    for (var i = 0; i < 3; i++) starters.push($("f-starter-" + i).value);
     return {
       name: $("f-name").value.trim(),
       website: $("f-website").value.trim(),
       folder: $("f-folder").value.trim(),
-      template: radio("template"),
-      panelSide: radio("side"),
-      panelStyle: radio("panelStyle"),
-      chatUi: radio("chatUi"),
+      template: form.template,
+      panelSide: form.side,
+      panelStyle: form.panelStyle,
       panelWidth: parseInt($("f-width").value, 10) || 0,
-      launcher: radio("launcher"),
+      launcher: form.launcher,
+      launcherImage: form.launcherImage,
       launcherText: $("f-label").value.trim(),
       showLauncherText: $("f-showlabel").checked,
       agentName: $("f-agent").value.trim() || "AI Assistant",
       welcomeMessage: $("f-welcome").value.trim(),
+      starters: starters,
+      startingBehavior: form.startingBehavior,
+      teaserMessage: $("f-teaser").value.trim(),
+      showTranscript: $("f-transcript").checked,
       cognigy: { chatEndpoint: $("f-chat").value.trim(), voiceEndpoint: $("f-voice").value.trim() },
-      theme: { primaryColor: $("f-primary").value, secondaryColor: $("f-secondary").value, logo: $("f-logo").value.trim() }
+      // chatUi is intentionally absent — sanitize() derives it from the above.
+      theme: { preset: form.theme }
     };
   }
 
-  function syncEndpointVisibility() {
-    var t = radio("template");
-    $("l-chat").style.display = t === "webrtc" ? "none" : "block";
-    $("l-voice").style.display = t === "webchat" ? "none" : "block";
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('input[name="template"]'), function (el) {
-    el.addEventListener("change", syncEndpointVisibility);
+  $("f-endpoint").addEventListener("change", function () {
+    form.template = $("f-endpoint").value;
+    /*
+     * Themes are per endpoint, so one selected for the previous endpoint may
+     * not exist here. sanitize() would fall back silently on save; do it now
+     * and visibly instead.
+     */
+    var ok = CDSThemes.listFor(form.template).some(function (t) { return t.id === form.theme; });
+    if (!ok) form.theme = CDSThemes.DEFAULT_ID;
+    syncForm();
   });
 
-  var PANEL_STYLE_HINT = {
-    solid: "A white drawer slides in from the side when the chat opens — the classic slide-out.",
-    clear: "Nothing of ours paints. Cognigy's own launcher and chat window float on the customer's site, exactly as if they had deployed it themselves.",
-    overlay: "The demo draws its own launcher icon and panel — both vibe-codeable in src/shell/. Built-in chat UI only."
-  };
-  function syncPanelStyleHint() {
-    $("panelStyleHint").textContent = PANEL_STYLE_HINT[radio("panelStyle")] || "";
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('input[name="panelStyle"]'), function (el) {
-    el.addEventListener("change", syncPanelStyleHint);
+  $("themeList").addEventListener("click", function (e) {
+    var tile = e.target.closest("[data-theme]");
+    if (!tile) return;
+    form.theme = tile.getAttribute("data-theme");
+    syncForm();
   });
 
-  var CHAT_UI_HINT = {
-    webchat3: "The real Cognigy Webchat v3 widget, with its own launcher and window. Everything about how it looks — colors, logo, welcome text, style preset — comes from the Webchat v3 Endpoint in Cognigy, not from this form.",
-    studio: "Demo Studio's own React chat, vibe-codeable in the demo's src/chat/. The only option that can run a simulated (mock) demo."
-  };
+  $("launcherList").addEventListener("click", function (e) {
+    var tile = e.target.closest("[data-launcher]");
+    if (!tile) return;
+    var v = tile.getAttribute("data-launcher");
+    if (v === "__upload") return $("launcherFile").click();
+    form.launcher = v;
+    form.launcherImage = "";
+    syncForm();
+  });
 
-  /*
-   * Webchat v3 can't be combined with the voice half or with an overlay
-   * launcher (demo-schema coerces those back to "studio"), so show that here
-   * rather than let the SE pick something the save silently undoes.
-   */
-  function syncChatUi() {
-    var allowed = radio("template") === "webchat" && radio("panelStyle") !== "overlay";
-    if (!allowed) setRadio("chatUi", "studio");
-    var on = allowed && radio("chatUi") === "webchat3";
-
-    Array.prototype.forEach.call(document.querySelectorAll('input[name="chatUi"]'), function (el) {
-      el.disabled = !allowed;
+  ["sideSeg:side", "styleSeg:style", "startSeg:start"].forEach(function (pair) {
+    var bits = pair.split(":"), id = bits[0], attr = bits[1];
+    $(id).addEventListener("click", function (e) {
+      var b = e.target.closest("[data-" + attr + "]");
+      if (!b) return;
+      var v = b.getAttribute("data-" + attr);
+      if (attr === "side") form.side = v;
+      else if (attr === "style") form.panelStyle = v;
+      else form.startingBehavior = v;
+      syncForm();
     });
-    $("f-chatui-set").classList.toggle("is-disabled", !allowed);
-
-    // Overlay is meaningless for the real widget — it draws its own launcher.
-    $("ps-overlay").style.display = radio("chatUi") === "webchat3" && allowed ? "none" : "";
-
-    $("chatUiHint").textContent = !allowed
-      ? "Cognigy Webchat v3 needs the Webchat template and a non-overlay panel style — this demo uses the built-in chat."
-      : (CHAT_UI_HINT[radio("chatUi")] || "");
-
-    // Read only by the built-in chat. Webchat v3 takes all of this from the
-    // Cognigy Endpoint, so editing it here would do nothing — say so rather
-    // than leave the SE wondering why nothing changed.
-    [["f-welcome", "Welcome Message"], ["f-agent", "AI Agent Name"],
-     ["f-primary", "Primary Color"], ["f-secondary", "Secondary Color"],
-     ["f-logo", "Logo URL"], ["f-label", "Launcher Label"]].forEach(function (pair) {
-      var input = $(pair[0]);
-      if (!input) return;
-      var label = input.closest("label");
-      if (label) label.classList.toggle("is-inert", on);
-      input.title = on ? pair[1] + " comes from the Cognigy Endpoint when Chat UI is Cognigy Webchat v3." : "";
-    });
-
-    // Launcher choices belong to our launcher, which webchat3 doesn't draw.
-    Array.prototype.forEach.call(document.querySelectorAll('input[name="launcher"]'), function (el) {
-      var lbl = el.closest("label");
-      if (lbl) lbl.classList.toggle("is-inert", on);
-    });
-  }
-  Array.prototype.forEach.call(
-    document.querySelectorAll('input[name="chatUi"], input[name="template"], input[name="panelStyle"]'),
-    function (el) { el.addEventListener("change", syncChatUi); }
-  );
+  });
 
   var followEl = $("f-followme");
   if (followEl) {
@@ -404,6 +524,20 @@
     var vals = formValues();
     if (!vals.name) { $("saveStatus").textContent = "Customer name is required."; return; }
     $("saveStatus").textContent = "Saving…";
+    /*
+     * Changing the endpoint changes which template the demo folder holds, so
+     * store.update() re-copies the source and backs the old one up to
+     * _backup-<timestamp>/. That is recoverable but it discards vibe-coded work
+     * from the live folder, so it must never happen as a surprise.
+     */
+    if (editingId && form.openedAs && form.openedAs !== vals.template) {
+      var ok = confirm(
+        "Changing the endpoint replaces this demo's source with the " + vals.template +
+        " template.\n\nYour current source is backed up inside the demo folder first, but any " +
+        "vibe-coded changes will no longer be live.\n\nContinue?");
+      if (!ok) { $("saveStatus").textContent = ""; return; }
+    }
+
     var req = editingId
       ? api("/api/demos/" + editingId, putJson(vals))
       : api("/api/demos", postJson(vals));
@@ -413,8 +547,7 @@
       editingId = d.id;
       $("formTitle").textContent = "Edit Demo Experience";
       $("saveBtn").textContent = "Save";
-      $("f-template-set").style.pointerEvents = "none";
-      $("f-template-set").style.opacity = ".5";
+      form.openedAs = d.template;
       $("saveStatus").textContent = "Saved.";
       setTimeout(function () { $("saveStatus").textContent = ""; }, 2000);
       setVibecodeRow(d);
