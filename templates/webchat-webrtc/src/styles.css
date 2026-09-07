@@ -19,13 +19,14 @@
 
 :root {
   /* ---- geometry (Shell.tsx reads these back; the form's Width wins) ---- */
-  --cds-panel-w: 460px;
-  /* Taller than the reference's 800. Shell.tsx scales this with the chosen
-     width and then clamps it to the viewport, so on a short screen it simply
-     uses whatever room there is. Raise it here AND in
-     assets/themes/webchat-webrtc/halo.json: the injected theme wins over this
-     declaration, so changing only one of them changes nothing. */
-  --cds-panel-h: 900px;
+  /* Twice the reference's 460x900. Shell.tsx keeps the ratio when a demo picks
+     a different Width, and clamps the height to the room the page actually has
+     — so on a laptop this reads as "as tall as it can be" rather than 1800.
+     Change these in BOTH places: assets/themes/webchat-webrtc/halo.json
+     declares the same pair and the injected theme wins over this block, so
+     editing only one of them changes nothing. */
+  --cds-panel-w: 920px;
+  --cds-panel-h: 1800px;
   --cds-panel-min-h: 470px;
 
   /* ---- surfaces ---- */
@@ -253,7 +254,10 @@ button:disabled { cursor: default; }
   margin-top: 4px;
 }
 .cds-mini svg { width: 15px; height: 15px; }
-.cds-msg { max-width: 84%; min-width: 0; }
+/* Percentage first, then a hard cap: at the panel's normal widths the cap
+   never bites, and at double width it stops a bubble becoming a 900px line
+   nobody can read back to the start of. */
+.cds-msg { max-width: min(84%, 620px); min-width: 0; }
 .cds-bubble {
   background: var(--surface-sunk);
   border-radius: var(--r-bubble);
@@ -427,7 +431,7 @@ button:disabled { cursor: default; }
   background: #e3f1ff;
   color: #0673de;
 }
-.cds-utt-body { min-width: 0; max-width: 82%; }
+.cds-utt-body { min-width: 0; max-width: min(82%, 620px); }
 .cds-utt-who { font-size: 13px; color: #5f7d9b; margin: 0 0 6px; padding: 0 3px; line-height: 1.5; }
 .cds-utt-who time { color: #758fa8; margin-left: 7px; font-variant-numeric: tabular-nums; }
 .cds-utt-text {

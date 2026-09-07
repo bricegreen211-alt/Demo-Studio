@@ -41,9 +41,31 @@ function post(msg: Record<string, unknown>) {
  * here and the panel is shorter than it could be for no visible reason; clamp
  * looser and we ask for a height the extension quietly refuses.
  */
-const REF = { width: 460, height: 900, minHeight: 470 };
+const REF = { width: 920, height: 1800, minHeight: 470 };
 const ROOM = 40;
-const LIMITS = { minW: 320, maxW: 900, minH: 420, maxH: 1600 };
+const LIMITS = { minW: 320, maxW: 1200, minH: 420, maxH: 1600 };
+
+/*
+ * How much room there actually is on the customer's page.
+ *
+ * This is the whole reason drag-to-resize needs a message from the extension.
+ * Inside the panel iframe, window.innerWidth/innerHeight ARE the panel, so
+ * clamping against them shrinks the panel every measure — dragging outward
+ * made it collapse under the cursor, one 92%/-40px step per frame.
+ *
+ *   embedded + told   the customer page's viewport, which is the truth
+ *   embedded + not yet  no clamp: ask big and let the extension trim, which it
+ *                       does anyway in applySize(). Never our own iframe.
+ *   standalone        our own viewport, which here is the whole page
+ */
+let reportedSpace: { width: number; height: number } | null = null;
+
+function space(): { width: number; height: number } {
+  if (reportedSpace && reportedSpace.width > 0 && reportedSpace.height > 0) return reportedSpace;
+  if (typeof window === "undefined") return { width: LIMITS.maxW, height: LIMITS.maxH };
+  if (window.parent !== window) return { width: LIMITS.maxW, height: LIMITS.maxH };
+  return { width: window.innerWidth, height: window.innerHeight };
+}
 
 function readPx(name: string, fallback: number): number {
   if (typeof window === "undefined") return fallback;
@@ -58,8 +80,14 @@ function configuredSize(cfg: DemoConfig): Size {
   const themeW = readPx("--cds-panel-w", REF.width);
   const themeH = readPx("--cds-panel-h", REF.height);
   const width = cfg.panelWidth && cfg.panelWidth > 0 ? cfg.panelWidth : themeW;
-  const scaled = Math.round(themeH * (width / REF.width));
-  const room = typeof window === "undefined" ? REF.height : window.innerHeight - ROOM;
+  /*
+   * The proportion is against the THEME's own width, not REF.width. Measuring
+   * against a constant meant the two had to be kept in step by hand: changing
+   * --cds-panel-w in the theme silently rescaled every height, and doubling
+   * both tokens quadrupled the height instead of doubling it.
+   */
+  const scaled = Math.round(themeH * (width / Math.max(1, themeW)));
+  const room = space().height - ROOM;
   const height = Math.max(REF.minHeight, Math.min(scaled, Math.max(REF.minHeight, room)));
   return { width, height };
 }
@@ -71,7 +99,14 @@ function configuredSize(cfg: DemoConfig): Size {
  * would work in the preview and silently fail in the only place that matters.
  * The form's Width stays the source of truth; this is a per-viewer adjustment.
  */
-function storeKey(cfg: DemoConfig) { return "cds:panel:" + (cfg.id || "demo"); }
+/*
+ * The "v2" is a deliberate invalidation, not decoration. Sizes stored by the
+ * first version of this were produced by a clamp measured against the panel's
+ * own iframe, so every drag ratcheted the panel smaller and saved the result —
+ * anyone who tried it has a uselessly small size on disk. Bumping the key
+ * abandons those rather than making people find the double-click reset.
+ */
+function storeKey(cfg: DemoConfig) { return "cds:panel:v2:" + (cfg.id || "demo"); }
 
 function loadStored(cfg: DemoConfig): Size | null {
   try {
@@ -84,8 +119,9 @@ function loadStored(cfg: DemoConfig): Size | null {
 }
 
 function clamp(s: Size): Size {
-  const maxH = Math.min(LIMITS.maxH, typeof window === "undefined" ? LIMITS.maxH : window.innerHeight - ROOM);
-  const maxW = Math.min(LIMITS.maxW, typeof window === "undefined" ? LIMITS.maxW : Math.round(window.innerWidth * 0.92));
+  const room = space();
+  const maxH = Math.min(LIMITS.maxH, room.height - ROOM);
+  const maxW = Math.min(LIMITS.maxW, Math.round(room.width * 0.92));
   return {
     width: Math.round(Math.max(LIMITS.minW, Math.min(s.width, Math.max(LIMITS.minW, maxW)))),
     height: Math.round(Math.max(LIMITS.minH, Math.min(s.height, Math.max(LIMITS.minH, maxH))))
@@ -109,11 +145,26 @@ export default function Shell({
     setSize(stored || clamp(configuredSize(cfg)));
   }, [cfg.id, cfg.panelWidth]);
 
-  // Both the proportional height and every clamp depend on the viewport.
+  // Both the proportional height and every clamp depend on the available room,
+  // which arrives from the extension rather than from our own window.
   useEffect(() => {
-    const onResize = () => setSize(clamp(custom.current || configuredSize(cfg)));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const recompute = () => setSize(clamp(custom.current || configuredSize(cfg)));
+    const onMessage = (ev: MessageEvent) => {
+      const d = ev.data;
+      if (!d || d.type !== "CDS_VIEWPORT") return;
+      const width = Number(d.width) || 0;
+      const height = Number(d.height) || 0;
+      if (width < 1 || height < 1) return;
+      const same = reportedSpace && reportedSpace.width === width && reportedSpace.height === height;
+      reportedSpace = { width, height };
+      if (!same) recompute();
+    };
+    window.addEventListener("message", onMessage);
+    window.addEventListener("resize", recompute);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("resize", recompute);
+    };
   }, [cfg.panelWidth]);
 
   // Keep the extension's iframe hugging the launcher while collapsed. Only

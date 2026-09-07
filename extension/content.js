@@ -22,7 +22,7 @@
    * applySize() still clamps to the viewport, so these never let a panel run
    * off the customer's page.
    */
-  var MAX_W = 900;
+  var MAX_W = 1200;
   var MAX_H = 1600;
 
   /*
@@ -177,6 +177,16 @@
    *   { type: "CDS_SIZE", width, height }  collapsed launcher's measured size
    *   { type: "CDS_OPEN", open: true|false, width, height, live }
    *
+   * And one message DOWN, which is the only one that travels that way:
+   *   { type: "CDS_VIEWPORT", width, height }  the customer page's viewport
+   *
+   * The demo needs it because it cannot see past its own iframe: inside the
+   * panel, window.innerWidth/innerHeight ARE the panel. A demo clamping its
+   * own size against those numbers shrinks itself every measure, so the resize
+   * grip could only ever make the panel smaller — drag it outward and the panel
+   * ran away from the cursor. Only this side knows how much room there really
+   * is on the page.
+   *
    * `live` marks a frame mid-drag on the demo's resize grip. The frame has a
    * 280ms size transition, which is right for open/close and wrong for a drag:
    * every pointermove would start a new tween and the panel would trail the
@@ -231,6 +241,22 @@
     keepInFront(host);
     setTimeout(function () { warnIfCovered(host, frame); }, 800);
 
+    /*
+     * Sent on load, on resize, and in reply to anything the demo says — the
+     * last of those is what guarantees it has real numbers before its first
+     * drag, without polling.
+     */
+    function tellViewport() {
+      try {
+        if (frame.contentWindow) {
+          frame.contentWindow.postMessage(
+            { type: "CDS_VIEWPORT", width: window.innerWidth, height: window.innerHeight }, "*");
+        }
+      } catch (e) { /* frame not ready */ }
+    }
+    frame.addEventListener("load", tellViewport);
+    window.addEventListener("resize", tellViewport);
+
     var collapsed = { w: 240, h: 120 };
     var opened = { w: openW, h: 560 };  // the demo tells us its opened size
     var isOpen = false;
@@ -249,6 +275,7 @@
     window.addEventListener("message", function (ev) {
       if (ev.source !== frame.contentWindow) return;
       var d = ev.data || {};
+      tellViewport();
       if (d.type === "CDS_SIZE") {
         collapsed = {
           w: Math.max(48, Math.min(600, Math.ceil(d.width) || 240)),

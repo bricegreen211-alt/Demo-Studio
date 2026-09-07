@@ -14,8 +14,8 @@
     "Cognigy's click-to-call container is not on this page to style."
   ],
   "tokens": {
-    "--cds-panel-w": "460px",
-    "--cds-panel-h": "900px",
+    "--cds-panel-w": "920px",
+    "--cds-panel-h": "1800px",
     "--cds-panel-min-h": "470px",
 
     "--surface": "#ffffff",

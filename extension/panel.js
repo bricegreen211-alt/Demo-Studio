@@ -48,6 +48,26 @@
   document.getElementById("min").addEventListener("click", function () { tell("CDS_PANEL_MIN"); });
   document.getElementById("full").addEventListener("click", function () { tell("CDS_PANEL_FULL"); });
 
+  /*
+   * The one message that travels DOWN: the customer page's viewport, from the
+   * content script to the Demo Experience. Without this hop the demo has no
+   * way to know how much room it has — its own window is the panel — and its
+   * resize grip can only shrink.
+   *
+   * The source here is the customer's page, so nothing is trusted: only this
+   * one type is forwarded, and only as two coerced numbers.
+   */
+  window.addEventListener("message", function (ev) {
+    if (ev.source !== parent) return;
+    var d = ev.data || {};
+    if (d.type !== "CDS_VIEWPORT" || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({
+      type: "CDS_VIEWPORT",
+      width: Math.max(0, parseInt(d.width, 10) || 0),
+      height: Math.max(0, parseInt(d.height, 10) || 0)
+    }, API);
+  });
+
   // Relay voice state from the Demo Experience up to the launcher (Voice Wave).
   window.addEventListener("message", function (ev) {
     if (ev.origin !== API || !frame.contentWindow || ev.source !== frame.contentWindow) return;

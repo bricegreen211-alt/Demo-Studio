@@ -101,7 +101,9 @@
     return !cfg || !cfg.theme || (cfg.theme.preset || COGNIGY_DEFAULT) === COGNIGY_DEFAULT;
   }
 
-  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 500 };
+  // The combination is doubled to match Halo's own default panel. The other two
+  // are Cognigy's widgets, which size themselves, so they are unchanged.
+  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 1000 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };
 
   function pick(value, allowed, fallback) {
