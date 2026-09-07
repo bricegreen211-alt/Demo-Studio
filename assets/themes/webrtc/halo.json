@@ -6,16 +6,17 @@
   ],
   "note": "White and vertical. Call status, live transcript, Mute and Call.",
   "_comment": [
-    "Same tokens as the Webchat + WebRTC Halo, so the two endpoints look like",
-    "one family, with a shorter default panel because there is no chat log to",
-    "fill. Declared here AND on :root in templates/webrtc/src/styles.css: the",
-    "injected block wins, so both have to move together.",
+    "The same tokens and the same panel size as the Webchat + WebRTC Halo \u2014 the",
+    "two endpoints are one design, and a voice panel sized differently just",
+    "because it holds less would read as a second one.",
+    "Declared here AND on :root in templates/webrtc/src/styles.css: the injected",
+    "block wins, so both have to move together.",
     "No --webrtc-* block: a non-default theme means Demo Studio draws the voice",
     "UI, so Cognigy's widget container is not on the page to style."
   ],
   "tokens": {
     "--cds-panel-w": "920px",
-    "--cds-panel-h": "1400px",
+    "--cds-panel-h": "1800px",
     "--cds-panel-min-h": "470px",
     "--surface": "#ffffff",
     "--surface-raised": "linear-gradient(145deg, #ffffff, #fcfdff)",

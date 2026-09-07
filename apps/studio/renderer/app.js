@@ -491,13 +491,22 @@
      * silently changed back: a control that accepts a click and discards it is
      * worse than one that says why it cannot.
      */
-    var comboOnly = form.template === "webchat-webrtc";
+    /*
+     * Halo draws its own launcher and panel, so those demos are always
+     * Overlay and the schema coerces it. Disable the other two rather than
+     * take a click and discard it on save. WebRTC on Cognigy Default is the
+     * exception — there the launcher is Cognigy's, so every style is real.
+     */
+    var alwaysOverlay = form.template === "webchat-webrtc" ||
+                        (form.template === "webrtc" && !isDefaultTheme());
     ["clear", "solid"].forEach(function (v) {
       var btn = $("styleSeg").querySelector('[data-style="' + v + '"]');
-      btn.disabled = comboOnly;
-      btn.title = comboOnly ? "Webchat + WebRTC draws its own launcher and panel, so it is always Overlay." : "";
+      btn.disabled = alwaysOverlay;
+      btn.title = alwaysOverlay
+        ? "Halo draws its own launcher and panel, so this endpoint is always Overlay."
+        : "";
     });
-    if (comboOnly) form.panelStyle = "overlay";
+    if (alwaysOverlay) form.panelStyle = "overlay";
 
     /*
      * Cognigy Default takes the launcher, agent name, greeting and starters
@@ -538,7 +547,14 @@
     $("f-endpoint").value = form.template;
     $("f-chat").value = d ? d.cognigy.chatEndpoint : "";
     $("f-voice").value = d ? d.cognigy.voiceEndpoint : "";
-    $("f-width").value = d && [360, 420, 520, 650].indexOf(d.panelWidth) >= 0 ? String(d.panelWidth) : "0";
+    /*
+     * Read the widths off the <select> rather than repeating them. The list
+     * used to be a literal here and was not updated when 800/1000/1200 were
+     * added, so a demo at one of those showed "Endpoint default" — and saving
+     * the form then wrote 0 back, silently resetting a width the SE had set.
+     */
+    var widthOpts = Array.prototype.map.call($("f-width").options, function (o) { return o.value; });
+    $("f-width").value = d && widthOpts.indexOf(String(d.panelWidth)) >= 0 ? String(d.panelWidth) : "0";
     $("f-agent").value = d ? d.agentName : "";
     $("f-label").value = d ? d.launcherText : "";
     $("f-showlabel").checked = d ? !!d.showLauncherText : true;

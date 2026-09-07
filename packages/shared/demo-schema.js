@@ -73,7 +73,13 @@
      * in different colours, which is worse than not offering it. Halo is a
      * voice shell Demo Studio actually draws.
      */
-    "webrtc": [COGNIGY_DEFAULT, "halo", "custom"],
+    /*
+     * Halo first, deliberately: pickTheme() falls back to the FIRST entry, so
+     * position is what makes a theme the default. Cognigy Default stays below
+     * it rather than being removed — unlike the combination's, it works, and
+     * it is the only way to demo the real click-to-call widget on a page.
+     */
+    "webrtc": ["halo", COGNIGY_DEFAULT, "custom"],
     /*
      * One design, plus Custom. Nebula, Horizon and Prism were token files with
      * no layout behind them, so choosing one moved a few colours and nothing
@@ -114,7 +120,9 @@
   // Both Halo endpoints doubled from their old defaults. Webchat is Cognigy's
   // own widget, which sizes itself, so it is unchanged. For WebRTC this only
   // reaches the Halo shell — on Cognigy Default the widget ignores it.
-  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 800, "webchat-webrtc": 1000 };
+  // WebRTC matches the combination exactly; a voice panel that is smaller for
+  // no reason other than having less in it is just a different design.
+  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 1000, "webchat-webrtc": 1000 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };
 
   function pick(value, allowed, fallback) {
@@ -299,9 +307,19 @@
         voiceEndpoint: String((input.cognigy && input.cognigy.voiceEndpoint) || "")
       },
       theme: {
-        // Validated against the list for THIS template, so switching endpoint
-        // can't leave a theme selected that doesn't exist there.
-        preset: pickTheme((input.theme && input.theme.preset) || d.theme.preset,
+        /*
+         * Validated against the list for THIS template, so switching endpoint
+         * can't leave a theme selected that doesn't exist there.
+         *
+         * An unset preset takes the FIRST theme for the template, not the
+         * global COGNIGY_DEFAULT that defaults() carries. That constant is a
+         * valid choice on Webchat and WebRTC, so it survived validation and
+         * quietly became the default everywhere it was legal — reordering a
+         * THEMES list did nothing, because nothing ever fell back. Per
+         * endpoint, position is now what makes a theme the default.
+         */
+        preset: pickTheme((input.theme && input.theme.preset) ||
+                          themesFor(pick(input.template, TEMPLATES, d.template))[0],
                           pick(input.template, TEMPLATES, d.template)),
         primaryColor: String((input.theme && input.theme.primaryColor) || d.theme.primaryColor),
         secondaryColor: String((input.theme && input.theme.secondaryColor) || d.theme.secondaryColor),

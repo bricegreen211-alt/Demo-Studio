@@ -105,6 +105,14 @@
     if (template === "webchat-webrtc") {
       return themes.concat([{ rule: true }, CUSTOM_ENTRY]);
     }
+    /*
+     * WebRTC leads with Halo and keeps Cognigy Default below the rule. The
+     * order here has to match THEMES in packages/shared/demo-schema.js, or the
+     * tile shown first is not the one an unset demo actually gets.
+     */
+    if (template === "webrtc") {
+      return themes.concat([{ rule: true }, DEFAULT_ENTRY, CUSTOM_ENTRY]);
+    }
     return [DEFAULT_ENTRY, { rule: true }].concat(themes, [{ rule: true }, CUSTOM_ENTRY]);
   }
 
