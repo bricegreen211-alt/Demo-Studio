@@ -584,16 +584,19 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
   box-shadow: var(--shadow-3);
 }
 #rc-widget-wrap { flex: 1; position: relative; min-height: 0; }
-/* Center the Cognigy voice widget inside the shell (ported from NiCE Voice Agent) */
-#rc-widget-wrap .webrtc_widget_container,
-#rc-widget-shell .webrtc_widget_container {
-  position: absolute !important;
-  bottom: 40% !important; top: auto !important;
-  left: 50% !important; right: auto !important;
-  transform: translateX(-50%) !important; margin: 0 !important;
-  --webrtc-bg-color: var(--rail-bg);
-  --webrtc-primary-color: var(--primary);
+/*
+ * The pop-out renders the Halo panel, not Cognigy's widget, so it fills the
+ * shell edge to edge — no card border, radius or shadow of its own, and the
+ * transcript takes the height instead of the 320px band it uses in the list.
+ */
+#rc-widget-wrap .rc-halo {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
+#rc-widget-wrap .rc-halo .cds-scroll { max-height: none; }
 .rc-error {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
   background: var(--pink-soft-2); border: 1px solid var(--pink-line);
@@ -601,13 +604,11 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 5px; border: 1px so
   max-width: 90%; text-align: center;
 }
 .rc-sid {
-  position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 8px;
-  background: var(--rail-bg-2); border: 1px solid var(--primary-ring); border-radius: 20px;
-  padding: 5px 8px 5px 12px; z-index: 5; cursor: pointer;
-  font-size: 11px; color: var(--rc-ink-faint);
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  padding-left: 12px; border-left: 1px solid var(--rail-line-2);
+  cursor: pointer; font-size: 11px; color: var(--rc-ink-faint);
 }
-.rc-sid:hover { border-color: var(--primary-ring-2); }
+.rc-sid:hover .rc-sid-id { color: var(--rail-accent); }
 .rc-sid-id { font-family: Menlo, Consolas, monospace; font-size: 10.5px; color: var(--rc-ink); }
 .rc-sid-copy {
   background: var(--primary-soft-3); border: 0; border-radius: 10px; color: var(--rail-accent);
@@ -1031,8 +1032,12 @@ label.is-inert input { cursor: not-allowed; }
 }
 .rc-halo .cds-mute[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary); }
 .rc-halo .cds-mute:disabled { opacity: .4; }
-.rc-halo .cds-call.end { flex: 1; background: var(--danger-solid); color: #fff; }
-.rc-halo .cds-call.end:hover { filter: brightness(1.06); }
+/* The primary action, whichever it currently is. Only ".end" was styled before,
+   so the idle "Start a call" button rendered with no fill at all. */
+.rc-halo .cds-call { flex: 1; background: var(--primary); color: var(--on-primary); }
+.rc-halo .cds-call.end { background: var(--danger-solid); }
+.rc-halo .cds-call:hover { filter: brightness(1.06); }
+.rc-halo .cds-call:disabled { opacity: .45; filter: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .rc-halo .cds-wave.on i { animation: none; transform: scaleY(.65); }

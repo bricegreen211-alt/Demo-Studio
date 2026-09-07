@@ -254,20 +254,29 @@
    * app's.
    */
   function gwCallPanel(g) {
+    /*
+     * Idle or in-call, one panel. The gateway list only shows it while a call
+     * is running; the pop-out shows it always, which is why the idle state has
+     * to be a real state here rather than "the row you see when not calling".
+     */
+    var call = inlineCall && inlineCall.gwId === g.id ? inlineCall : null;
+    var live = !!call && call.status === "active";
+    var status = !call ? "Ready to call"
+      : (call.muted && live) ? "Microphone muted"
+      : live ? "Call in progress"
+      : call.status === "ringing" ? "Calling\u2026" : "Connecting\u2026";
+
     var el = document.createElement("div");
     el.className = "rc-halo";
     el.dataset.gwId = g.id;
-    var live = inlineCall.status === "active";
-    var status = inlineCall.muted && live ? "Microphone muted"
-      : live ? "Call in progress"
-      : inlineCall.status === "ringing" ? "Calling\u2026" : "Connecting\u2026";
 
     el.innerHTML =
       '<div class="cds-head">' +
         '<div class="cds-avatar">' + CDSIcons.svg("graphic_eq", 22) + '</div>' +
         '<div class="cds-head-text"><h3 class="cds-agent"></h3><p class="cds-sub"></p></div>' +
-        '<button class="icon-btn" data-act="popout" title="Full view with mic and speaker devices">' +
-          CDSIcons.svg("open_in_new", 16) + '</button>' +
+        (POPOUT ? "" :
+          '<button class="icon-btn" data-act="popout" title="Full view with mic and speaker devices">' +
+            CDSIcons.svg("open_in_new", 16) + '</button>') +
       '</div>' +
       '<div class="cds-strip">' +
         '<span class="cds-dot' + (live ? " on" : "") + '"></span>' +
@@ -282,29 +291,35 @@
       '<h4 class="cds-tt">Live transcript</h4>' +
       '<div class="cds-scroll" role="log" aria-live="polite"></div>' +
       '<div class="cds-vfoot">' +
-        '<button class="cds-mute" data-act="mute" aria-pressed="' + (inlineCall.muted ? "true" : "false") + '"' +
+        '<button class="cds-mute" data-act="mute" aria-pressed="' + (call && call.muted ? "true" : "false") + '"' +
           (live ? "" : " disabled") + ">" +
-          CDSIcons.svg(inlineCall.muted ? "mic_off" : "mic", 18) +
-          "<span>" + (inlineCall.muted ? "Unmute" : "Mute") + "</span></button>" +
-        '<button class="cds-call end" data-act="end">' + CDSIcons.svg("call_end", 18) +
-          "<span>End call</span></button>" +
+          CDSIcons.svg(call && call.muted ? "mic_off" : "mic", 18) +
+          "<span>" + (call && call.muted ? "Unmute" : "Mute") + "</span></button>" +
+        (call
+          ? '<button class="cds-call end" data-act="end">' + CDSIcons.svg("call_end", 18) +
+            "<span>End call</span></button>"
+          : '<button class="cds-call" data-act="call"' + (inlineCall ? " disabled" : "") + ">" +
+            CDSIcons.svg("call", 18) + "<span>Start a call</span></button>") +
       "</div>";
 
     el.querySelector(".cds-agent").textContent = g.name || "Voice agent";
     el.querySelector(".cds-sub").textContent = hostOf(g);
     el.querySelector(".rc-halo-status").textContent = status;
     var t = el.querySelector('[data-role="timer"]');
-    if (t) t.textContent = "\u00b7 " + fmtSecs(inlineCall.seconds);
+    if (t) t.textContent = "\u00b7 " + fmtSecs(call ? call.seconds : 0);
 
     var log = el.querySelector(".cds-scroll");
-    if (inlineCall.lines.length) {
-      inlineCall.lines.forEach(function (l) { log.appendChild(utteranceEl(l.role, l.text, l.at)); });
+    if (call && call.lines.length) {
+      call.lines.forEach(function (l) { log.appendChild(utteranceEl(l.role, l.text, l.at)); });
     } else {
       var empty = document.createElement("div");
       empty.className = "cds-empty";
-      empty.innerHTML = CDSIcons.svg("mic", 26) + "<strong>Listening\u2026</strong>";
+      empty.innerHTML = CDSIcons.svg("mic", 26) +
+        "<strong>" + (call ? "Listening\u2026" : "Ready when you are.") + "</strong>";
       var p = document.createElement("p");
-      p.textContent = "Whatever " + (g.name || "the agent") + " transcribes appears here.";
+      p.textContent = call
+        ? "Whatever " + (g.name || "the agent") + " transcribes appears here."
+        : "Start a call and the conversation appears here as it is transcribed.";
       empty.appendChild(p);
       log.appendChild(empty);
     }
@@ -313,11 +328,30 @@
       var btn = ev.target.closest("button");
       var act = btn && btn.getAttribute("data-act");
       if (!act || btn.disabled) return;
-      if (act === "mute") toggleInlineMute();
+      if (act === "call") startInlineCall(g);
+      else if (act === "mute") toggleInlineMute();
       else if (act === "end") endInlineCall();
       else if (act === "popout") popOut(g);
     });
     return el;
+  }
+
+  /*
+   * Where the call surface lives depends on the window. The gateway list and
+   * the pop-out render the SAME panel from the same state — the pop-out is the
+   * same thing with device controls and no list around it.
+   */
+  function renderCallSurfaces() {
+    if (POPOUT) return renderPopout();
+    renderGwList();
+  }
+
+  function renderPopout() {
+    var g = popoutGateway();
+    if (!g) return;
+    var wrap = $("rc-widget-wrap");
+    wrap.innerHTML = "";
+    wrap.appendChild(gwCallPanel(g));
   }
 
   function hostOf(g) {
@@ -475,7 +509,8 @@
 
     inlineCall = { gwId: g.id, gwName: g.name || "Voice agent", client: null, status: "connecting",
                    muted: false, seconds: 0, timer: null, lines: [], startedAt: 0, speaking: 0 };
-    renderGwList();
+    setCallState("connecting");
+    renderCallSurfaces();
 
     window.CdsVoice.createWebRTCClient({
       endpointUrl: endpointUrl,
@@ -484,21 +519,22 @@
       .then(function (client) {
         if (!inlineCall || inlineCall.gwId !== g.id) { client.destroy().catch(function () {}); return; }
         inlineCall.client = client;
-        client.on("ringing", function () { if (inlineCall) { inlineCall.status = "ringing"; renderGwList(); } });
+        client.on("ringing", function () { if (inlineCall) { inlineCall.status = "ringing"; renderCallSurfaces(); } });
         client.on("answered", function () {
           if (!inlineCall) return;
           inlineCall.status = "active";
           inlineCall.startedAt = Date.now();
+          setCallState("active");
           inlineCall.timer = setInterval(function () {
             if (!inlineCall) return;
             inlineCall.seconds++;
-            var t = document.querySelector('[data-gw-id="' + g.id + '"] [data-role="timer"]');
+            var t = document.querySelector('[data-role="timer"]');
             if (t) t.textContent = fmtSecs(inlineCall.seconds);
           }, 1000);
-          renderGwList();
+          renderCallSurfaces();
         });
-        client.on("muted", function () { if (inlineCall) { inlineCall.muted = true; renderGwList(); } });
-        client.on("unmuted", function () { if (inlineCall) { inlineCall.muted = false; renderGwList(); } });
+        client.on("muted", function () { if (inlineCall) { inlineCall.muted = true; renderCallSurfaces(); } });
+        client.on("unmuted", function () { if (inlineCall) { inlineCall.muted = false; renderCallSurfaces(); } });
         /*
          * Live transcript. Remote Control had no transcription handling at all
          * — the SDK was emitting these and nothing listened, so an SE on a
@@ -600,7 +636,8 @@
     var c = inlineCall && inlineCall.client;
     inlineCall = null;
     if (c) c.destroy().catch(function () {});
-    renderGwList();
+    setCallState("idle");
+    renderCallSurfaces();
   }
 
   window.addEventListener("beforeunload", function () { endInlineCall(); });
@@ -630,9 +667,6 @@
       window.RTCPeerConnection.prototype = NativePC.prototype;
     }
   }
-
-  var sidFound = false;
-  var SID_RE = /webrtc-voice-[A-Za-z0-9_-]+/;
 
   function setCallState(state) {
     var group = $("rc-call-state"), dot = $("rc-call-dot"), text = $("rc-call-text");
@@ -666,45 +700,8 @@
   }
   $("rc-sid").addEventListener("click", copySid);
 
-  function trySid(text) {
-    if (sidFound) return;
-    var m = String(text || "").match(SID_RE);
-    if (m) { sidFound = true; showSid(m[0], true); }
-  }
 
-  function pollSid() {
-    var polls = 0;
-    var t = setInterval(function () {
-      if (sidFound || ++polls > 60) { clearInterval(t); return; }
-      var blobs = [];
-      try { for (var i = 0; i < localStorage.length; i++) blobs.push(localStorage.getItem(localStorage.key(i))); } catch (e) {}
-      try { for (var j = 0; j < sessionStorage.length; j++) blobs.push(sessionStorage.getItem(sessionStorage.key(j))); } catch (e) {}
-      blobs.forEach(trySid);
-      if (!sidFound) trySid($("rc-widget-wrap").innerText);
-    }, 500);
-  }
 
-  function wireUa(ua) {
-    if (!ua || typeof ua.on !== "function") return false;
-    ua.on("newRTCSession", function (data) {
-      var session = data.session;
-      setCallState("connecting");
-      sidFound = false;
-      $("rc-sid").hidden = true;
-      function registerPC() { if (session.connection) activePCs.add(session.connection); }
-      registerPC();
-      session.on("answered", registerPC);
-      session.on("accepted", registerPC);
-      session.on("answered", function () { setCallState("active"); });
-      ["ended", "terminated", "failed"].forEach(function (ev) {
-        session.on(ev, function () { setCallState("idle"); });
-      });
-      trySid(session.id);
-      session.on("newInfo", function (e) { trySid(e.info && e.info.body); });
-      pollSid();
-    });
-    return true;
-  }
 
   function popoutGateway() {
     var all = gateways();
@@ -712,37 +709,32 @@
     return all[0] || null;
   }
 
-  function loadWidget() {
+  /*
+   * The pop-out used to mount Cognigy's real click-to-call widget here and
+   * relocate its DOM into the shell. It now renders the same Halo panel the
+   * gateway list does, running the call on the headless SDK — so what an SE
+   * sees off-screen during a demo is what the customer sees on the page, and
+   * the transcript is available in both.
+   *
+   * That also removed the two ugliest things in this file: a monkey-patched
+   * walk up the widget's DOM to move it, and a 30-second poll across
+   * localStorage, sessionStorage and rendered text scraping for the session id
+   * the widget had generated. We pass the user id in, so it is simply known.
+   */
+  function loadPopout() {
     showError("");
     setCallState("idle");
-    var gw = popoutGateway();
-    var endpoint = gw ? normVoice(gw.endpointUrl) : "";
-    if (!endpoint) { showError("No voice gateway configured — add one on the Voice Agent list."); return; }
-    document.title = "Cognigy Remote Control — " + (gw.name || "Voice");
-    try { if (window.destroyWebRTCWidget) window.destroyWebRTCWidget(); } catch (e) {}
-    if (typeof window.initWebRTCWidget !== "function") { showError("Voice widget failed to load."); return; }
-    window.initWebRTCWidget(endpoint, {}, function (instance) {
-      if (!wireUa(instance)) pollSid();
-      relocateWidget();
-    });
-    setTimeout(relocateWidget, 400);
-    setTimeout(loadDevices, 1500);
-    setTimeout(function () {
-      var c = document.querySelector(".webrtc_widget_container");
-      if (c && getComputedStyle(c).visibility === "hidden") {
-        showError("The voice gateway didn't accept this endpoint — check the endpoint URL (and that the Click-to-Call endpoint is active in Cognigy).");
-      }
-    }, 3500);
-  }
-
-  function relocateWidget() {
-    var container = document.querySelector(".webrtc_widget_container");
-    if (!container) return;
-    var rootDiv = container;
-    while (rootDiv.parentElement && rootDiv.parentElement !== document.body) rootDiv = rootDiv.parentElement;
-    if (rootDiv.parentElement === document.body && rootDiv !== $("rc-widget-wrap")) {
-      $("rc-widget-wrap").appendChild(rootDiv);
+    var g = popoutGateway();
+    if (!g) { showError("No voice gateway configured — add one on the Voice Agent list."); return; }
+    if (!normVoice(g.endpointUrl)) {
+      showError("This gateway has no valid endpoint — edit it on the Voice Agent list.");
+      return;
     }
+    document.title = "Cognigy Remote Control — " + (g.name || "Voice");
+    renderPopout();
+    // Live Follow finds the call by this, so it is worth showing and copying.
+    showSid((settings && settings.followMeUserId) || "followme", false);
+    loadDevices();
   }
 
   /* devices — live mic swap via replaceTrack, speaker setSinkId (pop-out only) */
@@ -956,7 +948,7 @@
           $("rcVoice").hidden = true;
           $("rcOutbound").hidden = true;
           $("rcPopout").hidden = false;
-          loadWidget();
+          loadPopout();
           return;
         }
         $("obEndpoint").value = (settings.outbound && settings.outbound.endpointUrl) || "";

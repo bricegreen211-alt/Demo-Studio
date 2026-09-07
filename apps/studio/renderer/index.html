@@ -361,10 +361,6 @@
     <section id="rcPopout" hidden>
       <div id="rc-widget-shell">
         <div id="rc-error" class="rc-error" hidden></div>
-        <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
-          <span class="rc-sid-id" id="rcSidText"></span>
-          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard" aria-label="Copy to clipboard"><span data-ico="content_copy" data-size="15"></span></button>
-        </div>
         <div id="rc-widget-wrap"></div>
         <div id="rc-device-bar">
           <div class="rc-dev-group">
@@ -374,6 +370,10 @@
           <div class="rc-dev-group">
             <span class="rc-dev-ico" data-ico="volume_up" data-size="15"></span>
             <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
+          </div>
+          <div id="rc-sid" class="rc-sid" hidden title="Click to copy the Live Follow user ID">
+            <span class="rc-sid-id" id="rcSidText"></span>
+            <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard" aria-label="Copy to clipboard"><span data-ico="content_copy" data-size="15"></span></button>
           </div>
           <div id="rc-call-state" hidden>
             <span id="rc-call-dot"></span>
@@ -571,7 +571,6 @@
   <!-- Same reader the demo templates use, so Remote Control and a demo can
        never disagree about what Cognigy just said. -->
   <script src="/shared/voice-transcript.js"></script>
-  <script src="vendor/webRTCWidget.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
