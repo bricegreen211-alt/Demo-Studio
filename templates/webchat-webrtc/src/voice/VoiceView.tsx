@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { DemoConfig } from "../config";
 import { CognigyVoice } from "./useCognigyVoice";
+import { Icon } from "../icons";
 
 function fmt(seconds: number): string {
   const m = Math.floor(seconds / 60), s = seconds % 60;
@@ -60,7 +61,7 @@ export default function VoiceView({ cfg, voice }: { cfg: DemoConfig; voice: Cogn
         <div className="cds-vcontrols">
           {!inCall ? (
             <button className="cds-call" onClick={voice.start} disabled={voice.state === "unsupported"}>
-              <span className="cds-call-icon">✆</span>
+              <span className="cds-call-icon"><Icon name="call" size={18} /></span>
               {voice.state === "ended" || voice.state === "error" ? "Call again" : "Talk to " + cfg.agentName}
             </button>
           ) : (
@@ -70,9 +71,11 @@ export default function VoiceView({ cfg, voice }: { cfg: DemoConfig; voice: Cogn
                 onClick={voice.toggleMute}
                 title={voice.muted ? "Unmute microphone" : "Mute microphone"}
               >
-                {voice.muted ? "🔇" : "🎙️"}
+                <Icon name={voice.muted ? "mic_off" : "mic"} size={20} />
               </button>
-              <button className="cds-hangup" onClick={voice.end} title="End call">✕</button>
+              <button className="cds-hangup" onClick={voice.end} title="End call" aria-label="End call">
+                <Icon name="call_end" size={20} />
+              </button>
             </>
           )}
         </div>

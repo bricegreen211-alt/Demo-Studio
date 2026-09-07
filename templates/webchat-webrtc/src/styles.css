@@ -338,11 +338,12 @@ body {
 .cds-call-icon { font-size: var(--fs-2xl); }
 .cds-mute, .cds-hangup {
   width: 54px; height: 54px; border-radius: var(--r-round); border: 0;
-  cursor: pointer; font-size: var(--fs-3xl);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink);
 }
 .cds-mute { background: var(--mute-bg); box-shadow: var(--shadow-control); }
 .cds-mute.cds-muted { background: var(--mute-on-bg); }
-.cds-hangup { background: var(--danger); color: var(--on-danger); box-shadow: var(--shadow-danger); }
+.cds-hangup { background: var(--danger); color: var(--on-danger) !important; box-shadow: var(--shadow-danger); }
 .cds-micnote { font-size: var(--fs-sm); color: var(--ink-soft); }
 .cds-verror {
   background: var(--error-bg); color: var(--error-text); border: 1px solid var(--error-line);

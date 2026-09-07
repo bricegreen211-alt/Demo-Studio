@@ -53,13 +53,32 @@ export default function Shell({ cfg, children }: { cfg: DemoConfig; children: Re
     return () => { cancelAnimationFrame(queued); ro.disconnect(); };
   }, [cfg.launcherText, cfg.launcherSize, cfg.launcher]);
 
-  // Opened size is the demo's call, not the extension's — a small widget that
-  // looks like it belongs on the customer's page, not a full-height panel.
-  // Tune these (or drive them from cfg) when you vibe-code this shell.
-  const openSize =
+  /*
+   * Opened size is the demo's call, not the extension's — a small widget that
+   * looks like it belongs on the customer's page, not a full-height panel.
+   *
+   * Read from CSS custom properties so a THEME can set its own geometry. That
+   * is what makes layouts possible at all: Horizon is a wide two-column
+   * workspace and Prism is an assistant plus a companion card beside it, and
+   * neither fits the same rectangle as a narrow vertical panel. The service
+   * injects the theme's :root block before this runs, so the value is already
+   * there; the per-template numbers below are the fallback when no theme is
+   * set. Vibe-coding can override either the variables or this function.
+   */
+  const readPx = (name: string, fallback: number) => {
+    if (typeof window === "undefined") return fallback;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
+    const n = parseInt(String(raw).trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const fallbackSize =
     cfg.template === "webrtc" ? { width: 330, height: 430 } :
     cfg.template === "webchat-webrtc" ? { width: 390, height: 560 } :
     { width: 380, height: 520 };
+  const openSize = {
+    width: readPx("--cds-panel-w", fallbackSize.width),
+    height: readPx("--cds-panel-h", fallbackSize.height)
+  };
 
   useEffect(() => {
     post({ type: "CDS_OPEN", open, width: openSize.width, height: openSize.height });
