@@ -19,6 +19,49 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+/*
+ * ---------- the demo-page position ----------
+ *
+ * Copied verbatim from Cognigy's own hosted WebRTC page, where it is the only
+ * widget rule in that page's inline <style>. This is the half that is easy to
+ * miss: the BUNDLE only puts a class on <body> — webrtc-position-centered or
+ * webrtc-position-bottomRight, chosen from the Endpoint's
+ * webrtcWidgetConfig.demoPage.position — and the HOST PAGE is what defines
+ * what that class means. Load the widget without it and the class lands on a
+ * page with no rule to match, so the widget keeps its built-in corner default
+ * (.css-ilu6hu .webrtc_widget_outer_wrapper { bottom:40px; right:16px }) and a
+ * demo looks nothing like the same Endpoint opened on Cognigy's page.
+ *
+ * There is deliberately no rule for webrtc-position-bottomRight: that IS the
+ * widget's built-in default, so the class needs no CSS on Cognigy's page or
+ * on ours.
+ */
+.webrtc-position-centered .webrtc_widget_outer_wrapper {
+  transform: translate(-50%, -50%);
+  bottom: unset !important;
+  right: unset !important;
+  top: 50% !important;
+  left: 50% !important;
+  align-items: center !important;
+}
+
+/*
+ * Embedded over a customer's website, drop the Endpoint's demo-page ground.
+ *
+ * The widget writes demoPage.background onto <body> as an INLINE style, so
+ * !important here is required rather than lazy — a stylesheet !important is
+ * the one thing that beats a non-important inline declaration. Nothing else
+ * about the demo page is touched: position, theme and the transcript panel
+ * all still come from the Endpoint.
+ *
+ * webrtc.js adds .cds-embedded only when this page is in a frame, so opening
+ * the demo on its own still renders Cognigy's demo page exactly.
+ */
+html.cds-embedded body {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
 /* ---------- failure card ---------- */
 
 #cds-fallback {

@@ -20,7 +20,23 @@
   -->
   <link rel="stylesheet" href="/_cds/webrtc.css" />
 </head>
-<body>
+<!--
+  class="cognigy-webrtc-embed" is load-bearing, not decoration. Cognigy's own
+  hosted demo page carries it, and the widget gates its ENTIRE demo-page
+  behaviour on document.body.classList.contains("cognigy-webrtc-embed"):
+  without it, the Endpoint's webrtcWidgetConfig.demoPage is ignored and the
+  widget silently falls back to its bottom-right corner default —
+
+    .css-ilu6hu .webrtc_widget_outer_wrapper { position:fixed; bottom:40px; right:16px }
+    .webrtc-position-centered .webrtc_widget_outer_wrapper {
+        top:50%!important; left:50%!important; transform:translate(-50%,-50%) }
+
+  so a demo looked nothing like the same Endpoint opened on Cognigy's page.
+  With the class, the widget adds webrtc-position-centered / -bottomRight
+  itself and paints the configured demo-page background, exactly as it does
+  there.
+-->
+<body class="cognigy-webrtc-embed">
   <!-- Shown only if the widget can't start; a silent blank panel would break
        the "a wrong endpoint still fails loudly" rule. -->
   <div id="cds-fallback" hidden>

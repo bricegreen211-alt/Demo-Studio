@@ -39,6 +39,22 @@
   document.documentElement.classList.add(
     cfg.panelSide === "left" ? "cds-side-left" : "cds-side-right");
 
+  /*
+   * Standalone vs overlaid, and it changes exactly one thing: the ground.
+   *
+   * The Endpoint's demoPage.background is a real part of the default Cognigy
+   * demo, and the widget writes it onto <body> as an inline style. Opened on
+   * its own — the preview pane, or the demo URL in a tab — that is what should
+   * render, so the SE sees the same page Cognigy would serve.
+   *
+   * Over a customer's website it must not: the frame is clipped to the widget
+   * plus CLIP_PAD, so an opaque ground would paint a rectangle of Endpoint
+   * colour around the widget, on top of the customer's page. "A clean overlay
+   * with limited CSP interruptions" is the whole brief, so webrtc.css drops
+   * just the background here and leaves position, theme and transcript alone.
+   */
+  if (window.parent !== window) document.documentElement.classList.add("cds-embedded");
+
   if (!cfg.endpoint) return fail("No Cognigy voice endpoint configured for this demo.");
   if (typeof window.initWebRTCWidget !== "function") {
     return fail("The click-to-call bundle didn't load. Reinstall Cognigy Demo Studio.");
@@ -225,9 +241,15 @@
       var m = String(state.className).match(/_content_container_([a-z]+)/i);
       phase = m ? m[1] : "";
     }
+    // Which demo-page position the Endpoint asked for — the class the widget
+    // puts on <body> itself. Worth surfacing: it is set in Cognigy, not here,
+    // and it is the first thing to check when a demo sits in the wrong place.
+    var pos = document.body.className.match(/webrtc-position-(\w+)/);
     el.textContent =
       "style " + (cfg.panelStyle || "?") + " " + (cfg.panelSide || "right") +
       " · click-to-call" + (phase ? " · " + phase : "") +
+      " · " + (pos ? pos[1] : "position?") +
+      (document.documentElement.classList.contains("cds-embedded") ? " · embedded" : " · standalone") +
       " · theme " + (cfg.theme || "cognigy-default") +
       " · widget " + Math.round(r.right - r.left) + "x" + Math.round(r.bottom - r.top) +
       " · clip " + [clip.top, clip.right, clip.bottom, clip.left].join("/") +
