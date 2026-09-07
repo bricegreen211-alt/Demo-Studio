@@ -43,13 +43,98 @@
 
   var TEMPLATE_LABEL = { "webchat": "Webchat", "webrtc": "WebRTC", "webchat-webrtc": "Webchat + WebRTC" };
 
+  /*
+   * settings.folders IS the order — it used to be sorted alphabetically here,
+   * which threw that away. Folders an SE dragged into an order stay in it; any
+   * folder discovered only on a demo (imported, or hand-edited demo.json) is
+   * appended, sorted, so it still shows up.
+   */
   function allFolderNames() {
     var names = folders.slice();
+    var extra = [];
     allDemos.forEach(function (d) {
-      if (d.folder && names.indexOf(d.folder) < 0) names.push(d.folder);
+      if (d.folder && names.indexOf(d.folder) < 0 && extra.indexOf(d.folder) < 0) extra.push(d.folder);
     });
-    return names.sort(function (a, b) { return a.localeCompare(b); });
+    extra.sort(function (a, b) { return a.localeCompare(b); });
+    return names.concat(extra);
   }
+
+  /* ---------------- folders: drag, rename, delete ---------------- */
+  /*
+   * One module-level `drag` describes what is in flight — a demo being filed,
+   * or a folder being reordered — because HTML5 drag-and-drop's dataTransfer is
+   * unreadable during dragover, which is exactly when the drop target has to
+   * decide whether it will accept.
+   */
+  var drag = null;
+
+  function clearDropHints() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".drop-into, .drop-before"),
+      function (el) { el.classList.remove("drop-into", "drop-before"); }
+    );
+  }
+
+  // A folder header accepts a demo (file it here) or a folder (drop before me).
+  function wireFolderDrop(head, name) {
+    head.addEventListener("dragstart", function (ev) {
+      drag = { kind: "folder", name: name };
+      try { ev.dataTransfer.setData("text/plain", name); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    head.addEventListener("dragend", function () { drag = null; clearDropHints(); });
+    head.addEventListener("dragover", function (ev) {
+      if (!drag) return;
+      if (drag.kind === "demo" && drag.from === name) return;  // already here
+      if (drag.kind === "folder" && drag.name === name) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      clearDropHints();
+      head.classList.add(drag.kind === "demo" ? "drop-into" : "drop-before");
+    });
+    head.addEventListener("dragleave", function () { head.classList.remove("drop-into", "drop-before"); });
+    head.addEventListener("drop", function (ev) {
+      ev.preventDefault();
+      var d = drag;
+      clearDropHints();
+      drag = null;
+      if (!d) return;
+      if (d.kind === "demo") return moveDemoToFolder(d.id, name);
+      if (d.kind === "folder") return reorderFolder(d.name, name);
+    });
+  }
+
+  function moveDemoToFolder(id, folder) {
+    api("/api/demos/" + id, putJson({ folder: folder })).then(loadList).catch(alertErr);
+  }
+
+  // Drop `moved` immediately before `before`; passing null means send to the end.
+  function reorderFolder(moved, before) {
+    var order = allFolderNames().filter(function (f) { return f !== moved; });
+    var at = before ? order.indexOf(before) : order.length;
+    order.splice(at < 0 ? order.length : at, 0, moved);
+    folders = order;
+    api("/api/folders/reorder", postJson({ folders: order })).then(loadList).catch(alertErr);
+  }
+
+  var folderActions = {
+    rename: function (name) {
+      var next = prompt("Rename folder:", name);
+      if (next === null) return;
+      next = next.trim().slice(0, 80);
+      if (!next || next === name) return;
+      var merging = allFolderNames().indexOf(next) >= 0;
+      if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+      api("/api/folders/rename", postJson({ from: name, to: next })).then(loadList).catch(alertErr);
+    },
+    delete: function (name) {
+      var count = allDemos.filter(function (d) { return d.folder === name; }).length;
+      if (!confirm('Delete the folder "' + name + '"?\n\n' +
+                   (count
+                     ? count + (count === 1 ? " demo moves" : " demos move") + " back to the top level. Nothing is deleted."
+                     : "It is empty."))) return;
+      api("/api/folders/delete", postJson({ name: name })).then(loadList).catch(alertErr);
+    }
+  };
 
   function renderFolderOptions() {
     var dl = $("folderOptions");
@@ -90,15 +175,30 @@
       if (q && groups[f].length === 0) return; // hide empty folders while searching
       var head = document.createElement("div");
       head.className = "folder-head" + (collapsedFolders[f] && !q ? " collapsed" : "");
-      head.innerHTML = '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
-        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> <span class="folder-count"></span>';
+      head.setAttribute("data-folder", f);
+      head.draggable = true;
+      head.innerHTML =
+        '<span class="folder-grip" data-ico="drag_indicator" data-size="16" title="Drag to reorder"></span>' +
+        '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
+        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> ' +
+        '<span class="folder-count"></span>' +
+        '<span class="folder-tools">' +
+          '<button class="icon-btn" data-fact="rename" title="Rename folder" aria-label="Rename folder"></button>' +
+          '<button class="icon-btn" data-fact="delete" title="Delete folder" aria-label="Delete folder"></button>' +
+        '</span>';
+      head.querySelector('[data-fact="rename"]').innerHTML = CDSIcons.svg("edit", 15);
+      head.querySelector('[data-fact="delete"]').innerHTML = CDSIcons.svg("delete", 15);
       CDSIcons.hydrate(head);
       head.querySelector("b").textContent = f;
       head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " demo" : " demos");
-      head.addEventListener("click", function () {
+      head.addEventListener("click", function (ev) {
+        var act = ev.target.closest("[data-fact]");
+        if (act) { ev.stopPropagation(); return folderActions[act.getAttribute("data-fact")](f); }
+        if (ev.target.closest(".folder-grip")) return;   // grip is for dragging
         collapsedFolders[f] = !collapsedFolders[f];
         renderList();
       });
+      wireFolderDrop(head, f);
       list.appendChild(head);
       if (!collapsedFolders[f] || q) {
         groups[f].forEach(function (d) { list.appendChild(row(d, true)); });
@@ -109,6 +209,14 @@
   function row(d, indented) {
     var el = document.createElement("div");
     el.className = "demo-row" + (indented ? " in-folder" : "");
+    el.draggable = true;
+    el.setAttribute("data-demo", d.id);
+    el.addEventListener("dragstart", function (ev) {
+      drag = { kind: "demo", id: d.id, from: d.folder || "" };
+      el.classList.add("dragging");
+      try { ev.dataTransfer.setData("text/plain", d.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    el.addEventListener("dragend", function () { drag = null; clearDropHints(); el.classList.remove("dragging"); });
     var chips = '<span class="chip chip-template">' + TEMPLATE_LABEL[d.template] + "</span>";
     if (!d.built) chips += ' <span class="chip chip-unbuilt">Building…</span>';
     el.innerHTML =
@@ -130,6 +238,31 @@
     });
     return el;
   }
+
+  /*
+   * The list background is the "no folder" target, so a demo can be dragged
+   * back out. Without it a demo could be filed but never unfiled by dragging.
+   */
+  (function () {
+    var list = $("demoList");
+    list.addEventListener("dragover", function (ev) {
+      if (!drag || drag.kind !== "demo" || !drag.from) return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      list.classList.add("drop-into");
+    });
+    list.addEventListener("dragleave", function () { list.classList.remove("drop-into"); });
+    list.addEventListener("drop", function (ev) {
+      if (!drag || drag.kind !== "demo") return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      var id = drag.id;
+      drag = null;
+      list.classList.remove("drop-into");
+      moveDemoToFolder(id, "");
+    });
+  })();
 
   $("findInput").addEventListener("input", renderList);
 

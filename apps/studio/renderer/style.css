@@ -452,6 +452,32 @@ main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
 .folder-caret { display: inline-flex; color: var(--soft); transition: transform .15s; }
 .folder-head.collapsed .folder-caret { transform: rotate(-90deg); }
 .folder-count { font-size: 11.5px; color: var(--soft); }
+
+/* ── folder management ──────────────────────────────────────────────────── */
+/* The grip and the tools stay out of the way until the row is hovered, so a
+   list of folders reads as a list, not as a row of controls. */
+.folder-grip { display: inline-flex; color: var(--ink-faint); cursor: grab; opacity: 0; transition: opacity .12s; }
+.folder-head:hover .folder-grip { opacity: 1; }
+.folder-grip:active { cursor: grabbing; }
+.folder-tools { display: flex; gap: 2px; margin-left: 6px; opacity: 0; transition: opacity .12s; }
+.folder-head:hover .folder-tools, .folder-tools:focus-within { opacity: 1; }
+.icon-btn {
+  width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-sm, 6px);
+  background: transparent; color: var(--soft); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: var(--surface-4); color: var(--ink); }
+.icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* Drag feedback. drop-into = "file it here"; drop-before = "land above me". */
+.demo-row.dragging { opacity: .45; }
+.demo-row[draggable="true"] { cursor: grab; }
+.folder-head.drop-into {
+  background: var(--primary-soft); border-radius: var(--r-md, 8px);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.folder-head.drop-before { box-shadow: inset 0 2px 0 0 var(--primary); }
+#demoList.drop-into { outline: 2px dashed var(--primary); outline-offset: 6px; border-radius: 12px; }
 .chip {
   font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
   text-transform: uppercase; letter-spacing: .04em;

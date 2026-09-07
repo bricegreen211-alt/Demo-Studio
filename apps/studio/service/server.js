@@ -188,6 +188,66 @@ function createApp() {
     ok(res, settingsStore.write(patch));
   });
 
+  /* ------------- folders -------------
+   *
+   * A folder is only a name: it lives in settings.folders and is referenced by
+   * demo.folder. So renaming one means rewriting BOTH, and doing it here rather
+   * than as N calls from the dashboard keeps the two from drifting apart if
+   * something fails halfway.
+   */
+
+  function renameFolder(from, to) {
+    const s = settingsStore.read();
+    const folders = (s.folders || []).map((f) => (f === from ? to : f));
+    // Renaming onto an existing name merges the two, which is what dragging one
+    // folder's name onto another's would mean anyway. De-duplicate.
+    settingsStore.write({ folders: folders.filter((f, i) => folders.indexOf(f) === i) });
+    let moved = 0;
+    for (const d of store.list()) {
+      if (d.folder === from) { store.update(d.id, { folder: to }); moved++; }
+    }
+    return moved;
+  }
+
+  app.post("/api/folders/rename", (req, res) => {
+    const from = String((req.body || {}).from || "").trim();
+    const to = String((req.body || {}).to || "").trim().slice(0, 80);
+    if (!from || !to) return fail(res, new Error("Both the old and new folder names are required."));
+    if (from === to) return ok(res, { moved: 0 });
+    try { ok(res, { moved: renameFolder(from, to) }); }
+    catch (err) { fail(res, err); }
+  });
+
+  app.post("/api/folders/delete", (req, res) => {
+    const name = String((req.body || {}).name || "").trim();
+    if (!name) return fail(res, new Error("Folder name is required."));
+    try {
+      const s = settingsStore.read();
+      settingsStore.write({ folders: (s.folders || []).filter((f) => f !== name) });
+      /*
+       * Demos move to the root rather than being deleted. A folder is a label,
+       * so removing the label must never remove the work — and there is no undo
+       * for a deleted demo folder on disk.
+       */
+      let moved = 0;
+      for (const d of store.list()) {
+        if (d.folder === name) { store.update(d.id, { folder: "" }); moved++; }
+      }
+      ok(res, { moved });
+    } catch (err) { fail(res, err); }
+  });
+
+  // Explicit order, so the dashboard can drag folders into the order an SE
+  // wants rather than being stuck with alphabetical.
+  app.post("/api/folders/reorder", (req, res) => {
+    const order = Array.isArray((req.body || {}).folders) ? req.body.folders : null;
+    if (!order) return fail(res, new Error("folders must be an array."));
+    try {
+      const clean = order.map((f) => String(f || "").slice(0, 80)).filter(Boolean);
+      ok(res, { folders: settingsStore.write({ folders: clean.filter((f, i) => clean.indexOf(f) === i) }).folders });
+    } catch (err) { fail(res, err); }
+  });
+
   /* ------------- Outbound Trigger (Remote Control) ------------- */
 
   app.get("/api/contacts", (req, res) => ok(res, { contacts: outbound.list() }));
