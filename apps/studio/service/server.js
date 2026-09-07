@@ -128,16 +128,20 @@ function createApp() {
         id: demo.id, name: demo.name, template: demo.template,
         panelSide: demo.panelSide, panelWidth: demo.panelWidth, panelStyle: demo.panelStyle,
         // The extension needs this to decide whether to draw its own launcher
-        // and panel at all, or just hand Cognigy's widget a bare frame.
-        chatUi: schema.usesWebchat3(demo) ? "webchat3" : "studio",
+        // and panel at all, or just hand Cognigy's widget a bare frame. The
+        // value names the MOUNT MODE, not the channel: click-to-call demos
+        // send "webchat3" too, because both widgets float on the page and
+        // speak the same CDS_WC3_CLIP protocol. See usesCognigyWidget().
+        chatUi: schema.usesCognigyWidget(demo) ? "webchat3" : "studio",
         launcher: demo.launcher, launcherText: demo.launcherText,
         showLauncherText: demo.showLauncherText, launcherSize: demo.launcherSize,
         agentName: demo.agentName, theme: demo.theme,
         // The extension reads this as "is there anything to show" and refuses
-        // to mount the launcher when it's false. A Webchat v3 demo is served
-        // by the Studio's own host page and has no build of its own, so its
-        // dist/ being absent is normal rather than a reason to stay hidden.
-        built: demo.built || schema.usesWebchat3(demo),
+        // to mount the launcher when it's false. A demo served by one of
+        // Cognigy's own widgets — Webchat v3 or click-to-call — gets the
+        // Studio's host page and has no build of its own, so its dist/ being
+        // absent is normal rather than a reason to stay hidden.
+        built: demo.built || schema.usesCognigyWidget(demo),
         debug: settingsStore.read().showDiagnostics !== false
       },
       via
@@ -349,6 +353,23 @@ function createApp() {
     res.sendFile(file);
   });
 
+  /*
+   * The click-to-call widget bundle. Vendored (the dashboard loads the same
+   * file from renderer/vendor/) rather than pulled from Cognigy's CDN, so a
+   * demo on customer wifi never depends on an outbound request mid-demo — the
+   * same argument that self-hosts the typeface. ~500 KB and version-pinned, so
+   * like webchat.js it keeps sendFile's ETag/304 defaults instead of no-store.
+   */
+  app.get("/_cds/webrtc-widget.js", (req, res) => {
+    const file = path.join(__dirname, "..", "renderer", "vendor", "webRTCWidget.js");
+    if (!fs.existsSync(file)) {
+      return res.status(503).type("application/javascript")
+        .send("/* the click-to-call widget bundle is missing from apps/studio/renderer/vendor */");
+    }
+    res.type("application/javascript");
+    res.sendFile(file);
+  });
+
   // Studio-owned assets injected into (or serving as) demo pages. Whitelisted
   // by name so this route can never be walked out of the service folder.
   // Registered AFTER the webchat.js route above: this ":file" pattern also
@@ -356,7 +377,9 @@ function createApp() {
   const CDS_ASSETS = {
     "clear-mode.css": "text/css; charset=utf-8",
     "webchat3.css": "text/css; charset=utf-8",
-    "webchat3.js": "application/javascript; charset=utf-8"
+    "webchat3.js": "application/javascript; charset=utf-8",
+    "webrtc.css": "text/css; charset=utf-8",
+    "webrtc.js": "application/javascript; charset=utf-8"
   };
   app.get("/_cds/:file", (req, res) => {
     const type = CDS_ASSETS[req.params.file];
@@ -391,6 +414,46 @@ function createApp() {
     res.set("Cache-Control", "no-store");
     res.set("Content-Type", "text/html; charset=utf-8");
     return res.send(html.replace("<!--CDS_CONFIG-->", blob));
+  }
+
+  /*
+   * Serve the Studio-owned click-to-call host page in place of a demo's own
+   * build — the exact counterpart of sendWebchat3Host, and the same reasoning
+   * throughout: config inlined so the page needs no extra round-trip, and the
+   * endpoint normalized here on the trusted side with the helper the templates
+   * use, so a pasted static widget link works as well as an endpoint URL.
+   */
+  function sendVoiceWidgetHost(res, cfg) {
+    const data = {
+      name: cfg.name || "",
+      endpoint: normalize.voiceEndpoint((cfg.cognigy || {}).voiceEndpoint),
+      // Global, not per demo: Live Follow tracks one user ID, and the same
+      // value has to reach webchat, WebRTC and Remote Control alike.
+      userId: settingsStore.read().followMeUserId || "followme",
+      panelStyle: cfg.panelStyle || "solid",
+      panelSide: cfg.panelSide === "left" ? "left" : "right",
+      panelWidth: cfg.panelWidth || 0,
+      // Reported on the debug badge only. The theme itself reaches the widget
+      // as injected CSS below, never as an option handed to the widget.
+      theme: (cfg.theme && cfg.theme.preset) || "cognigy-default",
+      debug: settingsStore.read().showDiagnostics !== false
+    };
+    // Escaping "<" makes a </script> breakout impossible.
+    const blob = '<script type="application/json" id="cds-config">' +
+      JSON.stringify(data).replace(/</g, "\\u003c") + "</script>";
+    let html = fs.readFileSync(path.join(__dirname, "webrtc.html"), "utf8");
+    html = html.replace("<!--CDS_CONFIG-->", blob);
+    /*
+     * Unlike the Webchat host page, this one carries the theme: a WebRTC theme
+     * is exactly the 12 documented --webrtc-* variables plus layout CSS scoped
+     * to the widget's own classes, and there is nowhere else for it to go.
+     * Empty string for Cognigy Default, which contributes nothing by design.
+     */
+    const themeStyle = themes.styleFor(cfg);
+    if (themeStyle) html = html.replace("</head>", themeStyle + "</head>");
+    res.set("Cache-Control", "no-store");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    return res.send(html);
   }
 
   // Studio-owned stylesheets injected into a demo's page, keyed by panelStyle.
@@ -429,6 +492,8 @@ function createApp() {
     // dist/ is irrelevant — this has to come before the "no build yet" check
     // or a demo that never needed a build would be reported as broken.
     if (isIndex && schema.usesWebchat3(demoCfg)) return sendWebchat3Host(res, demoCfg);
+    // Same for WebRTC: Cognigy's own click-to-call widget, not our voice UI.
+    if (isIndex && schema.usesVoiceWidget(demoCfg)) return sendVoiceWidgetHost(res, demoCfg);
 
     if (!fs.existsSync(path.join(root, "index.html"))) {
       return res.status(503).send("<h3 style='font-family:sans-serif'>Demo \"" + slug + "\" has no build yet.</h3><p style='font-family:sans-serif'>Save a source file or click Rebuild in Cognigy Demo Studio.</p>");

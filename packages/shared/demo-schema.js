@@ -183,6 +183,52 @@
       && !isMock;
   }
 
+  /*
+   * Whether a demo is served by Cognigy's real click-to-call widget.
+   *
+   * WebRTC demos used to render Demo Studio's own voice UI on the headless SDK
+   * in every theme, so the widget the SE is actually demoing — the one the
+   * customer would deploy — never appeared in a demo at all. It only ever
+   * showed up in Remote Control's pop-out. The giveaway was in the themes:
+   * every file in assets/themes/webrtc/ carries all 12 documented --webrtc-*
+   * variables, and they were being injected into a page that had no widget to
+   * style.
+   *
+   * So the theme is CSS applied to Cognigy's widget, never a replacement for
+   * it, and picking one does not change which UI renders — exactly the rule
+   * that already holds on the Webchat side.
+   *
+   * Not folded into sanitize(), for the same reason usesWebchat3 isn't: the
+   * endpoint can flip mock <-> real on its own, so only code holding a current
+   * config can answer.
+   */
+  function usesVoiceWidget(cfg) {
+    if (!cfg) return false;
+    var ep = (cfg.cognigy && cfg.cognigy.voiceEndpoint) || "";
+    var isMock = String(ep).trim().toLowerCase() === "mock";
+    return cfg.template === "webrtc"
+      // An overlay launcher is always drawn by the demo's own src/shell/, so
+      // it can never be Cognigy's widget.
+      && (cfg.panelStyle || "solid") !== "overlay"
+      // "mock" is the scripted offline call the Samples run on. There is no
+      // endpoint for a real widget to connect to, so those keep our own UI.
+      && !isMock;
+  }
+
+  /*
+   * Either of Cognigy's own widgets floats on the page under its own steam, so
+   * the extension hands it a bare transparent frame and clips that frame,
+   * instead of drawing a launcher and panel of its own.
+   *
+   * The wire value stays "webchat3" (see /api/resolve): it names the MOUNT MODE
+   * — bare clipped frame for a Cognigy-owned widget — not the channel. Keeping
+   * it means a WebRTC demo works on an already-installed extension with no
+   * reload, and both widgets speak the same CDS_WC3_CLIP protocol anyway.
+   */
+  function usesCognigyWidget(cfg) {
+    return usesWebchat3(cfg) || usesVoiceWidget(cfg);
+  }
+
   // Merge arbitrary input onto the defaults, keeping only known fields sane.
   function sanitize(input) {
     input = input || {};
@@ -294,6 +340,8 @@
     sanitize: sanitize,
     themesFor: themesFor,
     isCognigyDefault: isCognigyDefault,
-    usesWebchat3: usesWebchat3
+    usesWebchat3: usesWebchat3,
+    usesVoiceWidget: usesVoiceWidget,
+    usesCognigyWidget: usesCognigyWidget
   };
 });

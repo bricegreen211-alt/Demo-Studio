@@ -1,0 +1,54 @@
+/*
+ * Click-to-call host page styling — see webrtc.html.
+ *
+ * Deliberately almost empty, for the same reason webchat3.css is: everything
+ * about how the widget looks belongs either on the Cognigy Endpoint or in the
+ * selected theme (assets/themes/webrtc/*.json, injected by the service). This
+ * page's only job is to be an invisible sheet of glass the widget sits on.
+ *
+ * The extension clips its iframe to exactly what webrtc.js measures, so the
+ * page must not add margins, padding or scrollbars of its own.
+ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* ---------- failure card ---------- */
+
+#cds-fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #fff;
+  color: #0f172a;
+}
+#cds-fallback[hidden] { display: none; }
+.cds-fallback-card { max-width: 320px; text-align: center; }
+.cds-fallback-card h1 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+#cds-fallback-msg { font-size: 13px; line-height: 1.5; margin: 0 0 10px; color: #b42318; }
+.cds-fallback-hint { font-size: 12px; color: #64748b; margin: 0; }
+
+/* ---------- debug badge (Settings -> "Show demo diagnostics") ---------- */
+
+#cds-debug {
+  position: fixed;
+  left: 6px;
+  bottom: 6px;
+  z-index: 2147483647;
+  max-width: calc(100% - 12px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .82);
+  color: #fff;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
