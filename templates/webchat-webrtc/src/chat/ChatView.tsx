@@ -1,16 +1,21 @@
 /*
- * Custom Cognigy chat UI (SOW §9.1): text, typing state, quick replies,
- * buttons, cards, images, structured data, reset, connection/error states.
- * Branding comes entirely from demo.json via CSS variables.
+ * Halo chat pane. Identity and the mode tabs live in App; this is the log,
+ * the starters and the composer.
+ *
+ * Renders whatever Cognigy sends — text, images, buttons, galleries and
+ * structured data — through parseOutput in messages.ts. Nothing here is
+ * authored: quick replies are the agent's, and the starter chips come from
+ * the demo form.
  */
 import { useEffect, useRef, useState } from "react";
 import { DemoConfig } from "../config";
 import { CognigyChat } from "./useCognigyChat";
 import { ChatButton, ChatMessage, MessagePart } from "./messages";
+import { Icon } from "../icons";
 
 function Buttons({ buttons, onPostback }: { buttons: ChatButton[]; onPostback: (b: ChatButton) => void }) {
   return (
-    <div className="cds-buttons">
+    <div className="cds-btns">
       {buttons.map((b, i) =>
         b.type === "web_url" && b.url ? (
           <a key={i} className="cds-btn" href={b.url} target="_blank" rel="noreferrer">{b.title}</a>
@@ -25,7 +30,7 @@ function Buttons({ buttons, onPostback }: { buttons: ChatButton[]; onPostback: (
 function Part({ part, onPostback }: { part: MessagePart; onPostback: (b: ChatButton) => void }) {
   switch (part.kind) {
     case "text":
-      return <div className="cds-text">{part.text}</div>;
+      return <>{part.text}</>;
     case "image":
       return <img className="cds-image" src={part.imageUrl} alt="" />;
     case "buttons":
@@ -57,11 +62,22 @@ function Part({ part, onPostback }: { part: MessagePart; onPostback: (b: ChatBut
   }
 }
 
-function Bubble({ msg, onPostback }: { msg: ChatMessage; onPostback: (b: ChatButton) => void }) {
+function clockOf(msg: ChatMessage): string {
+  const at = (msg as unknown as { at?: number }).at;
+  return new Date(typeof at === "number" ? at : Date.now())
+    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function Row({ msg, onPostback }: { msg: ChatMessage; onPostback: (b: ChatButton) => void }) {
+  const mine = msg.from === "user";
   return (
     <div className={"cds-row cds-row-" + msg.from}>
-      <div className={"cds-bubble cds-bubble-" + msg.from}>
-        {msg.parts.map((p, i) => <Part key={i} part={p} onPostback={onPostback} />)}
+      {!mine && <span className="cds-mini"><Icon name="graphic_eq" size={15} /></span>}
+      <div className="cds-msg">
+        <div className="cds-bubble">
+          {msg.parts.map((p, i) => <Part key={i} part={p} onPostback={onPostback} />)}
+        </div>
+        <div className="cds-time">{clockOf(msg)}</div>
       </div>
     </div>
   );
@@ -85,30 +101,30 @@ export default function ChatView({ cfg, chat }: { cfg: DemoConfig; chat: Cognigy
   };
 
   const last = chat.messages[chat.messages.length - 1];
-  const quickReplies = last && last.from === "bot" ? last.quickReplies : [];
+  const quickReplies = last && last.from === "bot" ? last.quickReplies || [] : [];
+
+  /*
+   * Starters are the form's "help me get started" boxes. They show only
+   * before the customer has said anything, and the agent's own quick replies
+   * take over from there — two rows of chips at once would be noise.
+   */
+  const spoken = chat.messages.some((m) => m.from === "user");
+  const chips: { title: string; payload?: string }[] =
+    quickReplies.length ? quickReplies
+    : (!spoken ? cfg.starters.map((s) => ({ title: s })) : []);
 
   return (
     <div className="cds-chat">
-      <header className="cds-header">
-        {cfg.theme.logo ? <img className="cds-logo" src={cfg.theme.logo} alt="" /> : <div className="cds-logo-dot" />}
-        <div className="cds-header-text">
-          <div className="cds-agent">{cfg.agentName}</div>
-          <div className={"cds-status cds-status-" + chat.connection}>
-            {chat.simulated && chat.connection === "connected" ? "Simulated demo" :
-             chat.connection === "connected" ? "Online" :
-             chat.connection === "connecting" ? "Connecting…" :
-             chat.connection === "error" ? "Connection issue" : ""}
-          </div>
-        </div>
-        {chat.simulated && <span className="cds-sim-badge" title="Scripted responses — no Cognigy connection">SIM</span>}
-        <button className="cds-reset" title="Restart conversation" onClick={chat.reset}>⟲</button>
-      </header>
-
-      <div className="cds-scroll" ref={scrollRef}>
-        {chat.messages.map((m) => <Bubble key={m.id} msg={m} onPostback={onPostback} />)}
+      <div className="cds-scroll" ref={scrollRef} role="log" aria-label="Chat messages" aria-live="polite">
+        {chat.messages.map((m) => <Row key={m.id} msg={m} onPostback={onPostback} />)}
         {chat.typing && (
           <div className="cds-row cds-row-bot">
-            <div className="cds-bubble cds-bubble-bot cds-typing"><span /><span /><span /></div>
+            <span className="cds-mini"><Icon name="graphic_eq" size={15} /></span>
+            <div className="cds-msg">
+              <div className="cds-bubble cds-typing" aria-label={cfg.agentName + " is responding"}>
+                <span /><span /><span />
+              </div>
+            </div>
           </div>
         )}
         {chat.connection === "error" && (
@@ -119,24 +135,28 @@ export default function ChatView({ cfg, chat }: { cfg: DemoConfig; chat: Cognigy
         )}
       </div>
 
-      {quickReplies.length > 0 && (
+      {chips.length > 0 && (
         <div className="cds-quick">
-          {quickReplies.map((q, i) => (
-            <button key={i} className="cds-chip" onClick={() => onPostback(q)}>{q.title}</button>
+          {chips.map((q, i) => (
+            <button key={i} className="cds-chip" onClick={() => onPostback(q as ChatButton)}>{q.title}</button>
           ))}
         </div>
       )}
 
-      <footer className="cds-composer">
+      <form className="cds-composer" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder={"Message " + cfg.agentName + "…"}
+          aria-label={"Message " + cfg.agentName}
+          autoComplete="off"
+          maxLength={1000}
           disabled={chat.connection === "error"}
         />
-        <button className="cds-send" onClick={submit} disabled={!draft.trim()}>➤</button>
-      </footer>
+        <button className="cds-send" type="submit" aria-label="Send message" disabled={!draft.trim()}>
+          <Icon name="send" size={20} />
+        </button>
+      </form>
     </div>
   );
 }

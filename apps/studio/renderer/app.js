@@ -404,6 +404,13 @@
     overlay: "The demo draws its own launcher and panel — both vibe-codeable in src/shell/."
   };
 
+  var THEME_NOTE = {
+    "webchat-webrtc":
+      "Halo is the one design this endpoint ships. Nebula, Horizon and Prism were " +
+      "removed — they restyled colours but had no layout of their own — and come " +
+      "back when there is something behind the name."
+  };
+
   var START_HINT = {
     greeting: "The assistant speaks first as soon as the panel opens.",
     button: "The visitor presses a button before anything is sent."
@@ -485,6 +492,21 @@
     $("ps-overlay").hidden = isDefaultTheme() && form.panelStyle !== "overlay";
 
     /*
+     * Webchat + WebRTC is always overlay — Halo ships its own launcher, so any
+     * other style would put a second one beside it, and the schema coerces it
+     * on save. Disable the other two rather than let them be picked and then
+     * silently changed back: a control that accepts a click and discards it is
+     * worse than one that says why it cannot.
+     */
+    var comboOnly = form.template === "webchat-webrtc";
+    ["clear", "solid"].forEach(function (v) {
+      var btn = $("styleSeg").querySelector('[data-style="' + v + '"]');
+      btn.disabled = comboOnly;
+      btn.title = comboOnly ? "Webchat + WebRTC draws its own launcher and panel, so it is always Overlay." : "";
+    });
+    if (comboOnly) form.panelStyle = "overlay";
+
+    /*
      * Cognigy Default takes the launcher, agent name, greeting and starters
      * from the Endpoint, so these cards are hidden rather than greyed out —
      * the old half-state looked editable and did nothing.
@@ -500,6 +522,10 @@
     paintSeg("startSeg", "start", form.startingBehavior);
     $("panelStyleHint").textContent = PANEL_STYLE_HINT[form.panelStyle] || "";
     $("startHint").textContent = START_HINT[form.startingBehavior] || "";
+    var note = THEME_NOTE[form.template] || "";
+    $("themeNote").textContent = note;
+    $("themeNote").hidden = !note;
+
     renderThemeList();
     renderLauncherList();
   }

@@ -64,15 +64,18 @@
    * mechanism. The theme FILES are namespaced by endpoint for exactly this
    * reason; the ids only have to be unique within a list.
    */
+  /*
+   * Combined layouts. One design, plus Custom.
+   *
+   * Nebula, Horizon and Prism were removed: each was a token file with no
+   * layout behind it, so picking one restyled a few colours and left the same
+   * shell. Cognigy Default is gone too — for the combination it means BOTH of
+   * Cognigy's own widgets stacked, and the host page that mounts them does not
+   * exist yet. They come back when there is something behind the name.
+   */
   var COMBO = [
-    { id: "nebula",  name: "Nebula",  note: "Immersive dark glass. A luminous orb is the centrepiece, transcript beneath.",
-      swatch: ["#0b1020", "#6ea8ff", "#c4b5fd"] },
-    { id: "halo",    name: "Halo",    note: "White and vertical. Call status, transcript, then the xApp embedded below it.",
-      swatch: ["#ffffff", "#3b82f6", "#e3e9f5"] },
-    { id: "horizon", name: "Horizon", note: "Wide, across the lower page. Transcript left, xApp right, toolbars top and bottom.",
-      swatch: ["#ffffff", "#0f5f5c", "#9cedd1"] },
-    { id: "prism",   name: "Prism",   note: "Compact assistant with the xApp as a separate companion card beside it.",
-      swatch: ["#faf8ff", "#6d28d9", "#c4b5fd"] }
+    { id: "halo", name: "Halo", note: "White and vertical. Identity up top, Chat and Voice in one panel, live transcript.",
+      swatch: ["#ffffff", "#087aff", "#eef4fc"] }
   ];
 
   var BY_TEMPLATE = {
@@ -88,6 +91,15 @@
    */
   function listFor(template) {
     var themes = BY_TEMPLATE[template] || WEBCHAT;
+    /*
+     * The combination has no Cognigy Default — it would mean both of Cognigy's
+     * own widgets stacked, and nothing mounts them yet. Offering it would be a
+     * tile that silently renders something else. Kept in step with THEMES in
+     * packages/shared/demo-schema.js, which is the source of truth.
+     */
+    if (template === "webchat-webrtc") {
+      return themes.concat([{ rule: true }, CUSTOM_ENTRY]);
+    }
     return [DEFAULT_ENTRY, { rule: true }].concat(themes, [{ rule: true }, CUSTOM_ENTRY]);
   }
 

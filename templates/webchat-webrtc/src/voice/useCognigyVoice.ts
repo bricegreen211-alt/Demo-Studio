@@ -27,6 +27,14 @@ export interface CognigyVoice {
   error: string;
   muted: boolean;
   seconds: number;
+  /**
+   * Wall-clock ms when the current call started, so a transcript line's
+   * absolute `at` can be shown as an offset into the call. 0 before the first
+   * call. Kept here rather than derived from the first line in the UI: the
+   * first thing said is rarely at 00:00, and showing it as such misreports
+   * how long the caller waited.
+   */
+  startedAt: number;
   aiSpeaking: boolean;
   transcript: TranscriptLine[];
   supportMissing: string[];
@@ -112,6 +120,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [startedAt, setStartedAt] = useState(0);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [supportMissing, setSupportMissing] = useState<string[]>([]);
@@ -174,6 +183,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     setError("");
     setTranscript([]);
     setSeconds(0);
+    setStartedAt(Date.now());
     setMuted(false);
     setStateReported("connecting");
     clearMockTimers();
@@ -214,6 +224,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     setError("");
     setTranscript([]);
     setSeconds(0);
+    setStartedAt(Date.now());
     setMuted(false);
     setStateReported("connecting");
     try {
@@ -313,5 +324,5 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     c.sendInfo(text, data).catch(() => {});
   }, []);
 
-  return { state, error, muted, seconds, aiSpeaking, transcript, supportMissing, start, end, toggleMute, sendInfo, simulated };
+  return { state, error, muted, seconds, startedAt, aiSpeaking, transcript, supportMissing, start, end, toggleMute, sendInfo, simulated };
 }

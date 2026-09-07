@@ -66,7 +66,15 @@
     "webchat": [COGNIGY_DEFAULT, "aurora", "tech", "bloom", "hibiscus", "trailhead",
                 "minimal", "nebula", "sunset", "ivory", "custom"],
     "webrtc": [COGNIGY_DEFAULT, "bar", "pill", "card", "custom"],
-    "webchat-webrtc": [COGNIGY_DEFAULT, "nebula", "halo", "horizon", "prism", "custom"]
+    /*
+     * One design, plus Custom. Nebula, Horizon and Prism were token files with
+     * no layout behind them, so choosing one moved a few colours and nothing
+     * else; Cognigy Default needed a host page mounting BOTH of Cognigy's own
+     * widgets, which does not exist. Rather than leave four entries that do
+     * not do what their names say, the picker offers what works. The others
+     * come back when there is a layout to go with them.
+     */
+    "webchat-webrtc": ["halo", "custom"]
   };
 
   // Greeting on connect, or a button the visitor presses first. Cognigy's own
@@ -77,8 +85,15 @@
     return THEMES[template] || THEMES["webchat"];
   }
 
+  /*
+   * An unknown theme falls back to the FIRST entry for that endpoint, not to
+   * COGNIGY_DEFAULT — the combination no longer offers Cognigy Default, and a
+   * fallback that is not in its own list would persist an invalid value on
+   * every read.
+   */
   function pickTheme(value, template) {
-    return themesFor(template).indexOf(value) >= 0 ? value : COGNIGY_DEFAULT;
+    var list = themesFor(template);
+    return list.indexOf(value) >= 0 ? value : list[0];
   }
 
   // Cognigy Default is the one theme where Demo Studio contributes nothing.
@@ -321,6 +336,18 @@
       out.chatUi = isCognigyDefault(out) ? "webchat3" : "studio";
     }
     if (out.panelStyle === "overlay") out.chatUi = "studio";
+
+    /*
+     * The combination is always overlay. Halo ships its own launcher and card,
+     * so any other style would have the extension draw a second launcher right
+     * beside it. Coerced rather than offered, the same way chatUi is: it is a
+     * structural consequence of the design, not a preference.
+     *
+     * This DOES rewrite existing combination demos that were set to clear or
+     * solid. That is the visible half of the change and is reported at start
+     * (reportChatUiChanges in server.js) rather than happening quietly.
+     */
+    if (out.template === "webchat-webrtc") out.panelStyle = "overlay";
     return out;
   }
 

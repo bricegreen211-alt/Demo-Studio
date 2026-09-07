@@ -1,474 +1,553 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Demo Experience — Webchat + WebRTC.
+/*
+ * Webchat + WebRTC — Halo.
+ *
+ * The one design this endpoint ships. Nebula, Horizon and Prism were removed:
+ * they existed only as token files with no layout behind them, so picking one
+ * changed some colours and nothing else.
+ *
+ * Every value here is a token first, a rule second, so a Custom theme (the
+ * only other entry in the picker) can restyle the whole widget by overriding
+ * :root and nothing else. assets/themes/webchat-webrtc/halo.json carries the
+ * same values, which is what lets an EXISTING demo pick up a change with no
+ * rebuild — the service injects that block at request time.
+ *
+ * Sizing: --cds-panel-w / --cds-panel-h are the panel's geometry and are read
+ * back by Shell.tsx to size the extension's iframe. The demo form's Width
+ * control overrides --cds-panel-w per demo, so one design covers Compact
+ * through Extra wide without a second layout.
+ */
 
-   Every colour, radius, shadow and size is a token. That is what makes a theme
-   a values change rather than a rewrite: a theme supplies a :root block and
-   nothing below this one has to move.
-
-   Two tiers:
-     tier 1  --brand-*   set at runtime from demo.json by applyTheme()
-                         (config.ts) as inline styles on <html>, so they win
-                         over anything here and stay live-editable.
-     tier 2  everything else — semantic roles. THESE are what the rules below
-                         use, and what a theme overrides.
-
-   Rule: no raw hex, rgba or px colour/radius/shadow below this block. If you
-   need a new one, name it here first or a theme will miss it.
-
-   NOTE: this file was previously a literal concatenation of the webchat and
-   webrtc stylesheets — :root was declared twice, and .cds-logo, .cds-agent,
-   .cds-sim-badge and .cds-tline were each defined twice. Deduplicated.
-   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── tier 1: from demo.json ─────────────────────────────────────────── */
-  --brand-primary: #3694fc;
-  --brand-secondary: #f1f5f9;
+  /* ---- geometry (Shell.tsx reads these back; the form's Width wins) ---- */
+  --cds-panel-w: 460px;
+  --cds-panel-h: 800px;
+  --cds-panel-min-h: 470px;
 
-  /* ── tier 2: surfaces + text ────────────────────────────────────────── */
-  --bg: #ffffff;              /* the panel's own ground                    */
-  --surface: #ffffff;         /* cards, bubbles, chips, buttons            */
-  --surface-sunk: var(--brand-secondary);  /* scroll area, voice stage     */
-  --ink: #0f172a;
-  --ink-soft: #64748b;
-  --on-primary: #ffffff;      /* text/icons on a --brand-primary fill      */
-  --on-danger: #ffffff;
+  /* ---- surfaces ---- */
+  --surface: #ffffff;
+  --surface-raised: linear-gradient(145deg, #ffffff, #fcfdff);
+  --surface-sunk: #eef4fc;
+  --surface-inset: #eff6fd;
+  --footer-bg: #fcfdff;
 
-  /* quiet fills that sit ON the coloured header */
-  --on-header-quiet: rgba(255,255,255,.18);
-  --on-header-quiet-hover: rgba(255,255,255,.3);
-  --on-header-badge: rgba(255,255,255,.22);
+  /* ---- ink ---- */
+  --ink: #10223b;
+  --ink-strong: #0d2139;
+  --ink-soft: #637e9b;
+  --ink-faint: #738aa5;
+  --ink-tab: #193c69;
 
-  /* ── lines ──────────────────────────────────────────────────────────── */
-  --line: #e2e8f0;
-  --line-strong: #cbd5e1;
+  /* ---- lines ---- */
+  --line: #e3edf8;
+  --line-soft: #e0ebf6;
+  --line-field: #d4e1f0;
+  --line-panel: #bddbff;
+  --line-tabs: #bfd9fa;
 
-  /* ── header ─────────────────────────────────────────────────────────── */
-  --header-bg: var(--brand-primary);
-  --header-text: var(--on-primary);
-  --logo-bg: var(--surface);
-  --logo-dot-from: rgba(255,255,255,.9);
-  --logo-dot-to: rgba(255,255,255,.25);
+  /* ---- accent ---- */
+  --accent: #087aff;
+  --accent-2: #268dff;
+  --accent-grad: linear-gradient(110deg, #087cff, #268dff);
+  --bubble-user: linear-gradient(125deg, #087aff, #0870f5);
+  --on-accent: #ffffff;
+  --accent-quiet: #086bdb;
+  --accent-line: #1782f7;
 
-  /* ── bubbles ────────────────────────────────────────────────────────── */
-  --bubble-user-bg: var(--brand-primary);
-  --bubble-user-text: var(--on-primary);
-  --bubble-bot-bg: var(--surface);
-  --bubble-bot-text: var(--ink);
-  --bubble-radius: 16px;
-  --bubble-tail: 4px;
+  /* ---- voice ---- */
+  --live: #28d999;
+  --dot-idle: #98b1c9;
+  --danger-grad: linear-gradient(120deg, #ff646e, #ff5666);
+  --wave-grad: linear-gradient(#70b6ff, #087aff);
 
-  /* ── controls ───────────────────────────────────────────────────────── */
-  --accent: var(--brand-primary);
-  --accent-tint-8: color-mix(in srgb, var(--brand-primary) 8%, #fff);
-  --accent-tint-10: color-mix(in srgb, var(--brand-primary) 10%, #fff);
-  --accent-tint-12: color-mix(in srgb, var(--brand-primary) 12%, #fff);
-  --control-bg: var(--surface);
-  --mute-bg: var(--surface);
-  --mute-on-bg: #fde68a;
-  --danger: #dc2626;
-  --danger-light: #fca5a5;
-
-  /* ── status ─────────────────────────────────────────────────────────── */
-  --error-bg: #fef2f2;
-  --error-text: #b91c1c;
-  --error-line: #fecaca;
-  --status-error-text: #fecaca;   /* on the coloured header */
-  --typing-dot: #94a3b8;
-  --live: #00e2a0;
-  --code-bg: #0f172a;
-  --code-ink: #e2e8f0;
-
-  /* ── voice ──────────────────────────────────────────────────────────── */
-  --orb-from: color-mix(in srgb, var(--brand-primary) 55%, #fff);
-  --orb-to: var(--brand-primary);
-  --orb-error-from: var(--danger-light);
-  --orb-error-to: var(--danger);
-  --wave-color: rgba(255,255,255,.9);
-  --transcript-bg: var(--bg);
-
-  /* ── launcher (overlay style) ───────────────────────────────────────── */
-  --launcher-from: color-mix(in srgb, var(--brand-primary) 45%, #fff);
-  --launcher-to: var(--brand-primary);
-  --launcher-ink: var(--on-primary);
-  --launcher-label-bg: var(--surface);
-  --launcher-label-text: var(--ink);
-  --spark-from: #1e293b;
-  --spark-to: #0f172a;
-  --orb-swirl: rgba(255,255,255,.55);
-  --orb-shine: rgba(255,255,255,.7);
-
-  /* ── radii ──────────────────────────────────────────────────────────── */
-  --r-xs: 3px;
-  --r-sm: 5px;
-  --r-md: 8px;
-  --r-lg: 10px;
-  --r-xl: 12px;
-  --r-2xl: 18px;
+  /* ---- radii ---- */
+  --r-panel: 27px;
+  --r-bubble: 18px;
   --r-pill: 999px;
-  --r-round: 50%;
+  --r-md: 15px;
+  --r-sm: 14px;
 
-  /* ── shadows ────────────────────────────────────────────────────────── */
-  --shadow-bubble: 0 1px 2px rgba(15,23,42,.08);
-  --shadow-control: 0 2px 8px rgba(15,23,42,.15);
-  --shadow-label: 0 2px 12px rgba(15,23,42,.2);
-  --shadow-card: 0 18px 50px rgba(15,23,42,.3);
-  --shadow-danger: 0 4px 14px rgba(220,38,38,.4);
-  --shadow-accent: 0 4px 14px color-mix(in srgb, var(--brand-primary) 40%, transparent);
-  --shadow-orb: 0 8px 30px color-mix(in srgb, var(--brand-primary) 45%, transparent);
-  --shadow-launcher: 0 6px 24px color-mix(in srgb, var(--brand-primary) 55%, transparent);
-  --scrim-soft: rgba(15,23,42,.08);
-
-  /* ── type ───────────────────────────────────────────────────────────── */
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  --fs-2xs: 9px;
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-md: 13px;
-  --fs-base: 13.5px;
-  --fs-lg: 14px;
-  --fs-xl: 15px;
-  --fs-2xl: 18px;
-  --fs-3xl: 20px;
-  --lh-body: 1.45;
+  --pad-x: 23px;
+  --shadow-panel: 0 0 0 2px #c4ddff66, 0 22px 54px #304d6c1c;
+  --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
-body {
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
   font-family: var(--font);
-  background: var(--bg);
+  font-synthesis: none;
   color: var(--ink);
 }
+/* Overlay draws its own card over a transparent page, so the page itself must
+   paint nothing — the customer's website is what shows through. */
+html.cds-overlay, html.cds-overlay body { background: transparent; }
+button, input { font: inherit; }
+button { cursor: pointer; border: 0; color: inherit; }
+button:disabled { cursor: default; }
 
-/* ══ CHAT ═══════════════════════════════════════════════════════════════ */
-.cds-chat { display: flex; flex-direction: column; height: 100%; }
+/* ============================ the panel ============================ */
 
-.cds-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
-  background: var(--header-bg); color: var(--header-text);
-  flex: 0 0 auto;
-}
-.cds-logo {
-  width: 34px; height: 34px; border-radius: var(--r-round);
-  object-fit: cover; background: var(--logo-bg);
-}
-.cds-logo-dot {
-  width: 34px; height: 34px; border-radius: var(--r-round);
-  background: radial-gradient(circle at 30% 30%, var(--logo-dot-from), var(--logo-dot-to));
-}
-.cds-header-text { flex: 1; min-width: 0; }
-.cds-agent { font-weight: 600; font-size: var(--fs-xl); }
-.cds-status { font-size: var(--fs-xs); opacity: .85; }
-.cds-status-error { color: var(--status-error-text); }
-.cds-reset {
-  border: 0; background: var(--on-header-quiet); color: var(--header-text);
-  width: 30px; height: 30px; border-radius: var(--r-round);
-  cursor: pointer; font-size: var(--fs-xl);
-}
-.cds-reset:hover { background: var(--on-header-quiet-hover); }
-
-/* transcript */
-.cds-scroll { flex: 1; overflow-y: auto; padding: 14px 12px; background: var(--surface-sunk); }
-.cds-row { display: flex; margin: 6px 0; }
-.cds-row-user { justify-content: flex-end; }
-.cds-row-bot, .cds-row-system { justify-content: flex-start; }
-.cds-bubble {
-  max-width: 82%; padding: 9px 13px; border-radius: var(--bubble-radius);
-  font-size: var(--fs-lg); line-height: var(--lh-body); overflow-wrap: break-word;
-}
-.cds-bubble-user {
-  background: var(--bubble-user-bg); color: var(--bubble-user-text);
-  border-bottom-right-radius: var(--bubble-tail);
-}
-.cds-bubble-bot {
-  background: var(--bubble-bot-bg); color: var(--bubble-bot-text);
-  border-bottom-left-radius: var(--bubble-tail); box-shadow: var(--shadow-bubble);
-}
-.cds-bubble-system { background: transparent; color: var(--ink-soft); font-size: var(--fs-sm); }
-.cds-text { white-space: pre-wrap; }
-.cds-image { max-width: 100%; border-radius: var(--r-lg); display: block; margin-top: 4px; }
-
-/* buttons + quick replies */
-.cds-buttons { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.cds-btn {
-  display: block; text-align: center; text-decoration: none; cursor: pointer;
-  border: 1px solid var(--accent); color: var(--accent);
-  background: var(--control-bg); border-radius: var(--r-lg);
-  padding: 8px 10px; font-size: var(--fs-base);
-}
-.cds-btn:hover { background: var(--accent-tint-8); }
-.cds-quick { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 12px 0; background: var(--bg); }
-.cds-chip {
-  border: 1px solid var(--accent); color: var(--accent); background: var(--control-bg);
-  border-radius: var(--r-pill); padding: 6px 14px; font-size: var(--fs-md); cursor: pointer;
-}
-.cds-chip:hover { background: var(--accent-tint-10); }
-
-/* cards */
-.cds-cards { display: flex; gap: 10px; overflow-x: auto; padding: 6px 2px 2px; }
-.cds-card {
-  flex: 0 0 210px; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-xl); overflow: hidden;
-}
-.cds-card img { width: 100%; height: 110px; object-fit: cover; display: block; }
-.cds-card-body { padding: 9px 10px 10px; }
-.cds-card-title { font-weight: 600; font-size: var(--fs-base); }
-.cds-card-subtitle { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: 2px; }
-
-/* structured data */
-.cds-data { margin-top: 6px; font-size: var(--fs-sm); }
-.cds-data summary { cursor: pointer; color: var(--ink-soft); }
-.cds-data pre {
-  margin: 6px 0 0; padding: 8px; background: var(--code-bg); color: var(--code-ink);
-  border-radius: var(--r-md); overflow-x: auto; font-size: var(--fs-xs); max-height: 180px;
-}
-
-/* typing */
-.cds-typing { display: inline-flex; gap: 4px; padding: 12px 14px; }
-.cds-typing span {
-  width: 7px; height: 7px; border-radius: var(--r-round); background: var(--typing-dot);
-  animation: cds-blink 1.2s infinite both;
-}
-.cds-typing span:nth-child(2) { animation-delay: .18s; }
-.cds-typing span:nth-child(3) { animation-delay: .36s; }
-@keyframes cds-blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
-
-/* error */
-.cds-error {
-  margin: 10px auto; max-width: 90%; background: var(--error-bg); color: var(--error-text);
-  border: 1px solid var(--error-line); border-radius: var(--r-lg);
-  padding: 10px 12px; font-size: var(--fs-md);
-  display: flex; align-items: center; gap: 10px; justify-content: space-between;
-}
-.cds-error button {
-  border: 1px solid var(--error-text); color: var(--error-text); background: var(--surface);
-  border-radius: var(--r-md); padding: 4px 12px; cursor: pointer;
-}
-
-/* composer */
-.cds-composer {
-  display: flex; gap: 8px; padding: 10px 12px; background: var(--bg);
-  border-top: 1px solid var(--line); flex: 0 0 auto;
-}
-.cds-composer input {
-  flex: 1; border: 1px solid var(--line-strong); border-radius: var(--r-pill);
-  padding: 10px 16px; font-size: var(--fs-lg); outline: none;
-  /* An input with no background takes the browser's white, which is invisible
-     as a gap in any dark theme. Both halves have to be tokens. */
-  background: var(--surface); color: var(--ink);
-}
-.cds-composer input::placeholder { color: var(--ink-soft); }
-.cds-composer input:focus { border-color: var(--accent); }
-.cds-send {
-  border: 0; background: var(--accent); color: var(--on-primary);
-  width: 40px; height: 40px; border-radius: var(--r-round);
-  cursor: pointer; font-size: var(--fs-xl);
-}
-.cds-send:disabled { opacity: .4; cursor: default; }
-
-/* simulated-mode badge (endpoint "mock") — one definition, used by both views */
-.cds-sim-badge {
-  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .08em;
-  background: var(--on-header-badge); color: var(--header-text);
-  padding: 3px 7px; border-radius: var(--r-sm); margin-right: 2px;
-}
-
-/* ══ VOICE ══════════════════════════════════════════════════════════════ */
-.cds-voice { display: flex; flex-direction: column; height: 100%; }
-
-.cds-vheader {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; background: var(--header-bg); color: var(--header-text); flex: 0 0 auto;
-}
-.cds-vstatus { font-size: var(--fs-xs); opacity: .85; }
-.cds-timer {
-  margin-left: auto; font-variant-numeric: tabular-nums;
-  font-size: var(--fs-lg); opacity: .95;
-}
-
-.cds-vstage {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; background: var(--surface-sunk); padding: 24px 16px; min-height: 220px;
-}
-
-/* the big voice orb */
-.cds-orb {
-  position: relative; width: 120px; height: 120px; flex: 0 0 auto;
-  display: grid; place-items: center;
-}
-.cds-orb-core {
-  position: absolute; inset: 0; border-radius: var(--r-round);
-  background: radial-gradient(circle at 32% 30%, var(--orb-from), var(--orb-to) 70%);
-  box-shadow: var(--shadow-orb);
-  animation: cds-orb-pulse 3.2s ease-in-out infinite;
-}
-.cds-orb-connecting .cds-orb-core,
-.cds-orb-ringing .cds-orb-core { animation: cds-orb-pulse 1s ease-in-out infinite; }
-.cds-orb-error .cds-orb-core {
-  background: radial-gradient(circle at 32% 30%, var(--orb-error-from), var(--orb-error-to) 70%);
-}
-@keyframes cds-orb-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-.cds-wave { position: relative; display: flex; gap: 5px; align-items: center; height: 40px; }
-.cds-wave span {
-  width: 6px; height: 12px; border-radius: var(--r-xs); background: var(--wave-color);
-  animation: cds-wavebar 1.1s ease-in-out infinite; animation-play-state: paused;
-}
-.cds-orb-active .cds-wave span, .cds-orb-speaking .cds-wave span { animation-play-state: running; }
-.cds-orb-speaking .cds-wave span { animation-duration: .6s; }
-@keyframes cds-wavebar {
-  0%, 100% { height: 10px; }
-  50% { height: 34px; }
-}
-
-/* controls — call, mute, end. No dial pad, matching Cognigy's click-to-call widget. */
-.cds-vcontrols { display: flex; gap: 14px; align-items: center; }
-.cds-call {
-  display: flex; align-items: center; gap: 10px;
-  border: 0; background: var(--accent); color: var(--on-primary);
-  border-radius: var(--r-pill); padding: 12px 26px;
-  font-size: var(--fs-xl); font-weight: 600; cursor: pointer;
-  box-shadow: var(--shadow-accent);
-}
-.cds-call:hover { filter: brightness(1.06); }
-.cds-call:disabled { opacity: .5; cursor: default; }
-.cds-call-icon { font-size: var(--fs-2xl); }
-.cds-mute, .cds-hangup {
-  width: 54px; height: 54px; border-radius: var(--r-round); border: 0;
-  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+.cds-multi {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
   color: var(--ink);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-panel);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  color-scheme: light;
 }
-.cds-mute { background: var(--mute-bg); box-shadow: var(--shadow-control); }
-.cds-mute.cds-muted { background: var(--mute-on-bg); }
-.cds-hangup { background: var(--danger); color: var(--on-danger) !important; box-shadow: var(--shadow-danger); }
-.cds-micnote { font-size: var(--fs-sm); color: var(--ink-soft); }
-.cds-verror {
-  background: var(--error-bg); color: var(--error-text); border: 1px solid var(--error-line);
-  border-radius: var(--r-lg); padding: 10px 14px; font-size: var(--fs-md); max-width: 90%;
+.cds-multi button:focus-visible,
+.cds-multi input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ---- header: identity, once, above both modes ---- */
+
+.cds-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 23px var(--pad-x) 17px;
+  flex: none;
+}
+.cds-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 43px;
+  height: 43px;
+  border: 1px solid #d1e7ff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #eef7ff, #d8ecff 60%, #c1e0ff);
+  color: var(--accent);
+  overflow: hidden;
+}
+.cds-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cds-head-text { min-width: 0; }
+.cds-agent {
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -.45px;
+  line-height: 1.25;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cds-sub {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cds-min {
+  margin-left: auto;
+  flex: none;
+  background: transparent;
+  padding: 8px;
+  border-radius: 8px;
+  color: #718aa3;
+  display: grid;
+  place-items: center;
+}
+.cds-min:hover { background: var(--surface-inset); }
+
+/* SIM only ever shows for the literal endpoint "mock"; a wrong endpoint still
+   fails loudly rather than quietly serving a script. */
+.cds-sim {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: #fff3d6;
+  color: #8a5a00;
 }
 
-/* live transcript */
-.cds-transcript {
-  flex: 0 0 auto; max-height: 34%; overflow-y: auto;
-  border-top: 1px solid var(--line); background: var(--transcript-bg);
-  padding: 10px 14px; font-size: var(--fs-md);
-}
-.cds-tline { margin: 4px 0; line-height: var(--lh-body); }
-.cds-tline-ai b { color: var(--accent); }
-.cds-tline-info { color: var(--ink-soft); font-size: var(--fs-sm); }
+/* ---- mode tabs ---- */
 
-/* ══ MULTIMODAL SHELL ═══════════════════════════════════════════════════ */
-.cds-multi { display: flex; flex-direction: column; height: 100%; }
-.cds-pane { flex: 1; min-height: 0; flex-direction: column; }
-.cds-pane .cds-chat, .cds-pane .cds-voice { height: 100%; }
 .cds-tabs {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 10px; background: var(--bg);
-  border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  width: calc(90% - 41.4px);
+  align-self: center;
+  margin: 0 0 17px;
+  display: flex;
+  padding: 3.6px;
+  border: 1px solid var(--line-tabs);
+  border-radius: 40px;
+  background: var(--surface-inset);
+  flex: none;
 }
 .cds-tabs button {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--line); background: var(--control-bg); color: var(--ink-soft);
-  border-radius: var(--r-pill); padding: 6px 14px; font-size: var(--fs-md); cursor: pointer;
+  width: 50%;
+  border-radius: 30px;
+  padding: 9.9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8.1px;
+  background: none;
+  font-size: 14.4px;
+  font-weight: 550;
+  position: relative;
+  color: var(--ink-tab);
+  transition: background .2s, box-shadow .2s;
 }
-/* "on a call" dot on the Voice tab — a shape, not a colour, so it still reads
-   for anyone who can't distinguish the green. */
-.cds-live {
-  width: 7px; height: 7px; border-radius: var(--r-round); background: var(--live);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 28%, transparent);
-  animation: cdsLive 1.6s ease-in-out infinite;
-}
-@keyframes cdsLive { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) { .cds-live { animation: none; } }
+.cds-tabs button svg { width: 18.9px; height: 18.9px; }
 .cds-tabs button.on {
-  background: var(--accent-tint-12);
-  border-color: var(--accent); color: var(--accent); font-weight: 600;
+  background: var(--accent-grad);
+  box-shadow: inset 0 1px 1px #ffffff70;
+  color: var(--on-accent);
+}
+.cds-live {
+  width: 6px;
+  height: 6px;
+  background: var(--live);
+  border-radius: 50%;
+  position: absolute;
+  right: 17px;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   OVERLAY SHELL  (panelStyle "overlay")
-   The extension gives us a bare transparent iframe; everything below is drawn
-   by the demo, so it's all yours to vibe-code.
-   ══════════════════════════════════════════════════════════════════════════ */
-html.cds-overlay, html.cds-overlay body, html.cds-overlay #root { background: transparent !important; }
-html.cds-overlay body { overflow: hidden; }
+/* ---- panes ---- */
 
-.cds-shell { position: fixed; inset: 0; }
+.cds-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cds-chat, .cds-voice { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-/* collapsed launcher, pinned bottom-right of the (launcher-sized) iframe */
-.cds-shell-launcher {
-  position: absolute; right: 2px; bottom: 2px;
-  /* max-content: the launcher must never shrink to fit the iframe, or
-     measuring it would feed back into the size we ask the iframe to be. */
-  width: max-content; height: max-content;
+.cds-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px var(--pad-x) 17px;
+  scrollbar-width: thin;
+  scrollbar-color: #b8cbdd #eef4fa;
+  overscroll-behavior: contain;
 }
-.cds-launcher-row { display: flex; align-items: center; gap: 10px; }
-.cds-launcher-label {
-  background: var(--launcher-label-bg); color: var(--launcher-label-text);
-  font-size: var(--fs-md); font-weight: 600;
-  padding: 8px 14px; border-radius: var(--r-pill); white-space: nowrap;
-  box-shadow: var(--shadow-label);
+
+/* ============================ chat ============================ */
+
+.cds-row { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 19px; }
+.cds-row-user { justify-content: flex-end; }
+.cds-mini {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  background: #e2f0ff;
+  color: #1976d9;
+  border: 1px solid #dfecfb;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 4px;
 }
+.cds-mini svg { width: 15px; height: 15px; }
+.cds-msg { max-width: 84%; min-width: 0; }
+.cds-bubble {
+  background: var(--surface-sunk);
+  border-radius: var(--r-bubble);
+  padding: 12px 15px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.cds-row-user .cds-bubble { background: var(--bubble-user); color: var(--on-accent); }
+.cds-time { font-size: 12px; line-height: 1.3; color: var(--ink-faint); margin-top: 5px; padding: 0 3px; }
+.cds-row-user .cds-time { text-align: right; }
+
+.cds-typing { display: flex; gap: 4px; align-items: center; min-height: 24px; }
+.cds-typing span {
+  display: block; width: 5px; height: 5px;
+  background: #6890be; border-radius: 50%;
+  animation: cds-dots 1s infinite;
+}
+.cds-typing span:nth-child(2) { animation-delay: .15s; }
+.cds-typing span:nth-child(3) { animation-delay: .3s; }
+
+/* Quick replies and conversation starters share one look — both are "tap this
+   instead of typing", and the starters come from the demo form. */
+.cds-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 var(--pad-x) 8px 36px;
+  flex: none;
+}
+.cds-chip {
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  padding: 8px 11px;
+  border-radius: 24px;
+  color: var(--accent-quiet);
+  font-size: 14px;
+}
+.cds-chip:hover { background: #eaf3ff; }
+
+.cds-composer {
+  flex: none;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 16px 20px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--footer-bg);
+}
+.cds-composer input {
+  width: 100%;
+  min-width: 0;
+  background: #fff;
+  color: #142944;
+  border: 1px solid var(--line-field);
+  border-radius: 28px;
+  padding: 13px 16px;
+  font-size: 16px;
+}
+.cds-composer input::placeholder { color: #71869f; }
+.cds-send {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.cds-send:disabled { opacity: .45; }
+.cds-send:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* Cognigy rich content, in Halo's language. */
+.cds-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cds-btn {
+  background: #fff;
+  border: 1px solid var(--accent-line);
+  color: var(--accent-quiet);
+  border-radius: 24px;
+  padding: 8px 12px;
+  font-size: 14px;
+  text-decoration: none;
+}
+.cds-btn:hover { background: #eaf3ff; }
+.cds-image { max-width: 100%; border-radius: 12px; display: block; }
+.cds-cards { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.cds-card {
+  min-width: 210px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.cds-card img { width: 100%; display: block; }
+.cds-card-body { padding: 11px 13px; }
+.cds-card-title { font-weight: 600; font-size: 15px; }
+.cds-card-subtitle { font-size: 13px; color: var(--ink-soft); margin-top: 3px; }
+.cds-data { font-size: 13px; margin-top: 8px; }
+.cds-data pre { overflow-x: auto; background: var(--surface-inset); padding: 9px; border-radius: 10px; }
+.cds-error {
+  margin: 0 0 16px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #fff1f1;
+  color: #a3242f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.cds-error button {
+  display: block;
+  margin-top: 8px;
+  background: transparent;
+  color: #a3242f;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* ============================ voice ============================ */
+
+.cds-strip {
+  margin: 0 var(--pad-x) 17px;
+  padding: 12px 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r-sm);
+  background: #eef6fe;
+  flex: none;
+  font-size: 14px;
+  color: #132d4c;
+  min-height: 47px;
+}
+.cds-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-idle); flex: none; }
+.cds-dot.on { background: var(--live); box-shadow: 0 0 10px #28d99944; }
+.cds-clock { color: #476684; font-variant-numeric: tabular-nums; }
+
+.cds-wave { margin-left: auto; display: flex; align-items: center; gap: 3px; height: 20px; }
+.cds-wave i {
+  display: block;
+  width: 3px;
+  height: var(--h);
+  border-radius: 3px;
+  background: var(--wave-grad);
+  opacity: .45;
+  transform: scaleY(.25);
+  transition: transform .3s;
+}
+.cds-wave.on i { opacity: 1; animation: cds-wave .8s ease-in-out infinite alternate; animation-delay: var(--delay); }
+
+.cds-tt {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.35px;
+  margin: 0 var(--pad-x) 17px;
+  color: var(--ink-strong);
+  flex: none;
+}
+
+.cds-utt { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 21px; }
+.cds-utt-icon {
+  width: 33px;
+  height: 33px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 650;
+  background: #e3f1ff;
+  color: #0673de;
+}
+.cds-utt-body { min-width: 0; max-width: 82%; }
+.cds-utt-who { font-size: 13px; color: #5f7d9b; margin: 0 0 6px; padding: 0 3px; line-height: 1.5; }
+.cds-utt-who time { color: #758fa8; margin-left: 7px; font-variant-numeric: tabular-nums; }
+.cds-utt-text {
+  background: #eef5fd;
+  border-radius: 16px;
+  padding: 11px 14px;
+  color: #122b46;
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* The caller anchors right, the agent stays left — the same read as the chat
+   bubbles, so switching modes doesn't switch visual grammar. */
+.cds-utt-user { flex-direction: row-reverse; }
+.cds-utt-user .cds-utt-who { text-align: right; }
+.cds-utt-user .cds-utt-icon { background: #edf2f7; color: #6d87a1; }
+.cds-utt-user .cds-utt-text { background: var(--bubble-user); color: var(--on-accent); text-align: left; }
+/* Cognigy sends occasional non-speech lines; they are notes, not utterances. */
+.cds-utt-info { justify-content: center; margin-bottom: 14px; }
+.cds-utt-info .cds-utt-text { background: transparent; color: var(--ink-soft); font-size: 13px; padding: 0; }
+
+.cds-empty {
+  height: 100%;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 10px;
+  color: #6e88a3;
+}
+.cds-empty svg { width: 30px; height: 30px; margin-bottom: 16px; color: #187aee; }
+.cds-empty strong { font-size: 18px; font-weight: 550; color: #1b385b; }
+.cds-empty p { max-width: 255px; font-size: 14px; line-height: 1.6; }
+
+.cds-vfoot {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid var(--line-soft);
+  padding: 16px 22px 19px;
+  flex: none;
+  background: var(--footer-bg);
+}
+.cds-vfoot button {
+  border-radius: var(--r-md);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 550;
+}
+.cds-mute {
+  width: 44%;
+  background: #fff;
+  border: 1px solid #c2d3e5;
+  color: #123e74;
+}
+.cds-mute[aria-pressed="true"] { background: #e3efff; border-color: #3985e7; }
+.cds-mute:disabled { opacity: .35; }
+.cds-call { flex: 1; background: var(--accent); color: var(--on-accent); }
+.cds-call.end { background: var(--danger-grad); }
+.cds-call:disabled { opacity: .5; }
+
+/* ============================ overlay shell ============================ */
+
+.cds-shell { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.cds-shell-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cds-shell-body { flex: 1; min-height: 0; display: flex; }
+.cds-shell-body > * { flex: 1; min-width: 0; }
+/* Halo carries its own minimize in the header, so the shell's extra close
+   button would be a second control doing the same thing. */
+.cds-shell-close { display: none; }
+
 .cds-launcher {
-  position: relative; border: 0; cursor: pointer; border-radius: var(--r-round);
-  display: grid; place-items: center; overflow: hidden; padding: 0;
-  color: var(--launcher-ink);
-  background: radial-gradient(circle at 32% 28%, var(--launcher-from), var(--launcher-to) 72%);
-  box-shadow: var(--shadow-launcher);
-  transition: transform .2s ease, box-shadow .2s ease;
-  animation: cdsLauncherPulse 3.4s ease-in-out infinite;
+  width: 100%;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  color: #193752;
+  border: 1px solid #b9d8ff;
+  border-radius: 22px;
+  box-shadow: 0 7px 25px #304d6c1c;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 600;
 }
-.cds-launcher:hover { transform: scale(1.08); }
-.cds-launcher svg { width: 46%; height: 46%; }
-@keyframes cdsLauncherPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-}
-.cds-launcher-ai-spark {
-  background: radial-gradient(circle at 50% 55%, var(--spark-from), var(--spark-to));
-}
-.cds-launcher-ai-spark svg { filter: drop-shadow(0 0 6px var(--accent)); }
+.cds-launcher .cds-avatar { width: 43px; height: 43px; }
+.cds-launcher-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cds-launcher-status { font-size: 13px; font-weight: 400; color: #6b87a4; margin-left: auto; flex: none; }
 
-/* AI orb icon */
-.cds-orb-icon { position: absolute; inset: 0; }
-.cds-orb-icon-swirl {
-  position: absolute; inset: -30%; border-radius: var(--r-round); filter: blur(6px);
-  background: conic-gradient(from 0deg, transparent 0 40%, var(--orb-swirl) 50%, transparent 60% 100%);
-  animation: cdsOrbSwirl 6s linear infinite;
-}
-@keyframes cdsOrbSwirl { to { transform: rotate(360deg); } }
-.cds-orb-icon-shine {
-  position: absolute; top: 16%; left: 20%; width: 34%; height: 26%;
-  border-radius: var(--r-round); background: var(--orb-shine); filter: blur(5px);
+@keyframes cds-wave { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+@keyframes cds-dots {
+  0%, 100% { opacity: .3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
 }
 
-/* expanded panel card — fills the iframe, which the extension has sized */
-.cds-shell-card {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  background: var(--surface); border-radius: var(--r-2xl); overflow: hidden;
-  box-shadow: var(--shadow-card);
+/* Narrow panels — Compact (360px) and anything the customer's viewport
+   squeezes — get the reference's tighter gutters rather than a second layout. */
+@media (max-width: 400px) {
+  /*
+   * These override the ELEMENTS, not the tokens, and that is load-bearing.
+   * The service injects the theme's :root block into the page AFTER this
+   * stylesheet, so a `:root { --pad-x: 18px }` here has the same specificity
+   * as the injected declaration and loses on order every time — the narrow
+   * layout would silently keep the wide gutters. Anything responsive has to
+   * be stated on the element that consumes the token.
+   */
+  .cds-multi { border-radius: 23px; }
+  .cds-head { padding: 18px 18px 15px; }
+  .cds-scroll { padding-left: 18px; padding-right: 18px; }
+  .cds-quick { margin-left: 30px; margin-right: 18px; }
+  .cds-strip { margin-left: 18px; margin-right: 18px; gap: 6px; font-size: 13px; }
+  .cds-tt { margin-left: 18px; margin-right: 18px; }
+  .cds-tabs { width: calc(90% - 32.4px); margin: 0 0 16px; }
+  .cds-wave { gap: 2px; }
+  .cds-agent { font-size: 19px; }
 }
-.cds-shell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.cds-shell-body > * { flex: 1; min-height: 0; }
-/*
- * In this template the card's top row is the light Chat/Voice tab bar, not a
- * coloured header, so the close button is styled for a light surface — the
- * white-on-transparent version the single-mode templates use is invisible here.
- */
-.cds-shell-close {
-  position: absolute; top: 9px; right: 10px; z-index: 6;
-  width: 28px; height: 28px; border: 0; border-radius: var(--r-md); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; color: var(--ink-soft);
-}
-.cds-shell-close:hover { background: var(--scrim-soft); color: var(--ink); }
 
-/* Room for the close button in overlay mode. The tab bar needs it too: it is
-   what actually sits under the button here, and the Call pill is right-aligned
-   into exactly that corner. */
-html.cds-overlay .cds-tabs { padding-right: 44px; }
-html.cds-overlay .cds-header,
-html.cds-overlay .cds-vheader { padding-right: 46px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .cds-wave.on i { transform: scaleY(.65); }
+}
