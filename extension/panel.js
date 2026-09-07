@@ -59,7 +59,9 @@
     // Forward the size too: content.js reads d.width/d.height here, and
     // dropping them silently pinned every overlay demo to the fallback size
     // instead of the openSize its own Shell.tsx asked for.
-    else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open, width: d.width, height: d.height }, "*");
+    // `live` has to survive this hop or the drag-resize transition fix never
+    // reaches content.js — the demo posts it, this is the only relay.
+    else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open, width: d.width, height: d.height, live: !!d.live }, "*");
     // Webchat v3 mode: the host page reports where Cognigy's widget actually
     // is, as clip-path insets, so the content script can clip its full-size
     // transparent frame down to that and leave the rest of the page clickable.

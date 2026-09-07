@@ -15,7 +15,7 @@
   ],
   "tokens": {
     "--cds-panel-w": "460px",
-    "--cds-panel-h": "800px",
+    "--cds-panel-h": "900px",
     "--cds-panel-min-h": "470px",
 
     "--surface": "#ffffff",

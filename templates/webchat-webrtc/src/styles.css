@@ -20,7 +20,12 @@
 :root {
   /* ---- geometry (Shell.tsx reads these back; the form's Width wins) ---- */
   --cds-panel-w: 460px;
-  --cds-panel-h: 800px;
+  /* Taller than the reference's 800. Shell.tsx scales this with the chosen
+     width and then clamps it to the viewport, so on a short screen it simply
+     uses whatever room there is. Raise it here AND in
+     assets/themes/webchat-webrtc/halo.json: the injected theme wins over this
+     declaration, so changing only one of them changes nothing. */
+  --cds-panel-h: 900px;
   --cds-panel-min-h: 470px;
 
   /* ---- surfaces ---- */
@@ -492,32 +497,152 @@ button:disabled { cursor: default; }
 
 /* ============================ overlay shell ============================ */
 
-.cds-shell { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
-.cds-shell-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/*
+ * The launcher is the only thing in flow, so the collapsed iframe hugs it.
+ * The card is absolutely positioned on top: it stays mounted while closed —
+ * keeping the conversation, the socket and any live call — and would otherwise
+ * force the collapsed frame to full panel size.
+ */
+.cds-shell {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+.cds-shell.from-left { align-items: flex-start; }
+
+.cds-shell-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  /* Grows out of the launcher's corner, which is the corner the extension
+     anchors the frame to — so the card appears to come from the button rather
+     than from the middle of nowhere. */
+  transform-origin: 100% 100%;
+  opacity: 0;
+  transform: scale(.86) translateY(12px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .26s cubic-bezier(.32, .72, .28, 1);
+}
+.cds-shell.from-left .cds-shell-card { transform-origin: 0% 100%; }
+.cds-shell.is-open .cds-shell-card { opacity: 1; transform: none; pointer-events: auto; }
+/* Mid-drag the card must track the frame exactly; a transition here would make
+   it lag a frame behind the iframe and shimmer. */
+.cds-shell.is-dragging .cds-shell-card { transition: none; }
+
 .cds-shell-body { flex: 1; min-height: 0; display: flex; }
 .cds-shell-body > * { flex: 1; min-width: 0; }
 /* Halo carries its own minimize in the header, so the shell's extra close
    button would be a second control doing the same thing. */
 .cds-shell-close { display: none; }
 
-.cds-launcher {
-  width: 100%;
-  padding: 16px 20px;
+.cds-shell-launcher {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  transition: opacity .16s ease, transform .22s cubic-bezier(.32, .72, .28, 1);
+}
+.cds-shell.is-open .cds-shell-launcher { opacity: 0; transform: scale(.55); pointer-events: none; }
+
+/* ---- resize grip ---- */
+/*
+ * On the corner nearest the middle of the page. The frame is anchored to its
+ * bottom corner, so this is the only corner whose drag grows the panel instead
+ * of sliding it across the customer's page.
+ */
+.cds-grip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  z-index: 3;
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.cds-shell.from-left .cds-grip { left: auto; right: 0; cursor: nesw-resize; }
+.cds-shell-card:hover .cds-grip, .cds-shell.is-dragging .cds-grip { opacity: 1; }
+.cds-grip::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid var(--line-panel);
+  border-left: 2px solid var(--line-panel);
+  border-radius: 2px 0 0 0;
+}
+.cds-shell.from-left .cds-grip::after {
+  left: auto;
+  right: 9px;
+  border-left: 0;
+  border-right: 2px solid var(--line-panel);
+  border-radius: 0 2px 0 0;
+}
+.cds-grip:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- the launcher, as an icon ---- */
+
+.cds-launcher-row { display: flex; align-items: center; gap: 10px; padding: 3px; }
+.cds-launcher-label {
   background: #fff;
   color: #193752;
   border: 1px solid #b9d8ff;
-  border-radius: 22px;
-  box-shadow: 0 7px 25px #304d6c1c;
-  text-align: left;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  box-shadow: 0 5px 18px #304d6c14;
 }
-.cds-launcher .cds-avatar { width: 43px; height: 43px; }
-.cds-launcher-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cds-launcher-status { font-size: 13px; font-weight: 400; color: #6b87a4; margin-left: auto; flex: none; }
+.cds-launcher {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 8px 24px #087aff40, 0 2px 6px #304d6c20;
+  transition: transform .18s cubic-bezier(.32, .72, .28, 1), box-shadow .18s ease;
+  overflow: hidden;
+}
+.cds-launcher:hover { transform: scale(1.06); box-shadow: 0 10px 30px #087aff55, 0 2px 8px #304d6c25; }
+.cds-launcher:active { transform: scale(.97); }
+.cds-launcher svg { width: 52%; height: 52%; }
+.cds-launcher-img { width: 100%; height: 100%; object-fit: cover; }
+
+/* The orb is drawn rather than an icon, so it can move. */
+.cds-orb-icon {
+  position: relative;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #ffffff, #cfe6ff 42%, #2f86ff 100%);
+  box-shadow: inset 0 0 10px #ffffff70;
+}
+.cds-orb-icon-swirl {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, #ffffff00, #ffffffcc, #ffffff00 60%);
+  animation: cds-orb-spin 5s linear infinite;
+}
+.cds-orb-icon-shine {
+  position: absolute;
+  top: 14%;
+  left: 20%;
+  width: 26%;
+  height: 20%;
+  border-radius: 50%;
+  background: #ffffffd0;
+  filter: blur(1px);
+}
+@keyframes cds-orb-spin { to { transform: rotate(360deg); } }
 
 @keyframes cds-wave { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
 @keyframes cds-dots {
@@ -550,4 +675,8 @@ button:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .cds-wave.on i { transform: scaleY(.65); }
+  /* With transitions off, the card must still ARRIVE — it is transformed and
+     transparent at rest, and without this it would simply never appear. */
+  .cds-shell.is-open .cds-shell-card { opacity: 1; transform: none; }
+  .cds-shell-card { opacity: 0; }
 }

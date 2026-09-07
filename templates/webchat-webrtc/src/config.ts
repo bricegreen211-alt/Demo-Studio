@@ -14,6 +14,8 @@ export interface DemoConfig {
   launcherText: string;
   showLauncherText: boolean;
   launcherSize: string;
+  /** Uploaded launcher art, relative to the demo folder. "" = use the picker. */
+  launcherImage: string;
   agentName: string;
   welcomeMessage: string;
   /** Up to 3 "help me get started" chips from the demo form. */
@@ -33,6 +35,7 @@ const FALLBACK: DemoConfig = {
   launcherText: "",
   showLauncherText: true,
   launcherSize: "medium",
+  launcherImage: "",
   agentName: "AI Assistant",
   welcomeMessage: "",
   starters: [],

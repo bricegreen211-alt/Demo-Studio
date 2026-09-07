@@ -15,6 +15,15 @@
 
   var SIZES = { small: 48, medium: 60, large: 72 };
   var MIN_W = 300;
+  /*
+   * Ceilings for a size the demo asks for. Height was 900, which quietly capped
+   * the panel on any tall screen and made the resize grip stop responding
+   * partway through a drag for no visible reason. Both are hard ceilings only:
+   * applySize() still clamps to the viewport, so these never let a panel run
+   * off the customer's page.
+   */
+  var MAX_W = 900;
+  var MAX_H = 1600;
 
   /*
    * Elevation. Mirrors --shadow-* in apps/studio/renderer/style.css and is
@@ -166,7 +175,13 @@
    *
    * Protocol (demo -> panel.html -> here):
    *   { type: "CDS_SIZE", width, height }  collapsed launcher's measured size
-   *   { type: "CDS_OPEN", open: true|false }
+   *   { type: "CDS_OPEN", open: true|false, width, height, live }
+   *
+   * `live` marks a frame mid-drag on the demo's resize grip. The frame has a
+   * 280ms size transition, which is right for open/close and wrong for a drag:
+   * every pointermove would start a new tween and the panel would trail the
+   * cursor like elastic. On a live frame the transition is switched off and the
+   * size applied immediately.
    */
   function mountOverlay(demo) {
     var side = demo.panelSide === "left" ? "left" : "right";
@@ -195,7 +210,9 @@
       "background:transparent;z-index:1;display:block;border-radius:" + CARD_RADIUS + ";" +
       "transition:width .28s cubic-bezier(.32,.72,.28,1)," +
       "height .28s cubic-bezier(.32,.72,.28,1),box-shadow .22s ease;}" +
-      ".cds-overlay-frame.cds-open{box-shadow:" + ELEV.card + ";}";
+      ".cds-overlay-frame.cds-open{box-shadow:" + ELEV.card + ";}" +
+      // See the `live` note in the protocol comment above.
+      ".cds-overlay-frame.cds-resizing{transition:none;}";
     root.appendChild(style);
 
     var frame = document.createElement("iframe");
@@ -240,9 +257,10 @@
         if (!isOpen) applySize();
       } else if (d.type === "CDS_OPEN") {
         isOpen = !!d.open;
-        if (d.width) opened.w = Math.max(MIN_W, Math.min(900, Math.ceil(d.width)));
-        if (d.height) opened.h = Math.max(200, Math.min(900, Math.ceil(d.height)));
+        if (d.width) opened.w = Math.max(MIN_W, Math.min(MAX_W, Math.ceil(d.width)));
+        if (d.height) opened.h = Math.max(200, Math.min(MAX_H, Math.ceil(d.height)));
         frame.classList.toggle("cds-open", isOpen);
+        frame.classList.toggle("cds-resizing", !!d.live);
         applySize();
       }
     });
