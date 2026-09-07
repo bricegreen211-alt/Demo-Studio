@@ -458,9 +458,15 @@ function createApp() {
 
   // Studio-owned stylesheets injected into a demo's page, keyed by panelStyle.
   // Every file named here must also be in CDS_ASSETS above to be servable.
-  const PANEL_STYLE_SHEETS = {
-    clear: ["clear-mode.css"]
-  };
+  /*
+   * Empty since "clear" was retired. That style existed to render Demo
+   * Studio's own chat and then unpaint its surfaces so the customer's site
+   * showed through; overlay does the honest version, so there is nothing left
+   * for clear-mode.css to attach to. The file and its CDS_ASSETS entry stay —
+   * a vibe-coded demo may still link it deliberately — but nothing is injected
+   * automatically any more.
+   */
+  const PANEL_STYLE_SHEETS = {};
 
   /* ------------- demo experiences ------------- */
 
@@ -577,7 +583,9 @@ function migrateFollowMe() {
 function reportChatUiChanges() {
   try {
     const moved = store.list()
-      .filter((d) => d.template === "webchat" && d.panelStyle !== "overlay" &&
+      // Panel style no longer decides this — the theme does — so it is not a
+      // filter here either.
+      .filter((d) => d.template === "webchat" &&
                      String((d.cognigy || {}).chatEndpoint || "").trim().toLowerCase() !== "mock")
       .filter((d) => d.chatUi === "webchat3")
       .map((d) => d.name);

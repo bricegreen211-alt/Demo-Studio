@@ -322,7 +322,14 @@
    */
   function mountWebchat3(demo) {
     var side = demo.panelSide === "left" ? "left" : "right";
-    var panelStyle = demo.panelStyle === "clear" ? "clear" : "solid";
+    /*
+     * Inverted deliberately. This used to be `=== "clear" ? "clear" : "solid"`,
+     * which was right while clear existed; with clear retired and overlay the
+     * default, that test would have fallen through to "solid" and painted a
+     * drawer behind every Webchat v3 demo. Only an explicit "solid" gets the
+     * drawer; everything else is chromeless.
+     */
+    var panelStyle = demo.panelStyle === "solid" ? "solid" : "clear";
     var drawerW = Math.max(MIN_W, demo.panelWidth || 420);
 
     var host = makeHost();

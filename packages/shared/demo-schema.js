@@ -24,7 +24,20 @@
    * overlay stays valid but only means anything for the built-in chat UI, where
    * the demo's own src/shell/ draws the launcher and card.
    */
-  var PANEL_STYLES = ["solid", "clear", "overlay"];
+  /*
+   * Two styles, and they are purely presentational — how the extension frames
+   * whatever is rendering, never which UI that is. The THEME decides that.
+   *
+   *   overlay  nothing of ours paints. The widget or the demo's own card
+   *            floats on the customer's page in a transparent frame.
+   *   solid    the extension paints a drawer at the edge, with its title bar,
+   *            and the panel fills it. Labelled "Panel" in the form.
+   *
+   * "clear" is gone. It meant "built-in chat, but with our surfaces made
+   * transparent" — a third thing that only ever made sense for a UI Demo
+   * Studio drew and then unpainted, and overlay does the honest version of it.
+   */
+  var PANEL_STYLES = ["overlay", "solid"];
 
   /*
    * Retired styles, mapped to the nearest survivor. Aliasing rather than
@@ -33,7 +46,13 @@
    * saves the demo — including POST /api/demos/:id/panel, the drag-resize
    * handler, which no SE would think of as a config change.
    */
-  var PANEL_STYLE_ALIASES = { phone: "solid", "solid-lower": "solid", opaque: "clear" };
+  /*
+   * Retired names, kept so an old demo.json still loads. "clear" becomes
+   * overlay: both mean "paint no chrome of our own", which is what an SE
+   * picking clear was asking for. "opaque" was an alias FOR clear and clearly
+   * meant the opposite, so it goes to solid.
+   */
+  var PANEL_STYLE_ALIASES = { phone: "solid", "solid-lower": "solid", opaque: "solid", clear: "overlay" };
 
   /*
    * Which chat UI a demo renders. NOT chosen any more — derived from the theme
@@ -145,7 +164,7 @@
       panelSide: "right",
       // clear is the honest default: the frame paints nothing, so a demo looks
       // like the customer's own deployment rather than like our drawer.
-      panelStyle: "clear",
+      panelStyle: "overlay",
       panelWidth: 0,           // 0 = template default
       launcher: "",            // "" = template default
       launcherText: "",
@@ -215,7 +234,6 @@
        * not before.
        */
       && cfg.template === "webchat"
-      && (cfg.panelStyle || "solid") !== "overlay"
       && !isMock;
   }
 
@@ -249,9 +267,6 @@
        * Cognigy's widget exposes 12 colour variables and no layout.
        */
       && isCognigyDefault(cfg)
-      // An overlay launcher is always drawn by the demo's own src/shell/, so
-      // it can never be Cognigy's widget.
-      && (cfg.panelStyle || "solid") !== "overlay"
       // "mock" is the scripted offline call the Samples run on. There is no
       // endpoint for a real widget to connect to, so those keep our own UI.
       && !isMock;
@@ -349,8 +364,13 @@
      *                       any other theme means the demo draws its own UI,
      *                       which is the only thing those themes can style.
      *
-     * An overlay launcher is always drawn by the demo's own src/shell/, so it
-     * can never be Cognigy's widget.
+     * Panel style does NOT appear here, and that is the point. It used to
+     * force "studio" for overlay, on the reasoning that an overlay launcher is
+     * drawn by the demo's own src/shell/. That was true while overlay was an
+     * opt-in "draw your own" choice; now that it is the default, the same rule
+     * would flip every Cognigy Default demo off Cognigy's real widget the
+     * moment the style defaulted. Panel style is how a thing is framed; the
+     * theme is what the thing is.
      *
      * Note the consequence for demos made under the old form: a Webchat demo
      * that had chatUi pinned to "studio" now renders Cognigy's widget instead,
@@ -372,27 +392,14 @@
     } else {
       out.chatUi = isCognigyDefault(out) ? "webchat3" : "studio";
     }
-    if (out.panelStyle === "overlay") out.chatUi = "studio";
 
     /*
-     * The combination is always overlay. Halo ships its own launcher and card,
-     * so any other style would have the extension draw a second launcher right
-     * beside it. Coerced rather than offered, the same way chatUi is: it is a
-     * structural consequence of the design, not a preference.
-     *
-     * This DOES rewrite existing combination demos that were set to clear or
-     * solid. That is the visible half of the change and is reported at start
-     * (reportChatUiChanges in server.js) rather than happening quietly.
+     * Panel style is no longer coerced. Halo draws its own launcher, which is
+     * why overlay used to be forced — but in "solid" the demo renders its
+     * panel WITHOUT the shell (see App.tsx) and the extension supplies the
+     * launcher and drawer, so there is no second launcher and both styles are
+     * real choices on every endpoint.
      */
-    /*
-     * Halo draws its own launcher and card, so anything but overlay would have
-     * the extension draw a second launcher beside it. The combination has no
-     * Cognigy Default left, so it is always Halo and always overlay; WebRTC
-     * still has one, and that keeps its own panel style because there the
-     * launcher is Cognigy's.
-     */
-    if (out.template === "webchat-webrtc") out.panelStyle = "overlay";
-    else if (out.template === "webrtc" && !isCognigyDefault(out)) out.panelStyle = "overlay";
     return out;
   }
 

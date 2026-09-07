@@ -381,7 +381,7 @@
     launcher: "ai-orb",
     launcherImage: "",
     side: "right",
-    panelStyle: "clear",
+    panelStyle: "overlay",
     startingBehavior: "greeting"
   };
 
@@ -398,9 +398,8 @@
   };
 
   var PANEL_STYLE_HINT = {
-    solid: "A white drawer slides in from the side when the chat opens — the classic slide-out.",
-    clear: "Nothing of ours paints. Cognigy's own launcher and window float on the customer's site, exactly as if they had deployed it themselves.",
-    overlay: "The demo draws its own launcher and panel — both vibe-codeable in src/shell/."
+    overlay: "Nothing of ours paints. The widget floats on the customer's site exactly as if they had deployed it themselves.",
+    solid: "A drawer slides in from the side, with a title bar, and the panel fills it."
   };
 
 
@@ -472,41 +471,13 @@
     $("l-chat").hidden = form.template === "webrtc";
     $("l-voice").hidden = form.template === "webchat";
 
-    /*
-     * Overlay is drawn by the demo's own shell, so it only means anything when
-     * the demo is drawing — never for Cognigy's own widget. Hide the option
-     * rather than offer something that would be coerced away on save.
-     *
-     * But never hide it while it is the demo's CURRENT value: demos made before
-     * themes existed can be overlay AND default, and silently rewriting that on
-     * open would change a saved setting the SE never touched. Show it, let them
-     * resolve it.
-     */
-    $("ps-overlay").hidden = isDefaultTheme() && form.panelStyle !== "overlay";
 
     /*
-     * Webchat + WebRTC is always overlay — Halo ships its own launcher, so any
-     * other style would put a second one beside it, and the schema coerces it
-     * on save. Disable the other two rather than let them be picked and then
-     * silently changed back: a control that accepts a click and discards it is
-     * worse than one that says why it cannot.
+     * Both styles are offered everywhere now. Overlay is the default; Panel is
+     * always available, including on Halo — in that style the demo renders its
+     * panel without its own shell and the extension supplies the launcher and
+     * drawer, so there is no second launcher to collide with.
      */
-    /*
-     * Halo draws its own launcher and panel, so those demos are always
-     * Overlay and the schema coerces it. Disable the other two rather than
-     * take a click and discard it on save. WebRTC on Cognigy Default is the
-     * exception — there the launcher is Cognigy's, so every style is real.
-     */
-    var alwaysOverlay = form.template === "webchat-webrtc" ||
-                        (form.template === "webrtc" && !isDefaultTheme());
-    ["clear", "solid"].forEach(function (v) {
-      var btn = $("styleSeg").querySelector('[data-style="' + v + '"]');
-      btn.disabled = alwaysOverlay;
-      btn.title = alwaysOverlay
-        ? "Halo draws its own launcher and panel, so this endpoint is always Overlay."
-        : "";
-    });
-    if (alwaysOverlay) form.panelStyle = "overlay";
 
     /*
      * Cognigy Default takes the launcher, agent name, greeting and starters
@@ -541,7 +512,7 @@
     form.launcher = (d && d.launcher) || "ai-orb";
     form.launcherImage = (d && d.launcherImage) || "";
     form.side = d ? d.panelSide : "right";
-    form.panelStyle = d ? (d.panelStyle || "clear") : "clear";
+    form.panelStyle = d ? (d.panelStyle || "overlay") : "overlay";
     form.startingBehavior = (d && d.startingBehavior) || "greeting";
 
     $("f-endpoint").value = form.template;
