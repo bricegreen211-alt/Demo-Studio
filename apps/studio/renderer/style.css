@@ -844,3 +844,196 @@ fieldset.is-disabled { opacity: .55; }
    editable but do nothing. */
 label.is-inert { opacity: .5; }
 label.is-inert input { cursor: not-allowed; }
+
+/* ================= Remote Control: the Halo voice panel ==================
+ *
+ * The gateway on a call renders as this instead of a list row — the same
+ * shape the WebRTC and Webchat + WebRTC demos use, so what an SE sees while
+ * testing a gateway matches what the customer will see.
+ *
+ * The class names are Halo's (.cds-strip, .cds-utt, .cds-vfoot) so the two
+ * stay recognisably one design, but every colour here comes from the
+ * dashboard's own tokens: this is app chrome and has to follow light and dark
+ * with everything around it. Copying Halo's literal white would have left a
+ * white slab in the middle of the dark theme.
+ */
+.rc-halo {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  margin: 4px 0;
+}
+.rc-halo .cds-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  flex: none;
+}
+.rc-halo .cds-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--primary);
+}
+.rc-halo .cds-head-text { min-width: 0; }
+.rc-halo .cds-agent {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -.3px;
+  color: var(--ink);
+}
+.rc-halo .cds-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rc-halo .cds-head .icon-btn { margin-left: auto; opacity: 1; }
+
+.rc-halo .cds-strip {
+  margin: 0 18px 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  flex: none;
+  font-size: 13px;
+  color: var(--ink);
+  min-height: 42px;
+}
+.rc-halo .cds-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--soft); flex: none; }
+.rc-halo .cds-dot.on { background: var(--teal); box-shadow: 0 0 10px var(--teal-soft-2); }
+.rc-halo .cds-clock { color: var(--soft); font-variant-numeric: tabular-nums; }
+
+.rc-halo .cds-wave { margin-left: auto; display: flex; align-items: center; gap: 3px; height: 18px; }
+.rc-halo .cds-wave i {
+  display: block;
+  width: 3px;
+  height: var(--h);
+  border-radius: 3px;
+  background: linear-gradient(var(--primary-deep), var(--primary));
+  opacity: .45;
+  transform: scaleY(.25);
+  transition: transform .3s;
+}
+.rc-halo .cds-wave.on i {
+  opacity: 1;
+  animation: rc-halo-wave .8s ease-in-out infinite alternate;
+  animation-delay: var(--delay);
+}
+@keyframes rc-halo-wave { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+
+.rc-halo .cds-tt {
+  margin: 0 18px 12px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.2px;
+  color: var(--ink);
+  flex: none;
+}
+/* A fixed band rather than a growing one: the panel sits in a list, and a
+   transcript that pushes the End button down the page during a call is worse
+   than one that scrolls. */
+.rc-halo .cds-scroll {
+  flex: 1;
+  min-height: 150px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 0 18px 12px;
+  overscroll-behavior: contain;
+}
+
+.rc-halo .cds-utt { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.rc-halo .cds-utt-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.rc-halo .cds-utt-body { min-width: 0; max-width: min(82%, 560px); }
+.rc-halo .cds-utt-who { font-size: 12px; color: var(--soft); margin: 0 0 5px; padding: 0 3px; }
+.rc-halo .cds-utt-who time { color: var(--soft); margin-left: 7px; font-variant-numeric: tabular-nums; }
+.rc-halo .cds-utt-text {
+  background: var(--surface-2);
+  border-radius: 14px;
+  padding: 10px 13px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* The caller anchors right, the agent stays left — the same read as the demo
+   panel, so the two do not use opposite visual grammar for the same call. */
+.rc-halo .cds-utt-user { flex-direction: row-reverse; }
+.rc-halo .cds-utt-user .cds-utt-who { text-align: right; }
+.rc-halo .cds-utt-user .cds-utt-icon { background: var(--surface-3); color: var(--soft); }
+.rc-halo .cds-utt-user .cds-utt-text { background: var(--primary); color: var(--on-primary); }
+
+.rc-halo .cds-empty {
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--soft);
+  gap: 6px;
+}
+.rc-halo .cds-empty svg { color: var(--primary); }
+.rc-halo .cds-empty strong { font-size: 15px; font-weight: 550; color: var(--ink); }
+.rc-halo .cds-empty p { margin: 0; max-width: 260px; font-size: 13px; line-height: 1.5; }
+
+.rc-halo .cds-vfoot {
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding: 14px 18px 16px;
+  flex: none;
+  background: var(--surface-2);
+}
+.rc-halo .cds-vfoot button {
+  border-radius: 10px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 550;
+  border: 0;
+}
+.rc-halo .cds-mute {
+  width: 40%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+.rc-halo .cds-mute[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary); }
+.rc-halo .cds-mute:disabled { opacity: .4; }
+.rc-halo .cds-call.end { flex: 1; background: var(--danger-solid); color: #fff; }
+.rc-halo .cds-call.end:hover { filter: brightness(1.06); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-halo .cds-wave.on i { animation: none; transform: scaleY(.65); }
+}

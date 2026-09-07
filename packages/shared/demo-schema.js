@@ -65,7 +65,15 @@
   var THEMES = {
     "webchat": [COGNIGY_DEFAULT, "aurora", "tech", "bloom", "hibiscus", "trailhead",
                 "minimal", "nebula", "sunset", "ivory", "custom"],
-    "webrtc": [COGNIGY_DEFAULT, "bar", "pill", "card", "custom"],
+    /*
+     * Bar, Pill and Card are gone for the same reason Nebula, Horizon and
+     * Prism were: they named layouts that did not exist. Once WebRTC demos
+     * started mounting Cognigy's real widget, all three did was recolour it
+     * through the 12 --webrtc-* variables — so "Bar" produced Cognigy's pill
+     * in different colours, which is worse than not offering it. Halo is a
+     * voice shell Demo Studio actually draws.
+     */
+    "webrtc": [COGNIGY_DEFAULT, "halo", "custom"],
     /*
      * One design, plus Custom. Nebula, Horizon and Prism were token files with
      * no layout behind them, so choosing one moved a few colours and nothing
@@ -103,7 +111,10 @@
 
   // The combination is doubled to match Halo's own default panel. The other two
   // are Cognigy's widgets, which size themselves, so they are unchanged.
-  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 400, "webchat-webrtc": 1000 };
+  // Both Halo endpoints doubled from their old defaults. Webchat is Cognigy's
+  // own widget, which sizes itself, so it is unchanged. For WebRTC this only
+  // reaches the Halo shell — on Cognigy Default the widget ignores it.
+  var DEFAULT_PANEL_WIDTH = { "webchat": 420, "webrtc": 800, "webchat-webrtc": 1000 };
   var DEFAULT_LAUNCHER = { "webchat": "ai-orb", "webrtc": "voice-wave", "webchat-webrtc": "ai-orb" };
 
   function pick(value, allowed, fallback) {
@@ -224,6 +235,12 @@
     var ep = (cfg.cognigy && cfg.cognigy.voiceEndpoint) || "";
     var isMock = String(ep).trim().toLowerCase() === "mock";
     return cfg.template === "webrtc"
+      /*
+       * Cognigy Default only. Any other theme means the demo draws its own
+       * voice UI — which is the only thing such a theme can style, since
+       * Cognigy's widget exposes 12 colour variables and no layout.
+       */
+      && isCognigyDefault(cfg)
       // An overlay launcher is always drawn by the demo's own src/shell/, so
       // it can never be Cognigy's widget.
       && (cfg.panelStyle || "solid") !== "overlay"
@@ -349,7 +366,15 @@
      * solid. That is the visible half of the change and is reported at start
      * (reportChatUiChanges in server.js) rather than happening quietly.
      */
+    /*
+     * Halo draws its own launcher and card, so anything but overlay would have
+     * the extension draw a second launcher beside it. The combination has no
+     * Cognigy Default left, so it is always Halo and always overlay; WebRTC
+     * still has one, and that keeps its own panel style because there the
+     * launcher is Cognigy's.
+     */
     if (out.template === "webchat-webrtc") out.panelStyle = "overlay";
+    else if (out.template === "webrtc" && !isCognigyDefault(out)) out.panelStyle = "overlay";
     return out;
   }
 

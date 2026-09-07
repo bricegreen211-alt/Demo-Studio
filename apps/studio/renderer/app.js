@@ -394,8 +394,7 @@
 
   var THEME_SUB = {
     "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. The rest are CSS themes applied to that same widget.",
-    "webrtc": "Cognigy Default is Cognigy's own click-to-call widget. The rest are voice shells Demo Studio draws.",
-    "webchat-webrtc": "Cognigy Default runs both of Cognigy's own widgets together. The rest are combined layouts Demo Studio draws."
+    "webrtc": "Cognigy Default is Cognigy's own click-to-call widget. Halo is the voice shell Demo Studio draws."
   };
 
   var PANEL_STYLE_HINT = {
@@ -404,12 +403,6 @@
     overlay: "The demo draws its own launcher and panel — both vibe-codeable in src/shell/."
   };
 
-  var THEME_NOTE = {
-    "webchat-webrtc":
-      "Halo is the one design this endpoint ships. Nebula, Horizon and Prism were " +
-      "removed — they restyled colours but had no layout of their own — and come " +
-      "back when there is something behind the name."
-  };
 
   var START_HINT = {
     greeting: "The assistant speaks first as soon as the panel opens.",
@@ -522,10 +515,6 @@
     paintSeg("startSeg", "start", form.startingBehavior);
     $("panelStyleHint").textContent = PANEL_STYLE_HINT[form.panelStyle] || "";
     $("startHint").textContent = START_HINT[form.startingBehavior] || "";
-    var note = THEME_NOTE[form.template] || "";
-    $("themeNote").textContent = note;
-    $("themeNote").hidden = !note;
-
     renderThemeList();
     renderLauncherList();
   }

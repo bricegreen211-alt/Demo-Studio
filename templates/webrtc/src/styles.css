@@ -1,175 +1,506 @@
-/* Demo Experience — voice styling. Brand colors arrive as CSS variables from demo.json. */
+/*
+ * WebRTC — Halo, voice only.
+ *
+ * The Webchat + WebRTC stylesheet with the chat half removed: no tab bar, no
+ * bubbles, no composer. Kept as its own copy rather than shared because a demo
+ * folder holds its own copy of ONE template's source — there is no build step
+ * that could pull a common file into both.
+ *
+ * Reached only for a non-default theme; on Cognigy Default the service serves
+ * Cognigy's own widget and none of this loads.
+ *
+ * Every value here is a token first, a rule second, so a Custom theme (the
+ * only other entry in the picker) can restyle the whole widget by overriding
+ * :root and nothing else. assets/themes/webchat-webrtc/halo.json carries the
+ * same values, which is what lets an EXISTING demo pick up a change with no
+ * rebuild — the service injects that block at request time.
+ *
+ * Sizing: --cds-panel-w / --cds-panel-h are the panel's geometry and are read
+ * back by Shell.tsx to size the extension's iframe. The demo form's Width
+ * control overrides --cds-panel-w per demo, so one design covers Compact
+ * through Extra wide without a second layout.
+ */
+
 :root {
-  --brand-primary: #3694fc;
-  --brand-secondary: #f1f5f9;
-  --ink: #0f172a;
-  --ink-soft: #64748b;
-  --bg: #ffffff;
+  /* ---- geometry (Shell.tsx reads these back; the form's Width wins) ---- */
+  /* Twice the reference's 460x900. Shell.tsx keeps the ratio when a demo picks
+     a different Width, and clamps the height to the room the page actually has
+     — so on a laptop this reads as "as tall as it can be" rather than 1800.
+     Change these in BOTH places: assets/themes/webchat-webrtc/halo.json
+     declares the same pair and the injected theme wins over this block, so
+     editing only one of them changes nothing. */
+  --cds-panel-w: 920px;
+  --cds-panel-h: 1400px;
+  --cds-panel-min-h: 470px;
+
+  /* ---- surfaces ---- */
+  --surface: #ffffff;
+  --surface-raised: linear-gradient(145deg, #ffffff, #fcfdff);
+  --surface-sunk: #eef4fc;
+  --surface-inset: #eff6fd;
+  --footer-bg: #fcfdff;
+
+  /* ---- ink ---- */
+  --ink: #10223b;
+  --ink-strong: #0d2139;
+  --ink-soft: #637e9b;
+  --ink-faint: #738aa5;
+  --ink-tab: #193c69;
+
+  /* ---- lines ---- */
+  --line: #e3edf8;
+  --line-soft: #e0ebf6;
+  --line-field: #d4e1f0;
+  --line-panel: #bddbff;
+  --line-tabs: #bfd9fa;
+
+  /* ---- accent ---- */
+  --accent: #087aff;
+  --accent-2: #268dff;
+  --accent-grad: linear-gradient(110deg, #087cff, #268dff);
+  --bubble-user: linear-gradient(125deg, #087aff, #0870f5);
+  --on-accent: #ffffff;
+  --accent-quiet: #086bdb;
+  --accent-line: #1782f7;
+
+  /* ---- voice ---- */
+  --live: #28d999;
+  --dot-idle: #98b1c9;
+  --danger-grad: linear-gradient(120deg, #ff646e, #ff5666);
+  --wave-grad: linear-gradient(#70b6ff, #087aff);
+
+  /* ---- radii ---- */
+  --r-panel: 27px;
+  --r-bubble: 18px;
+  --r-pill: 999px;
+  --r-md: 15px;
+  --r-sm: 14px;
+
+  --pad-x: 23px;
+  --shadow-panel: 0 0 0 2px #c4ddff66, 0 22px 54px #304d6c1c;
+  --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  background: var(--bg);
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font);
+  font-synthesis: none;
   color: var(--ink);
 }
+/* Overlay draws its own card over a transparent page, so the page itself must
+   paint nothing — the customer's website is what shows through. */
+html.cds-overlay, html.cds-overlay body { background: transparent; }
+button, input { font: inherit; }
+button { cursor: pointer; border: 0; color: inherit; }
+button:disabled { cursor: default; }
 
-.cds-voice { display: flex; flex-direction: column; height: 100%; }
+/* ============================ the panel ============================ */
 
-.cds-vheader {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; background: var(--brand-primary); color: #fff; flex: 0 0 auto;
+.cds-multi {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-panel);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  color-scheme: light;
 }
-.cds-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #fff; }
-.cds-logo-dot {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(255,255,255,.25));
-}
-.cds-agent { font-weight: 600; font-size: 15px; }
-.cds-vstatus { font-size: 11px; opacity: .85; }
-.cds-timer { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 14px; opacity: .95; }
+.cds-multi button:focus-visible,
+.cds-multi input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.cds-vstage {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; background: var(--brand-secondary); padding: 24px 16px; min-height: 220px;
+/* ---- header: identity, once, above both modes ---- */
+
+.cds-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 23px var(--pad-x) 17px;
+  flex: none;
+}
+.cds-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 43px;
+  height: 43px;
+  border: 1px solid #d1e7ff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #eef7ff, #d8ecff 60%, #c1e0ff);
+  color: var(--accent);
+  overflow: hidden;
+}
+.cds-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cds-head-text { min-width: 0; }
+.cds-agent {
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -.45px;
+  line-height: 1.25;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cds-sub {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cds-min {
+  margin-left: auto;
+  flex: none;
+  background: transparent;
+  padding: 8px;
+  border-radius: 8px;
+  color: #718aa3;
+  display: grid;
+  place-items: center;
+}
+.cds-min:hover { background: var(--surface-inset); }
+
+/* SIM only ever shows for the literal endpoint "mock"; a wrong endpoint still
+   fails loudly rather than quietly serving a script. */
+.cds-sim {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: #fff3d6;
+  color: #8a5a00;
 }
 
-/* the big voice orb */
-.cds-orb { position: relative; width: 120px; height: 120px; flex: 0 0 auto; display: grid; place-items: center; }
-.cds-orb-core {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle at 32% 30%, color-mix(in srgb, var(--brand-primary) 55%, #fff), var(--brand-primary) 70%);
-  box-shadow: 0 8px 30px color-mix(in srgb, var(--brand-primary) 45%, transparent);
-  animation: cds-orb-pulse 3.2s ease-in-out infinite;
-}
-.cds-orb-connecting .cds-orb-core, .cds-orb-ringing .cds-orb-core { animation: cds-orb-pulse 1s ease-in-out infinite; }
-.cds-orb-error .cds-orb-core { background: radial-gradient(circle at 32% 30%, #fca5a5, #dc2626 70%); }
-@keyframes cds-orb-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-.cds-wave { position: relative; display: flex; gap: 5px; align-items: center; height: 40px; }
-.cds-wave span {
-  width: 6px; height: 12px; border-radius: 3px; background: rgba(255,255,255,.9);
-  animation: cds-wavebar 1.1s ease-in-out infinite; animation-play-state: paused;
-}
-.cds-orb-active .cds-wave span, .cds-orb-speaking .cds-wave span { animation-play-state: running; }
-.cds-orb-speaking .cds-wave span { animation-duration: .6s; }
-@keyframes cds-wavebar {
-  0%, 100% { height: 10px; }
-  50% { height: 34px; }
+/* ---- panes ---- */
+
+.cds-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cds-voice { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+.cds-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px var(--pad-x) 17px;
+  scrollbar-width: thin;
+  scrollbar-color: #b8cbdd #eef4fa;
+  overscroll-behavior: contain;
 }
 
-/* controls */
-.cds-vcontrols { display: flex; gap: 14px; align-items: center; }
-.cds-call {
-  display: flex; align-items: center; gap: 10px;
-  border: 0; background: var(--brand-primary); color: #fff;
-  border-radius: 999px; padding: 12px 26px; font-size: 15px; font-weight: 600; cursor: pointer;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-primary) 40%, transparent);
+/* ============================ voice ============================ */
+
+.cds-strip {
+  margin: 0 var(--pad-x) 17px;
+  padding: 12px 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r-sm);
+  background: #eef6fe;
+  flex: none;
+  font-size: 14px;
+  color: #132d4c;
+  min-height: 47px;
 }
-.cds-call:hover { filter: brightness(1.06); }
-.cds-call:disabled { opacity: .5; cursor: default; }
-.cds-call-icon { font-size: 18px; }
-.cds-mute, .cds-hangup {
-  width: 54px; height: 54px; border-radius: 50%; border: 0; cursor: pointer; font-size: 20px;
+.cds-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-idle); flex: none; }
+.cds-dot.on { background: var(--live); box-shadow: 0 0 10px #28d99944; }
+.cds-clock { color: #476684; font-variant-numeric: tabular-nums; }
+
+.cds-wave { margin-left: auto; display: flex; align-items: center; gap: 3px; height: 20px; }
+.cds-wave i {
+  display: block;
+  width: 3px;
+  height: var(--h);
+  border-radius: 3px;
+  background: var(--wave-grad);
+  opacity: .45;
+  transform: scaleY(.25);
+  transition: transform .3s;
 }
-.cds-mute { background: #fff; box-shadow: 0 2px 8px rgba(15,23,42,.15); }
-.cds-mute.cds-muted { background: #fde68a; }
-.cds-hangup { background: #dc2626; color: #fff; box-shadow: 0 4px 14px rgba(220,38,38,.4); }
-.cds-micnote { font-size: 12px; color: var(--ink-soft); }
-.cds-verror {
-  background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;
-  border-radius: 10px; padding: 10px 14px; font-size: 13px; max-width: 90%;
+.cds-wave.on i { opacity: 1; animation: cds-wave .8s ease-in-out infinite alternate; animation-delay: var(--delay); }
+
+.cds-tt {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.35px;
+  margin: 0 var(--pad-x) 17px;
+  color: var(--ink-strong);
+  flex: none;
 }
 
-/* transcript */
-.cds-transcript {
-  flex: 0 0 auto; max-height: 34%; overflow-y: auto;
-  border-top: 1px solid #e2e8f0; background: var(--bg); padding: 10px 14px; font-size: 13px;
+.cds-utt { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 21px; }
+.cds-utt-icon {
+  width: 33px;
+  height: 33px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 650;
+  background: #e3f1ff;
+  color: #0673de;
 }
-.cds-tline { margin: 4px 0; line-height: 1.45; }
-.cds-tline-ai b { color: var(--brand-primary); }
-.cds-tline-info { color: var(--ink-soft); font-size: 12px; }
-
-/* simulated-mode badge (endpoint "mock") */
-.cds-sim-badge {
-  font-size: 9px; font-weight: 700; letter-spacing: .08em;
-  background: rgba(255,255,255,.22); color: #fff;
-  padding: 3px 7px; border-radius: 5px;
+.cds-utt-body { min-width: 0; max-width: min(82%, 620px); }
+.cds-utt-who { font-size: 13px; color: #5f7d9b; margin: 0 0 6px; padding: 0 3px; line-height: 1.5; }
+.cds-utt-who time { color: #758fa8; margin-left: 7px; font-variant-numeric: tabular-nums; }
+.cds-utt-text {
+  background: #eef5fd;
+  border-radius: 16px;
+  padding: 11px 14px;
+  color: #122b46;
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
+/* The caller anchors right, the agent stays left — the same read as the chat
+   bubbles, so switching modes doesn't switch visual grammar. */
+.cds-utt-user { flex-direction: row-reverse; }
+.cds-utt-user .cds-utt-who { text-align: right; }
+.cds-utt-user .cds-utt-icon { background: #edf2f7; color: #6d87a1; }
+.cds-utt-user .cds-utt-text { background: var(--bubble-user); color: var(--on-accent); text-align: left; }
+/* Cognigy sends occasional non-speech lines; they are notes, not utterances. */
+.cds-utt-info { justify-content: center; margin-bottom: 14px; }
+.cds-utt-info .cds-utt-text { background: transparent; color: var(--ink-soft); font-size: 13px; padding: 0; }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   OVERLAY SHELL  (panelStyle "overlay")
-   The extension gives us a bare transparent iframe; everything below is drawn
-   by the demo, so it's all yours to vibe-code.
-   ══════════════════════════════════════════════════════════════════════════ */
-html.cds-overlay, html.cds-overlay body, html.cds-overlay #root { background: transparent !important; }
-html.cds-overlay body { overflow: hidden; }
+.cds-empty {
+  height: 100%;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 10px;
+  color: #6e88a3;
+}
+.cds-empty svg { width: 30px; height: 30px; margin-bottom: 16px; color: #187aee; }
+.cds-empty strong { font-size: 18px; font-weight: 550; color: #1b385b; }
+.cds-empty p { max-width: 255px; font-size: 14px; line-height: 1.6; }
 
-.cds-shell { position: fixed; inset: 0; }
+.cds-vfoot {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid var(--line-soft);
+  padding: 16px 22px 19px;
+  flex: none;
+  background: var(--footer-bg);
+}
+.cds-vfoot button {
+  border-radius: var(--r-md);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 550;
+}
+.cds-mute {
+  width: 44%;
+  background: #fff;
+  border: 1px solid #c2d3e5;
+  color: #123e74;
+}
+.cds-mute[aria-pressed="true"] { background: #e3efff; border-color: #3985e7; }
+.cds-mute:disabled { opacity: .35; }
+.cds-call { flex: 1; background: var(--accent); color: var(--on-accent); }
+.cds-call.end { background: var(--danger-grad); }
+.cds-call:disabled { opacity: .5; }
 
-/* collapsed launcher, pinned bottom-right of the (launcher-sized) iframe */
+/* ============================ overlay shell ============================ */
+
+/*
+ * The launcher is the only thing in flow, so the collapsed iframe hugs it.
+ * The card is absolutely positioned on top: it stays mounted while closed —
+ * keeping the conversation, the socket and any live call — and would otherwise
+ * force the collapsed frame to full panel size.
+ */
+.cds-shell {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+.cds-shell.from-left { align-items: flex-start; }
+
+.cds-shell-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  /* Grows out of the launcher's corner, which is the corner the extension
+     anchors the frame to — so the card appears to come from the button rather
+     than from the middle of nowhere. */
+  transform-origin: 100% 100%;
+  opacity: 0;
+  transform: scale(.86) translateY(12px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .26s cubic-bezier(.32, .72, .28, 1);
+}
+.cds-shell.from-left .cds-shell-card { transform-origin: 0% 100%; }
+.cds-shell.is-open .cds-shell-card { opacity: 1; transform: none; pointer-events: auto; }
+/* Mid-drag the card must track the frame exactly; a transition here would make
+   it lag a frame behind the iframe and shimmer. */
+.cds-shell.is-dragging .cds-shell-card { transition: none; }
+
+.cds-shell-body { flex: 1; min-height: 0; display: flex; }
+.cds-shell-body > * { flex: 1; min-width: 0; }
+/* Halo carries its own minimize in the header, so the shell's extra close
+   button would be a second control doing the same thing. */
+.cds-shell-close { display: none; }
+
 .cds-shell-launcher {
-  position: absolute; right: 2px; bottom: 2px;
-  /* max-content: the launcher must never shrink to fit the iframe, or
-     measuring it would feed back into the size we ask the iframe to be. */
-  width: max-content; height: max-content;
+  position: relative;
+  display: flex;
+  transition: opacity .16s ease, transform .22s cubic-bezier(.32, .72, .28, 1);
 }
-.cds-launcher-row { display: flex; align-items: center; gap: 10px; }
+.cds-shell.is-open .cds-shell-launcher { opacity: 0; transform: scale(.55); pointer-events: none; }
+
+/* ---- resize grip ---- */
+/*
+ * On the corner nearest the middle of the page. The frame is anchored to its
+ * bottom corner, so this is the only corner whose drag grows the panel instead
+ * of sliding it across the customer's page.
+ */
+.cds-grip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  z-index: 3;
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.cds-shell.from-left .cds-grip { left: auto; right: 0; cursor: nesw-resize; }
+.cds-shell-card:hover .cds-grip, .cds-shell.is-dragging .cds-grip { opacity: 1; }
+.cds-grip::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid var(--line-panel);
+  border-left: 2px solid var(--line-panel);
+  border-radius: 2px 0 0 0;
+}
+.cds-shell.from-left .cds-grip::after {
+  left: auto;
+  right: 9px;
+  border-left: 0;
+  border-right: 2px solid var(--line-panel);
+  border-radius: 0 2px 0 0;
+}
+.cds-grip:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- the launcher, as an icon ---- */
+
+.cds-launcher-row { display: flex; align-items: center; gap: 10px; padding: 3px; }
 .cds-launcher-label {
-  background: #fff; color: var(--ink); font-size: 13px; font-weight: 600;
-  padding: 8px 14px; border-radius: 999px; white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, .2);
+  background: #fff;
+  color: #193752;
+  border: 1px solid #b9d8ff;
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  box-shadow: 0 5px 18px #304d6c14;
 }
 .cds-launcher {
-  position: relative; border: 0; cursor: pointer; border-radius: 50%;
-  display: grid; place-items: center; overflow: hidden; padding: 0;
-  color: #fff;
-  background: radial-gradient(circle at 32% 28%,
-    color-mix(in srgb, var(--brand-primary) 45%, #fff), var(--brand-primary) 72%);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--brand-primary) 55%, transparent);
-  transition: transform .2s ease, box-shadow .2s ease;
-  animation: cdsLauncherPulse 3.4s ease-in-out infinite;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 8px 24px #087aff40, 0 2px 6px #304d6c20;
+  transition: transform .18s cubic-bezier(.32, .72, .28, 1), box-shadow .18s ease;
+  overflow: hidden;
 }
-.cds-launcher:hover { transform: scale(1.08); }
-.cds-launcher svg { width: 46%; height: 46%; }
-@keyframes cdsLauncherPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-}
-.cds-launcher-ai-spark { background: radial-gradient(circle at 50% 55%, #1e293b, #0f172a); }
-.cds-launcher-ai-spark svg { filter: drop-shadow(0 0 6px var(--brand-primary)); }
+.cds-launcher:hover { transform: scale(1.06); box-shadow: 0 10px 30px #087aff55, 0 2px 8px #304d6c25; }
+.cds-launcher:active { transform: scale(.97); }
+.cds-launcher svg { width: 52%; height: 52%; }
+.cds-launcher-img { width: 100%; height: 100%; object-fit: cover; }
 
-/* AI orb icon */
-.cds-orb-icon { position: absolute; inset: 0; }
+/* The orb is drawn rather than an icon, so it can move. */
+.cds-orb-icon {
+  position: relative;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #ffffff, #cfe6ff 42%, #2f86ff 100%);
+  box-shadow: inset 0 0 10px #ffffff70;
+}
 .cds-orb-icon-swirl {
-  position: absolute; inset: -30%; border-radius: 50%; filter: blur(6px);
-  background: conic-gradient(from 0deg, transparent 0 40%, rgba(255,255,255,.55) 50%, transparent 60% 100%);
-  animation: cdsOrbSwirl 6s linear infinite;
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, #ffffff00, #ffffffcc, #ffffff00 60%);
+  animation: cds-orb-spin 5s linear infinite;
 }
-@keyframes cdsOrbSwirl { to { transform: rotate(360deg); } }
 .cds-orb-icon-shine {
-  position: absolute; top: 16%; left: 20%; width: 34%; height: 26%;
-  border-radius: 50%; background: rgba(255,255,255,.7); filter: blur(5px);
+  position: absolute;
+  top: 14%;
+  left: 20%;
+  width: 26%;
+  height: 20%;
+  border-radius: 50%;
+  background: #ffffffd0;
+  filter: blur(1px);
+}
+@keyframes cds-orb-spin { to { transform: rotate(360deg); } }
+
+@keyframes cds-wave { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+@keyframes cds-dots {
+  0%, 100% { opacity: .3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
 }
 
-/* expanded panel card — fills the iframe, which the extension has sized */
-.cds-shell-card {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  background: #fff; border-radius: 18px; overflow: hidden;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, .3);
+/* Narrow panels — Compact (360px) and anything the customer's viewport
+   squeezes — get the reference's tighter gutters rather than a second layout. */
+@media (max-width: 400px) {
+  /*
+   * These override the ELEMENTS, not the tokens, and that is load-bearing.
+   * The service injects the theme's :root block into the page AFTER this
+   * stylesheet, so a `:root { --pad-x: 18px }` here has the same specificity
+   * as the injected declaration and loses on order every time — the narrow
+   * layout would silently keep the wide gutters. Anything responsive has to
+   * be stated on the element that consumes the token.
+   */
+  .cds-multi { border-radius: 23px; }
+  .cds-head { padding: 18px 18px 15px; }
+  .cds-scroll { padding-left: 18px; padding-right: 18px; }
+  .cds-quick { margin-left: 30px; margin-right: 18px; }
+  .cds-strip { margin-left: 18px; margin-right: 18px; gap: 6px; font-size: 13px; }
+  .cds-tt { margin-left: 18px; margin-right: 18px; }
+  .cds-wave { gap: 2px; }
+  .cds-agent { font-size: 19px; }
 }
-.cds-shell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.cds-shell-body > * { flex: 1; min-height: 0; }
-.cds-shell-close {
-  position: absolute; top: 10px; right: 10px; z-index: 6;
-  width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
-  background: rgba(255, 255, 255, .18); color: #fff; font-size: 12px; line-height: 1;
-}
-.cds-shell-close:hover { background: rgba(255, 255, 255, .32); }
 
-/* room for the shell's close button in overlay mode */
-html.cds-overlay .cds-header,
-html.cds-overlay .cds-vheader { padding-right: 46px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .cds-wave.on i { transform: scaleY(.65); }
+  /* With transitions off, the card must still ARRIVE — it is transformed and
+     transparent at rest, and without this it would simply never appear. */
+  .cds-shell.is-open .cds-shell-card { opacity: 1; transform: none; }
+  .cds-shell-card { opacity: 0; }
+}

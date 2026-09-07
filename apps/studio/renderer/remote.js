@@ -241,7 +241,92 @@
     });
   }
 
+  var WAVE = [5, 10, 17, 11, 20, 13, 8, 17, 11, 6, 10];
+
+  /*
+   * The gateway on a call becomes a Halo voice panel in place of its row —
+   * the same shape the WebRTC demos use: call status strip, live transcript,
+   * Mute and End.
+   *
+   * It takes the dashboard's own tokens rather than Halo's literal white,
+   * because this one is app chrome and has to follow light and dark like
+   * everything else around it. The layout is the design; the palette is the
+   * app's.
+   */
+  function gwCallPanel(g) {
+    var el = document.createElement("div");
+    el.className = "rc-halo";
+    el.dataset.gwId = g.id;
+    var live = inlineCall.status === "active";
+    var status = inlineCall.muted && live ? "Microphone muted"
+      : live ? "Call in progress"
+      : inlineCall.status === "ringing" ? "Calling\u2026" : "Connecting\u2026";
+
+    el.innerHTML =
+      '<div class="cds-head">' +
+        '<div class="cds-avatar">' + CDSIcons.svg("graphic_eq", 22) + '</div>' +
+        '<div class="cds-head-text"><h3 class="cds-agent"></h3><p class="cds-sub"></p></div>' +
+        '<button class="icon-btn" data-act="popout" title="Full view with mic and speaker devices">' +
+          CDSIcons.svg("open_in_new", 16) + '</button>' +
+      '</div>' +
+      '<div class="cds-strip">' +
+        '<span class="cds-dot' + (live ? " on" : "") + '"></span>' +
+        '<span role="status" class="rc-halo-status"></span>' +
+        (live ? '<span class="cds-clock" data-role="timer"></span>' : "") +
+        '<div class="cds-wave" aria-hidden="true">' +
+          WAVE.map(function (h, i) {
+            return '<i style="--h:' + h + 'px;--delay:-' + (i * 0.13) + 's"></i>';
+          }).join("") +
+        '</div>' +
+      '</div>' +
+      '<h4 class="cds-tt">Live transcript</h4>' +
+      '<div class="cds-scroll" role="log" aria-live="polite"></div>' +
+      '<div class="cds-vfoot">' +
+        '<button class="cds-mute" data-act="mute" aria-pressed="' + (inlineCall.muted ? "true" : "false") + '"' +
+          (live ? "" : " disabled") + ">" +
+          CDSIcons.svg(inlineCall.muted ? "mic_off" : "mic", 18) +
+          "<span>" + (inlineCall.muted ? "Unmute" : "Mute") + "</span></button>" +
+        '<button class="cds-call end" data-act="end">' + CDSIcons.svg("call_end", 18) +
+          "<span>End call</span></button>" +
+      "</div>";
+
+    el.querySelector(".cds-agent").textContent = g.name || "Voice agent";
+    el.querySelector(".cds-sub").textContent = hostOf(g);
+    el.querySelector(".rc-halo-status").textContent = status;
+    var t = el.querySelector('[data-role="timer"]');
+    if (t) t.textContent = "\u00b7 " + fmtSecs(inlineCall.seconds);
+
+    var log = el.querySelector(".cds-scroll");
+    if (inlineCall.lines.length) {
+      inlineCall.lines.forEach(function (l) { log.appendChild(utteranceEl(l.role, l.text, l.at)); });
+    } else {
+      var empty = document.createElement("div");
+      empty.className = "cds-empty";
+      empty.innerHTML = CDSIcons.svg("mic", 26) + "<strong>Listening\u2026</strong>";
+      var p = document.createElement("p");
+      p.textContent = "Whatever " + (g.name || "the agent") + " transcribes appears here.";
+      empty.appendChild(p);
+      log.appendChild(empty);
+    }
+
+    el.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("button");
+      var act = btn && btn.getAttribute("data-act");
+      if (!act || btn.disabled) return;
+      if (act === "mute") toggleInlineMute();
+      else if (act === "end") endInlineCall();
+      else if (act === "popout") popOut(g);
+    });
+    return el;
+  }
+
+  function hostOf(g) {
+    try { return new URL(normVoice(g.endpointUrl)).hostname; } catch (e) { return g.endpointUrl || ""; }
+  }
+
   function gwRow(g, indented) {
+    // On a call, this gateway is shown as the Halo panel instead of a row.
+    if (inlineCall && inlineCall.gwId === g.id) return gwCallPanel(g);
     var el = document.createElement("div");
     el.className = "demo-row" + (indented ? " in-folder" : "");
     el.dataset.gwId = g.id;
@@ -252,9 +337,8 @@
       try { ev.dataTransfer.setData("text/plain", g.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
     });
     el.addEventListener("dragend", function () { gwDrag = null; clearGwDropHints(); el.classList.remove("dragging"); });
-    var onCall = inlineCall && inlineCall.gwId === g.id;
-    var host = "";
-    try { host = new URL(normVoice(g.endpointUrl)).hostname; } catch (e) {}
+    var onCall = false;   // an active call renders as gwCallPanel above
+    var host = hostOf(g);
 
     var callControls;
     if (!onCall) {
@@ -389,7 +473,8 @@
     var endpointUrl = normVoice(g.endpointUrl);
     if (!endpointUrl) { rcToast("This gateway has no valid endpoint — click Edit.", false); return; }
 
-    inlineCall = { gwId: g.id, client: null, status: "connecting", muted: false, seconds: 0, timer: null };
+    inlineCall = { gwId: g.id, gwName: g.name || "Voice agent", client: null, status: "connecting",
+                   muted: false, seconds: 0, timer: null, lines: [], startedAt: 0, speaking: 0 };
     renderGwList();
 
     window.CdsVoice.createWebRTCClient({
@@ -403,6 +488,7 @@
         client.on("answered", function () {
           if (!inlineCall) return;
           inlineCall.status = "active";
+          inlineCall.startedAt = Date.now();
           inlineCall.timer = setInterval(function () {
             if (!inlineCall) return;
             inlineCall.seconds++;
@@ -413,6 +499,19 @@
         });
         client.on("muted", function () { if (inlineCall) { inlineCall.muted = true; renderGwList(); } });
         client.on("unmuted", function () { if (inlineCall) { inlineCall.muted = false; renderGwList(); } });
+        /*
+         * Live transcript. Remote Control had no transcription handling at all
+         * — the SDK was emitting these and nothing listened, so an SE on a
+         * Remote Control call saw a timer and nothing else.
+         *
+         * Two events, because the SDK splits them: a SIP INFO body carrying
+         * "_transcription" becomes "transcription" (with the inner value
+         * only), and every other body becomes "infoReceived", which is also
+         * where mid-call cards and xApp payloads arrive. Both are read; the
+         * shared reader returns null for anything with no speech in it.
+         */
+        client.on("transcription", function (payload) { pushLine(payload); });
+        client.on("infoReceived", function (payload) { pushLine(payload); });
         client.on("ended", function () { cleanupInlineCall(); });
         client.on("failed", function (s, info) {
           rcToast("Call failed" + (info && (info.description || info.cause) ? ": " + (info.description || info.cause) : "") + ".", false);
@@ -444,8 +543,60 @@
     cleanupInlineCall();
   }
 
+  /*
+   * Append one transcript line. Renders in place rather than re-rendering the
+   * whole list: a full renderGwList() on every utterance would rebuild the
+   * call controls under the SE's cursor mid-call.
+   */
+  function pushLine(payload) {
+    if (!inlineCall) return;
+    var line = window.CDSVoiceTranscript && window.CDSVoiceTranscript.readTranscription(payload);
+    if (!line) return;
+    var at = Math.max(0, Math.round((Date.now() - (inlineCall.startedAt || Date.now())) / 1000));
+    inlineCall.lines.push({ role: line.role, text: line.text, at: at });
+    if (line.role === "ai") {
+      inlineCall.speaking = Date.now();
+      var w = document.querySelector(".rc-halo .cds-wave");
+      if (w) {
+        w.classList.add("on");
+        clearTimeout(inlineCall.waveTimer);
+        inlineCall.waveTimer = setTimeout(function () { w.classList.remove("on"); }, 2600);
+      }
+    }
+    var log = document.querySelector(".rc-halo .cds-scroll");
+    if (!log) return;
+    var empty = log.querySelector(".cds-empty");
+    if (empty) empty.remove();
+    var bottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+    log.appendChild(utteranceEl(line.role, line.text, at));
+    if (bottom) log.scrollTop = log.scrollHeight;
+  }
+
+  function utteranceEl(role, text, at) {
+    var row = document.createElement("div");
+    row.className = "cds-utt cds-utt-" + (role === "user" ? "user" : "ai");
+    var icon = document.createElement("div");
+    icon.className = "cds-utt-icon";
+    icon.textContent = role === "user" ? "You" : "AI";
+    var body = document.createElement("div");
+    body.className = "cds-utt-body";
+    var who = document.createElement("p");
+    who.className = "cds-utt-who";
+    who.textContent = role === "user" ? "You" : (inlineCall ? inlineCall.gwName : "Voice agent");
+    var t = document.createElement("time");
+    t.textContent = "\u00b7 " + fmtSecs(at);
+    who.appendChild(t);
+    var p = document.createElement("p");
+    p.className = "cds-utt-text";
+    p.textContent = text;                        // textContent, never innerHTML
+    body.appendChild(who); body.appendChild(p);
+    row.appendChild(icon); row.appendChild(body);
+    return row;
+  }
+
   function cleanupInlineCall() {
     if (inlineCall && inlineCall.timer) clearInterval(inlineCall.timer);
+    if (inlineCall && inlineCall.waveTimer) clearTimeout(inlineCall.waveTimer);
     var c = inlineCall && inlineCall.client;
     inlineCall = null;
     if (c) c.destroy().catch(function () {});

@@ -11,6 +11,9 @@ import {
 } from "@cognigy/click-to-call-sdk";
 // @ts-ignore - shared plain-JS module aliased by the Demo Studio build
 import normalize from "@cds/shared/normalize.js";
+// Shared with Remote Control: this is the one piece of the voice path that
+// guesses at a payload shape Cognigy does not document, so it lives in one file.
+import voiceTranscript from "@cds/shared/voice-transcript.js";
 import { DemoConfig, randomId, isMock } from "../config";
 
 export type CallState = "unsupported" | "idle" | "connecting" | "ringing" | "active" | "ended" | "error";
@@ -61,46 +64,6 @@ function reportState(state: string) {
   try { window.parent.postMessage({ type: "CDS_VOICE_STATE", state }, "*"); } catch { /* not embedded */ }
 }
 
-/*
- * Read one transcription payload.
- *
- * The SDK only emits "transcription" for a SIP INFO whose JSON body carries a
- * "_transcription" key, and it passes the INNER value — so the outer
- * originator ("remote") is already gone, and the speaker has to come from
- * inside the payload. Anything that reads payload.originator gets undefined
- * and labels every line the same way.
- *
- * The shape also varies by Cognigy release: the documented one is an
- * originator plus an ARRAY of message text, but plain strings and {text}
- * forms exist too. Read all of them.
- *
- * Returning null rather than empty text matters: pushLine() ignores empty
- * strings, so a shape we did not understand used to show up as no transcript
- * at all — the caller logs the raw payload instead, which is the difference
- * between "transcription is broken" and "here is what Cognigy actually sent".
- */
-function readTranscription(payload: any): { role: "user" | "ai"; text: string } | null {
-  if (payload == null) return null;
-  if (typeof payload === "string") {
-    return payload.trim() ? { role: "ai", text: payload.trim() } : null;
-  }
-  const raw =
-    payload.message ?? payload.text ?? payload.transcript ??
-    payload.utterance ?? payload.content ?? payload.transcription;
-  const text = Array.isArray(raw)
-    ? raw.filter(Boolean).map(String).join(" ")
-    : typeof raw === "string" ? raw : "";
-  if (!text.trim()) return null;
-
-  const who = String(
-    payload.originator ?? payload.role ?? payload.speaker ??
-    payload.participant ?? payload.source ?? ""
-  );
-  // Default to the agent: Cognigy is the side sending these, so an unlabelled
-  // line is far more likely to be its own speech than the caller's.
-  const role: "user" | "ai" = /user|caller|human|local|customer/i.test(who) ? "user" : "ai";
-  return { role, text: text.trim() };
-}
 
 /*
  * Verbose by default, like the extension's content script. A voice call is
@@ -268,7 +231,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
        */
       (client as any).on("transcription", (payload: any) => {
         vlog("transcription", payload);
-        const line = readTranscription(payload);
+        const line = voiceTranscript.readTranscription(payload);
         if (!line) {
           vlog("transcription payload had no readable text — shape not recognised", payload);
           return;

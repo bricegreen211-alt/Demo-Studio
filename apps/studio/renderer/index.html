@@ -121,7 +121,6 @@
             <p class="card-sub" id="themeSub"></p>
           </div></div>
           <div class="theme-list" id="themeList" role="radiogroup" aria-label="Theme"></div>
-          <p class="soft" id="themeNote" hidden></p>
         </section>
 
         <!-- ── Appearance — only for non-default themes ───────────────── -->
@@ -570,6 +569,9 @@
   <script src="icons.js"></script>
   <script src="themes.js"></script>
   <script src="/shared/normalize.js"></script>
+  <!-- Same reader the demo templates use, so Remote Control and a demo can
+       never disagree about what Cognigy just said. -->
+  <script src="/shared/voice-transcript.js"></script>
   <script src="vendor/webRTCWidget.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>
   <script src="app.js"></script>

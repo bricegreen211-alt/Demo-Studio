@@ -50,10 +50,15 @@
    * WebRTC shells. Live transcript is a separate toggle, not three more themes,
    * so each of these works with it on or off.
    */
+  /*
+   * WebRTC. Cognigy Default is Cognigy's own click-to-call widget; Halo is the
+   * voice shell Demo Studio draws. Bar, Pill and Card were removed — once the
+   * real widget was being mounted, all three did was recolour it, so the names
+   * promised layouts nothing produced.
+   */
   var WEBRTC = [
-    { id: "bar",  name: "Bar",  note: "Wide dock across the foot of the page, with a waveform.", swatch: ["#ffffff", "#12b39a", "#d92d3c"] },
-    { id: "pill", name: "Pill", note: "Compact capsule, centred. The smallest footprint.",       swatch: ["#ffffff", "#111827", "#f2564f"] },
-    { id: "card", name: "Card", note: "Modal card with an orb — the most present of the three.", swatch: ["#ffffff", "#8b5cf6", "#f2564f"] }
+    { id: "halo", name: "Halo", note: "White and vertical. Call status, live transcript, Mute and Call.",
+      swatch: ["#ffffff", "#087aff", "#eef4fc"] }
   ];
 
   /*
