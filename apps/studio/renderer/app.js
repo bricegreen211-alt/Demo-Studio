@@ -124,6 +124,7 @@
       if (!next || next === name) return;
       var merging = allFolderNames().indexOf(next) >= 0;
       if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+      collapsedFolders[next] = collapsedFolders[name];   // carry the open/closed state over
       api("/api/folders/rename", postJson({ from: name, to: next })).then(loadList).catch(alertErr);
     },
     delete: function (name) {
@@ -170,8 +171,10 @@
     });
 
     (groups[""] || []).forEach(function (d) { list.appendChild(row(d)); });
-    Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (f) {
-      if (!f) return;
+    // allFolderNames(), not a sort of the group keys — the stored order IS the
+    // display order, or dragging a folder would persist and never show.
+    allFolderNames().forEach(function (f) {
+      if (!f || !groups[f]) return;
       if (q && groups[f].length === 0) return; // hide empty folders while searching
       var head = document.createElement("div");
       head.className = "folder-head" + (collapsedFolders[f] && !q ? " collapsed" : "");

@@ -47,13 +47,119 @@
       .then(function (s) { settings = s; });
   }
 
+  /*
+   * settings.gatewayFolders IS the order — exactly as settings.folders is on
+   * the demos side — so a folder dragged into place stays there. This used to
+   * sort alphabetically, which threw that order away. A folder discovered only
+   * on a gateway (imported, or a hand-edited settings.json) is appended,
+   * sorted, so it can still never go missing.
+   */
   function gwFolderNames() {
     var names = (settings.gatewayFolders || []).slice();
+    var extra = [];
     gateways().forEach(function (g) {
-      if (g.folder && names.indexOf(g.folder) < 0) names.push(g.folder);
+      if (g.folder && names.indexOf(g.folder) < 0 && extra.indexOf(g.folder) < 0) extra.push(g.folder);
     });
-    return names.sort(function (a, b) { return a.localeCompare(b); });
+    extra.sort(function (a, b) { return a.localeCompare(b); });
+    return names.concat(extra);
   }
+
+  /* ---------------- folders: drag, rename, delete ---------------- */
+  /*
+   * Same gestures as Demo Experiences, but the writes stay on this side. A
+   * demo's folder lives in its own demo.json on disk, so renaming there had to
+   * be a service route or N files could drift apart halfway through. A
+   * gateway and the folder list are both fields of settings.json, written by
+   * one atomic PUT, so a route would be ceremony with nothing to protect.
+   *
+   * One module-level `gwDrag` describes what is in flight, because HTML5
+   * drag-and-drop's dataTransfer is unreadable during dragover — which is
+   * exactly when the drop target has to decide whether it will accept.
+   */
+  var gwDrag = null;
+
+  function clearGwDropHints() {
+    Array.prototype.forEach.call(
+      $("gwList").querySelectorAll(".drop-into, .drop-before"),
+      function (el) { el.classList.remove("drop-into", "drop-before"); }
+    );
+    $("gwList").classList.remove("drop-into");
+  }
+
+  // A folder header accepts a gateway (file it here) or a folder (land above me).
+  function wireGwFolderDrop(head, name) {
+    head.addEventListener("dragstart", function (ev) {
+      gwDrag = { kind: "folder", name: name };
+      try { ev.dataTransfer.setData("text/plain", name); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    head.addEventListener("dragend", function () { gwDrag = null; clearGwDropHints(); });
+    head.addEventListener("dragover", function (ev) {
+      if (!gwDrag) return;
+      if (gwDrag.kind === "gw" && gwDrag.from === name) return;      // already here
+      if (gwDrag.kind === "folder" && gwDrag.name === name) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      clearGwDropHints();
+      head.classList.add(gwDrag.kind === "gw" ? "drop-into" : "drop-before");
+    });
+    head.addEventListener("dragleave", function () { head.classList.remove("drop-into", "drop-before"); });
+    head.addEventListener("drop", function (ev) {
+      ev.preventDefault();
+      var d = gwDrag;
+      clearGwDropHints();
+      gwDrag = null;
+      if (!d) return;
+      if (d.kind === "gw") return moveGwToFolder(d.id, name);
+      if (d.kind === "folder") return reorderGwFolder(d.name, name);
+    });
+  }
+
+  function afterFolderChange() {
+    return persistGateways().then(function () { renderGwList(); renderGwOptions(); });
+  }
+
+  function moveGwToFolder(id, folder) {
+    gateways().forEach(function (g) { if (g.id === id) g.folder = folder; });
+    afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+  }
+
+  // Drop `moved` immediately before `before`; a null `before` sends it to the end.
+  function reorderGwFolder(moved, before) {
+    var order = gwFolderNames().filter(function (f) { return f !== moved; });
+    var at = before ? order.indexOf(before) : order.length;
+    order.splice(at < 0 ? order.length : at, 0, moved);
+    settings.gatewayFolders = order;
+    afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+  }
+
+  var gwFolderActions = {
+    rename: function (name) {
+      var next = prompt("Rename folder:", name);
+      if (next === null) return;
+      next = next.trim().slice(0, 80);
+      if (!next || next === name) return;
+      var merging = gwFolderNames().indexOf(next) >= 0;
+      if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+      var seen = [];
+      settings.gatewayFolders = gwFolderNames()
+        .map(function (f) { return f === name ? next : f; })
+        .filter(function (f) { if (seen.indexOf(f) >= 0) return false; seen.push(f); return true; });
+      gateways().forEach(function (g) { if (g.folder === name) g.folder = next; });
+      gwCollapsed[next] = gwCollapsed[name];   // carry the open/closed state over
+      afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+    },
+    // Deletes the label, never the gateways: they return to the top level.
+    delete: function (name) {
+      var count = gateways().filter(function (g) { return g.folder === name; }).length;
+      if (!confirm('Delete the folder "' + name + '"?\n\n' +
+                   (count
+                     ? count + (count === 1 ? " gateway moves" : " gateways move") + " back to the top level. Nothing is deleted."
+                     : "It is empty."))) return;
+      settings.gatewayFolders = gwFolderNames().filter(function (f) { return f !== name; });
+      gateways().forEach(function (g) { if (g.folder === name) g.folder = ""; });
+      afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+    }
+  };
 
   function renderGwOptions() {
     var fl = $("gwFolderOptions");
@@ -99,17 +205,37 @@
     });
 
     (groups[""] || []).forEach(function (g) { list.appendChild(gwRow(g)); });
-    Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (f) {
-      if (!f) return;
+    // gwFolderNames(), not a sort of the group keys — the stored order is the
+    // display order, or dragging a folder would persist and never show.
+    gwFolderNames().forEach(function (f) {
+      if (!f || !groups[f]) return;
       if (q && groups[f].length === 0) return;
       var head = document.createElement("div");
       head.className = "folder-head" + (gwCollapsed[f] && !q ? " collapsed" : "");
-      head.innerHTML = '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
-        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> <span class="folder-count"></span>';
+      head.setAttribute("data-folder", f);
+      head.draggable = true;
+      head.innerHTML =
+        '<span class="folder-grip" data-ico="drag_indicator" data-size="16" title="Drag to reorder"></span>' +
+        '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
+        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> ' +
+        '<span class="folder-count"></span>' +
+        '<span class="folder-tools">' +
+          '<button class="icon-btn" data-fact="rename" title="Rename folder" aria-label="Rename folder"></button>' +
+          '<button class="icon-btn" data-fact="delete" title="Delete folder" aria-label="Delete folder"></button>' +
+        '</span>';
+      head.querySelector('[data-fact="rename"]').innerHTML = CDSIcons.svg("edit", 15);
+      head.querySelector('[data-fact="delete"]').innerHTML = CDSIcons.svg("delete", 15);
       CDSIcons.hydrate(head);
       head.querySelector("b").textContent = f;
       head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " gateway" : " gateways");
-      head.addEventListener("click", function () { gwCollapsed[f] = !gwCollapsed[f]; renderGwList(); });
+      head.addEventListener("click", function (ev) {
+        var act = ev.target.closest("[data-fact]");
+        if (act) { ev.stopPropagation(); return gwFolderActions[act.getAttribute("data-fact")](f); }
+        if (ev.target.closest(".folder-grip")) return;   // the grip is for dragging
+        gwCollapsed[f] = !gwCollapsed[f];
+        renderGwList();
+      });
+      wireGwFolderDrop(head, f);
       list.appendChild(head);
       if (!gwCollapsed[f] || q) groups[f].forEach(function (g) { list.appendChild(gwRow(g, true)); });
     });
@@ -119,6 +245,13 @@
     var el = document.createElement("div");
     el.className = "demo-row" + (indented ? " in-folder" : "");
     el.dataset.gwId = g.id;
+    el.draggable = true;
+    el.addEventListener("dragstart", function (ev) {
+      gwDrag = { kind: "gw", id: g.id, from: g.folder || "" };
+      el.classList.add("dragging");
+      try { ev.dataTransfer.setData("text/plain", g.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    el.addEventListener("dragend", function () { gwDrag = null; clearGwDropHints(); el.classList.remove("dragging"); });
     var onCall = inlineCall && inlineCall.gwId === g.id;
     var host = "";
     try { host = new URL(normVoice(g.endpointUrl)).hostname; } catch (e) {}
@@ -208,6 +341,31 @@
   }
 
   $("gwFind").addEventListener("input", renderGwList);
+
+  /*
+   * The list background is the "no folder" target, so a gateway can be dragged
+   * back out. Without it one could be filed but never unfiled by dragging.
+   */
+  (function () {
+    var list = $("gwList");
+    list.addEventListener("dragover", function (ev) {
+      if (!gwDrag || gwDrag.kind !== "gw" || !gwDrag.from) return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      list.classList.add("drop-into");
+    });
+    list.addEventListener("dragleave", function () { list.classList.remove("drop-into"); });
+    list.addEventListener("drop", function (ev) {
+      if (!gwDrag || gwDrag.kind !== "gw") return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      var id = gwDrag.id;
+      gwDrag = null;
+      list.classList.remove("drop-into");
+      moveGwToFolder(id, "");
+    });
+  })();
 
   $("gwNewFolderBtn").addEventListener("click", function () {
     var name = prompt("Folder name:");
