@@ -14,8 +14,20 @@ async function api(path, options) {
   return res.json();
 }
 
+/*
+ * The version goes with the heartbeat so the Studio can tell the SE when the
+ * extension is stale. Both docs call the forgotten manual reload after an
+ * update the number-one cause of "my update did nothing"; the two sides knew
+ * their own versions all along and simply never compared them.
+ */
 async function heartbeat() {
-  try { await api("/api/extension/heartbeat", { method: "POST" }); } catch (e) { /* studio not running */ }
+  try {
+    await api("/api/extension/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: chrome.runtime.getManifest().version })
+    });
+  } catch (e) { /* studio not running */ }
 }
 
 // Badge mirrors the popup's master switch, so it's obvious at a glance whether

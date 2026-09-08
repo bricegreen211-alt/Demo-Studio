@@ -343,6 +343,16 @@
     setVibecodeRow(null);
     renderFolderOptions();
 
+    /*
+     * Re-read the theme catalogue every time the form opens, so a theme file
+     * dropped into assets/themes/ while the dashboard was open shows up on the
+     * next Edit rather than on the next reload. Fire and forget: the built-in
+     * list paints immediately and this repaints only if it found something new.
+     */
+    CDSThemes.load().then(function (changed) {
+      if (changed && $("editView") && !$("editView").hidden) renderThemeList();
+    });
+
     if (!slug) {
       fillForm(null);
       setPreview(null);
@@ -574,7 +584,13 @@
      * and visibly instead.
      */
     var ok = CDSThemes.listFor(form.template).some(function (t) { return t.id === form.theme; });
-    if (!ok) form.theme = CDSThemes.DEFAULT_ID;
+    /*
+     * The new endpoint's FIRST theme, which is what sanitize() would pick.
+     * This used to be Cognigy Default unconditionally — a theme the combination
+     * does not offer, so switching to it selected a tile that wasn't there and
+     * the save came back as Halo anyway.
+     */
+    if (!ok) form.theme = CDSThemes.defaultFor(form.template);
     syncForm();
   });
 
@@ -640,6 +656,160 @@
             : "Off — refresh a demo to hide it.";
         })
         .catch(function () { $("diagnosticsStatus").textContent = "Couldn't save."; });
+    });
+  }
+
+  /* ---------------- microphone ----------------
+   *
+   * Global rather than per demo, like preferredMicId: it describes this
+   * machine and this room. The same values reach every demo, every theme and
+   * Remote Control through the injected audio layer, so this card and the gear
+   * on the widget are two views of one setting.
+   */
+
+  var audioCfg = null;      // last known server state
+  var audioMeter = null;    // live preview, only while Settings is on screen
+  var audioRaf = 0;
+  var audioSave = 0;
+
+  function renderAudio() {
+    if (!audioCfg || !$("f-audio-engine")) return;
+    var c = audioCfg;
+    $("f-audio-engine").value = c.engine;
+    $("f-audio-gate").checked = !!c.gate;
+    $("audioGateRows").hidden = !c.gate;
+    $("f-audio-open").value = c.gateOpenThreshold;
+    $("f-audio-close").value = c.gateCloseThreshold;
+    $("f-audio-hold").value = c.gateHoldMs;
+    $("f-audio-openVal").textContent = c.gateOpenThreshold + " dB";
+    $("f-audio-closeVal").textContent = c.gateCloseThreshold + " dB";
+    $("f-audio-holdVal").textContent = c.gateHoldMs + " ms";
+    $("f-audio-ec").checked = c.echoCancellation !== false;
+    $("f-audio-ns").checked = c.noiseSuppression !== false;
+    $("f-audio-agc").checked = c.autoGainControl !== false;
+    $("audioMeterMark").style.display = c.gate ? "block" : "none";
+    $("audioMeterMark").style.left = pct(c.gateOpenThreshold) + "%";
+    // Both at once is not wrong, but it is the usual cause of "why does my
+    // voice sound thin" — worth saying before an SE debugs it on a live call.
+    $("audioStackHint").textContent = (c.engine !== "none" && c.noiseSuppression !== false)
+      ? "Browser suppression is stacked on top of " + c.engine + ". If speech sounds thin or pumpy, turn this one off first."
+      : "";
+    // The demo layer reads this, so the dashboard's own Remote Control pop-out
+    // picks up a change without a reload.
+    if (window.CDSAudio) window.CDSAudio.apply(c);
+  }
+
+  function pct(db) { return Math.max(0, Math.min(100, (db + 90) / 90 * 100)); }
+
+  function saveAudio(patch) {
+    audioCfg = Object.assign({}, audioCfg, patch);
+    renderAudio();
+    clearTimeout(audioSave);
+    $("audioStatus").textContent = "Saving…";
+    audioSave = setTimeout(function () {
+      api("/api/settings", putJson({ audio: audioCfg }))
+        .then(function (st) {
+          // Trust the server's clamped values over ours.
+          audioCfg = st.audio;
+          renderAudio();
+          $("audioStatus").textContent = audioCfg.engine === "none" && !audioCfg.gate
+            ? "Browser processing only."
+            : "Applies to every demo and to Remote Control.";
+        })
+        .catch(function () { $("audioStatus").textContent = "Couldn't save."; });
+    }, 250);
+  }
+
+  function bindAudio() {
+    if (!$("f-audio-engine")) return;
+    $("f-audio-engine").addEventListener("change", function (e) { saveAudio({ engine: e.target.value }); });
+    $("f-audio-gate").addEventListener("change", function (e) { saveAudio({ gate: e.target.checked }); });
+    $("f-audio-ec").addEventListener("change", function (e) { saveAudio({ echoCancellation: e.target.checked }); });
+    $("f-audio-ns").addEventListener("change", function (e) { saveAudio({ noiseSuppression: e.target.checked }); });
+    $("f-audio-agc").addEventListener("change", function (e) { saveAudio({ autoGainControl: e.target.checked }); });
+    $("f-audio-open").addEventListener("input", function (e) {
+      var v = parseFloat(e.target.value);
+      var patch = { gateOpenThreshold: v };
+      // The gate can never close above where it opens, or it would never shut.
+      if (audioCfg.gateCloseThreshold > v) patch.gateCloseThreshold = v - 10;
+      saveAudio(patch);
+    });
+    $("f-audio-close").addEventListener("input", function (e) {
+      saveAudio({ gateCloseThreshold: Math.min(parseFloat(e.target.value), audioCfg.gateOpenThreshold) });
+    });
+    $("f-audio-hold").addEventListener("input", function (e) { saveAudio({ gateHoldMs: parseFloat(e.target.value) }); });
+  }
+
+  /*
+   * The meter opens its own microphone, so it runs ONLY while Settings is on
+   * screen. Left running it would keep the OS mic indicator lit for as long as
+   * the SE had the dashboard open, which looks exactly like a bug.
+   */
+  function startAudioMeter() {
+    if (audioMeter || !window.CDSAudio || !$("audioMeterFill")) return;
+    audioMeter = "pending";
+    window.CDSAudio.monitor().then(function (m) {
+      if (audioMeter !== "pending") { m.stop(); return; }   // navigated away while awaiting
+      audioMeter = m;
+      var fill = $("audioMeterFill"), dot = $("audioMeterDot"), text = $("audioMeterText");
+      (function frame() {
+        if (!audioMeter || audioMeter === "pending") return;
+        var r = audioMeter.read();
+        fill.style.right = (100 - pct(r.db)) + "%";
+        dot.className = "audio-dot" + (r.open ? " open" : "");
+        text.textContent = Math.round(r.db) + " dB" +
+          (audioCfg && audioCfg.gate ? (r.open ? " — gate open" : " — gate closed") : "");
+        audioRaf = requestAnimationFrame(frame);
+      })();
+    }).catch(function () {
+      audioMeter = null;
+      $("audioMeterText").textContent = "No microphone available.";
+    });
+  }
+
+  function stopAudioMeter() {
+    if (audioRaf) { cancelAnimationFrame(audioRaf); audioRaf = 0; }
+    if (audioMeter && audioMeter !== "pending") audioMeter.stop();
+    audioMeter = null;
+    if ($("audioMeterText")) $("audioMeterText").textContent = "Open Settings to hear the room…";
+    if ($("audioMeterFill")) $("audioMeterFill").style.right = "100%";
+  }
+
+  bindAudio();
+
+  /* ---------------- starting up ----------------
+   *
+   * Only meaningful inside the Electron app: the toggle registers the
+   * generated launcher (.app / .lnk) as a login item, so Login Items shows
+   * "Cognigy Demo Studio" rather than "Electron".
+   */
+  function loadStartup() {
+    if (!(window.cds && window.cds.loginItem)) return;   // plain browser tab
+    $("startupCard").hidden = false;
+    window.cds.loginItem().then(function (st) {
+      if (!st || !st.supported) { $("startupCard").hidden = true; return; }
+      $("f-login-item").checked = !!st.enabled;
+      $("startupStatus").textContent = st.enabled
+        ? "Demo Studio starts automatically and waits in the background."
+        : "You'll need to open Demo Studio yourself before a demo.";
+      $("startupStale").hidden = !st.stale;
+    }).catch(function () { $("startupCard").hidden = true; });
+  }
+
+  if ($("f-login-item")) {
+    $("f-login-item").addEventListener("change", function (e) {
+      $("startupStatus").textContent = "Saving…";
+      window.cds.loginItem(e.target.checked).then(function (st) {
+        $("f-login-item").checked = !!(st && st.enabled);
+        $("startupStatus").textContent = (st && st.enabled)
+          ? "Demo Studio starts automatically and waits in the background."
+          : "You'll need to open Demo Studio yourself before a demo.";
+      }).catch(function () { $("startupStatus").textContent = "Couldn't change that."; });
+    });
+    $("rebuildLauncher").addEventListener("click", function () {
+      window.cds.makeLauncher();
+      $("startupStale").hidden = true;
+      $("startupStatus").textContent = "Shortcuts recreated.";
     });
   }
 
@@ -826,6 +996,10 @@
   function loadSettings() {
     api("/api/settings").then(function (st) {
       $("f-diagnostics").checked = st.showDiagnostics !== false;
+      audioCfg = st.audio;
+      renderAudio();
+      startAudioMeter();
+      loadStartup();
       var fm = st.followMeUserId || "followme";
       $("f-followme").value = fm;
       $("followMeStatus").textContent = fm === "followme"
@@ -848,7 +1022,17 @@
       var pill = $("extPill");
       var banner = $("extBanner");
       var steps = $("extSteps");
-      if (a.extensionConnected) {
+      if (a.extensionConnected && a.extensionStale) {
+        // Loud, because the symptom otherwise looks like "the update did
+        // nothing" rather than "the extension was never reloaded".
+        pill.className = "pill warn";
+        pill.textContent = "Needs reloading";
+        banner.hidden = false;
+        banner.innerHTML = "The extension is running version <b>" + a.extensionVersion +
+          "</b> but Demo Studio is <b>" + a.version + "</b>. Open <b>chrome://extensions</b>, click " +
+          "the reload arrow on Cognigy Demo Studio, then refresh any customer tab you have open.";
+        steps.hidden = true;
+      } else if (a.extensionConnected) {
         pill.className = "pill ok";
         pill.textContent = "Installed";
         banner.hidden = false;
@@ -1039,6 +1223,8 @@
   }
 
   function route() {
+    // The meter holds a live microphone; nothing but the Settings view should.
+    stopAudioMeter();
     var hash = (location.hash || "#demos").split("&")[0];
     var item = NAV[0];
     for (var i = 0; i < NAV.length; i++) if (NAV[i].hash === hash) item = NAV[i];
@@ -1062,6 +1248,8 @@
     railMini = localStorage.getItem("cdsRail") === "mini";
   } catch (e) {}
   CDSIcons.hydrate();
+  // Themes on disk, merged over the built-in table before anything paints one.
+  CDSThemes.load();
   renderNav();
   initAppearance();
   route();

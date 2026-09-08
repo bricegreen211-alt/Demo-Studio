@@ -419,12 +419,81 @@
       <p class="soft" id="followMeStatus"></p>
     </section>
 
+    <!-- Only rendered in the Electron app; a browser tab has no launcher. -->
+    <section class="card" id="startupCard" hidden>
+      <div class="card-head">
+        <div>
+          <h3>Starting up</h3>
+          <p class="card-sub">Demo Studio has to be running for your demos to appear on customer
+            sites. Closing the window keeps it running in the background — quit from the menu bar or
+            system tray icon to stop it.</p>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-login-item" /> Start Demo Studio when I log in</label>
+      <p class="soft" id="startupStatus"></p>
+      <p class="soft" id="startupStale" hidden>
+        The launcher points at a different folder — the project has moved.
+        <button class="btn-link" id="rebuildLauncher">Recreate the shortcuts</button>
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Microphone</h3>
+          <p class="card-sub">Cleans up the mic on every voice call — every demo, every theme, and
+            Remote Control. Cognigy's SDK asks for the microphone with no processing at all, so
+            these are the settings nothing else is applying. Set them here before a demo; adjust
+            mid-demo from the gear on the widget.</p>
+        </div>
+      </div>
+
+      <label class="setting-field">Noise suppression
+        <select id="f-audio-engine">
+          <option value="none">Off — browser cancellation only</option>
+          <option value="rnnoise">RNNoise — proven, light, good on steady noise</option>
+          <option value="gtcrn">GTCRN — stronger on keyboards and chatter</option>
+          <option value="speex">Speex — cheapest, for older machines</option>
+        </select>
+      </label>
+
+      <label class="check"><input type="checkbox" id="f-audio-gate" /> Noise gate — mute the mic below a threshold</label>
+
+      <div id="audioGateRows" hidden>
+        <label class="setting-field">Opens above <span class="soft" id="f-audio-openVal"></span>
+          <input type="range" id="f-audio-open" min="-90" max="-10" step="1" />
+        </label>
+        <label class="setting-field">Closes below <span class="soft" id="f-audio-closeVal"></span>
+          <input type="range" id="f-audio-close" min="-100" max="-10" step="1" />
+        </label>
+        <label class="setting-field">Hold <span class="soft" id="f-audio-holdVal"></span>
+          <input type="range" id="f-audio-hold" min="0" max="500" step="10" />
+        </label>
+      </div>
+
+      <!-- Live level, so the threshold is set against the actual room rather
+           than guessed at. Runs only while this view is open. -->
+      <div class="audio-meter"><div class="audio-meter-fill" id="audioMeterFill"></div><div class="audio-meter-mark" id="audioMeterMark"></div></div>
+      <p class="soft"><span class="audio-dot" id="audioMeterDot"></span><span id="audioMeterText">Open Settings to hear the room…</span></p>
+
+      <details>
+        <summary class="soft">Browser processing</summary>
+        <label class="check"><input type="checkbox" id="f-audio-ec" /> Echo cancellation</label>
+        <label class="check"><input type="checkbox" id="f-audio-ns" /> Browser noise suppression</label>
+        <label class="check"><input type="checkbox" id="f-audio-agc" /> Automatic gain control</label>
+        <p class="soft" id="audioStackHint"></p>
+      </details>
+
+      <p class="soft" id="audioStatus"></p>
+    </section>
+
     <section class="card">
       <div class="card-head">
         <div>
           <h3>Demo diagnostics</h3>
           <p class="card-sub">Shows a small state badge on the demo and logs verbosely to the browser
-            console. Handy when a demo doesn't look right — turn it off before demoing to a customer.</p>
+            console, and shows the microphone gear on the widget. Handy when a demo doesn't look right —
+            turn it off before demoing to a customer.</p>
         </div>
       </div>
       <label class="check"><input type="checkbox" id="f-diagnostics" /> Show demo diagnostics</label>
@@ -572,6 +641,10 @@
        never disagree about what Cognigy just said. -->
   <script src="/shared/voice-transcript.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>
+  <!-- Microphone cleanup. Served by the service rather than sat next to the
+       other vendor bundles so the dashboard, the demo pages and Remote
+       Control's pop-out all run the exact same build. -->
+  <script src="/_cds/audio-clean.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
 </body>

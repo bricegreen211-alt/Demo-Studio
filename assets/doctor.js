@@ -113,7 +113,7 @@ srv.once("error", (err) => {
       .then((r) => r.json())
       .then((j) => {
         if (j && j.app === "cognigy-demo-studio") ok("Demo Studio is already running", "v" + j.version);
-        else bad("Port " + PORT + " is used by another program", "close it, or set CDS_PORT support is not available yet");
+        else bad("Port " + PORT + " is used by another program", "close that program, then start Demo Studio again");
         finish();
       })
       .catch(() => { bad("Port " + PORT + " is used by another program", "quit it and try again"); finish(); });
@@ -135,7 +135,7 @@ function finish() {
   } else if (warnings) {
     line("✓ Ready to go — with " + warnings + " note" + (warnings === 1 ? "" : "s") + " above.");
   } else {
-    line("✓ Everything looks good. Start the app with:  npm start");
+    line("✓ Everything looks good. Double-click the Cognigy Demo Studio icon to start.");
   }
   line("");
 }

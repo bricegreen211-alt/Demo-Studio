@@ -4,10 +4,10 @@ This guide is for a Sales Engineer setting up Cognigy Demo Studio on their own m
 first time. It assumes no prior developer setup. Steps are given for **macOS** and **Windows**
 side by side — skip to whichever matches your machine.
 
-**Heads up before you start:** Cognigy Demo Studio doesn't yet ship as a double-click installer
-(no `.dmg` / `.exe` like the old NiCE Voice Agent app) — you run it from its source folder with
-one command. That's still no terminal *day-to-day*: the one-time setup below takes a few minutes,
-and after that you launch it the same way every time.
+**Heads up before you start:** the setup below uses a terminal **once**, for a single command.
+After that you get a **Cognigy Demo Studio icon** on your Desktop, in your Applications / Start
+Menu, and in the project folder — you launch it by double-clicking, like any other app, and never
+touch a terminal again. It can also start itself when you log in, so it's simply always ready.
 
 ---
 
@@ -79,7 +79,7 @@ to pull future updates later with `git pull`.
 
 ---
 
-## Step 2 — Install dependencies
+## Step 2 — Run setup (the one terminal command)
 
 1. Open a terminal:
    - **macOS**: open **Terminal** (press `Cmd + Space`, type "Terminal", press Enter).
@@ -98,8 +98,14 @@ to pull future updates later with `git pull`.
    ```
 
    This downloads everything the app needs (a few minutes, one-time, needs the network access
-   above). You'll see a lot of text scroll by — that's normal. It's done when you get your prompt
-   back with no red "error" lines.
+   above) and then creates your **Cognigy Demo Studio** launcher icons. You'll see a lot of text
+   scroll by — that's normal. It's done when the last lines look like this:
+
+   ```
+   [setup] created /Users/you/Applications/Cognigy Demo Studio.app
+   [setup] created /Users/you/Desktop/Cognigy Demo Studio.app
+   [setup] Double-click "Cognigy Demo Studio" to start. No terminal needed from here on.
+   ```
 
    > **Windows note:** if this is the very first time you've run `npm` on this machine, Windows
    > may show a firewall prompt ("Windows Defender Firewall has blocked some features…") — click
@@ -114,40 +120,39 @@ to pull future updates later with `git pull`.
    This prints where your files will live and flags anything missing. If it ends with
    **"Everything looks good"** you're ready. If it lists a ✗, fix that first — it tells you how.
 
+**That's the last time you need a terminal.** You can close it now.
+
 ---
 
 ## Step 3 — Start Cognigy Demo Studio
 
-In the same terminal, in the same folder, run:
+**Double-click the Cognigy Demo Studio icon** — on your Desktop, in Applications (macOS) or the
+Start Menu (Windows), or in the project folder. All three are the same app.
 
-```bash
-npm start
-```
+A window titled **Cognigy Demo Studio** opens. Behind the scenes it also starts a small local
+service (`http://localhost:41700`) that the extension talks to; you never need that URL yourself.
 
-A window titled **Cognigy Demo Studio** opens automatically — this is the app. Behind the scenes
-it also started a small local service on your machine (`http://localhost:41700`) that the
-extension talks to; you don't need to do anything with that URL directly.
+Because the launcher was created on your own machine rather than downloaded, **macOS Gatekeeper and
+Windows SmartScreen leave it alone** — there's no "unidentified developer" or "Windows protected
+your PC" warning to click through.
 
-> ### ⚠️ Leave the terminal window open
+- **macOS**: the first launch asks for **microphone access** — click **Allow** (needed for voice
+  demos and Cognigy Remote Control).
+- **Windows**: Windows asks for **microphone access** the first time a voice demo uses it — click
+  **Yes**.
+
+> ### Turn on "Start when I log in"
 >
-> Demo Studio runs *inside* that terminal session. If you close the terminal, the app is shut down
-> with it, and your demos stop appearing on customer sites — the panel will say "Demo Studio isn't
-> running."
->
-> **Minimize the terminal, don't close it.** The same applies to the Studio window itself: closing
-> it quits the app. Minimize it instead while you're presenting.
->
-> Nothing is lost when this happens — your demos live in a separate folder. Just run `npm start`
-> again and everything is back. (A double-clickable app that removes the terminal entirely is the
-> planned fix; see the note at the end of this guide.)
+> Open **Settings → Starting up** in the app and tick **Start Demo Studio when I log in**. Demo
+> Studio will then be running before you need it, every day, without you thinking about it.
 
-- **macOS**: the first launch will ask for **microphone access** — click **Allow** (needed for
-  voice demos and Cognigy Remote Control). It may also warn that the app is from an
-  "unidentified developer" the very first time — if so, right-click the app window in the Dock
-  (or go to **System Settings → Privacy & Security**) and choose **Open** to confirm once.
-- **Windows**: **Windows Defender SmartScreen** may show "Windows protected your PC" the first
-  time Electron runs — click **More info**, then **Run anyway**. Windows will also ask for
-  **microphone access** the first time a voice demo tries to use it — click **Yes**.
+### Closing the window doesn't stop it
+
+Demo Studio keeps running in the background — look for its icon in the **menu bar** (macOS) or the
+**system tray** (Windows). That's deliberate: your demos are served by that background service, so
+closing the Studio window leaves them working on customer sites.
+
+To actually stop it, click that icon and choose **Quit (stops all demos)**.
 
 ---
 
@@ -205,18 +210,20 @@ Cognigy Demo Studio is running and which demo (if any) is mapped to the site you
 
 ## Everyday use, after this first setup
 
-You don't need to repeat Steps 1, 2, or 4 again — those were one-time. Every time after that, you
-just need to get the app running again:
+Steps 1, 2 and 4 were one-time. From now on:
 
-- **macOS**: reopen **Terminal**, `cd` into the project folder (or press the Up arrow to recall
-  the last command), and run `npm start`. To skip retyping the path each time, you can create a
-  simple double-clickable shortcut that runs `npm start` in that folder — ask a teammate familiar
-  with the project to set one up.
-- **Windows**: reopen **PowerShell**, `cd` into the project folder, and run `npm start`. A
-  `.bat` file with `cd /d "%USERPROFILE%\Documents\Demo-Studio" && npm start` saved to your Desktop
-  gives you a double-clickable shortcut — again, worth asking a teammate to set up once.
+- **Double-click the Cognigy Demo Studio icon** — Desktop, Applications / Start Menu, or the
+  project folder. No terminal, ever.
+- Better still, turn on **Settings → Starting up → Start Demo Studio when I log in**, and it will
+  already be running whenever you need it.
+- **Closing the Studio window doesn't stop it.** It keeps serving your demos from the menu bar
+  (macOS) or system tray (Windows). Use **Quit** on that icon when you really want it stopped.
 - The browser extension, once loaded, stays installed — you don't reload it each session. Just
   remember to turn **Show demos** on when you want demos to appear.
+
+> **If you move or rename the project folder**, the icons point at the old location. Open the
+> folder in a terminal once more and run `npm run setup` to recreate them. Demo Studio also warns
+> you about this in **Settings → Starting up**.
 
 ---
 
@@ -224,7 +231,9 @@ just need to get the app running again:
 
 When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones people forget.
 
-1. **Quit the app** — close the Studio window, and press `Ctrl+C` in the terminal (or close it).
+1. **Quit the app** — click the Cognigy Demo Studio icon in the menu bar (macOS) or system tray
+   (Windows) and choose **Quit (stops all demos)**. Closing the window alone isn't enough; it
+   deliberately keeps running.
    You can't update files that are in use.
 
 2. **Get the new code.** In the project folder:
@@ -242,7 +251,9 @@ When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones
    npm install
    ```
 
-4. **Start it again** with `npm start`.
+   This also refreshes your launcher icons, so they keep working if anything moved.
+
+4. **Start it again** by double-clicking the Cognigy Demo Studio icon.
 
 5. **Reload the browser extension** — only needed when the `extension` folder changed, but it's
    harmless to always do it:
@@ -251,7 +262,9 @@ When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones
    - Refresh any customer tab you already had open
 
    Skipping this is the most common reason an update "doesn't seem to have worked" — the browser
-   keeps running the old copy until you reload it.
+   keeps running the old copy until you reload it. Demo Studio now catches this for you: if the
+   extension is older than the app, **Settings → Browser extension** shows a **Needs reloading**
+   badge telling you exactly that.
 
 6. **Check Settings → About** in the app to confirm the version and last-updated date match what
    you expect.
@@ -284,24 +297,33 @@ Newly created demos always start from the current templates, so this only applie
 | Symptom | Fix |
 |---|---|
 | `npm: command not found` (or `'npm' is not recognized...` on Windows) | Node.js isn't installed, or you need to fully close and reopen the terminal after installing it (PATH changes need a fresh terminal window). Reinstall from nodejs.org if unsure. |
-| `npm start` does nothing / errors immediately | Make sure you ran `npm install` first, in the same folder. |
-| **Everything worked, then demos stopped appearing** | The terminal window was closed, which shuts down Demo Studio. Reopen it, `cd` to the project folder, and run `npm start` again. Nothing is lost. |
+| No **Cognigy Demo Studio** icon after `npm install` | Re-run `npm run setup` in the project folder and read what it prints — it names each icon it creates, and says why if it can't. |
+| Double-clicking the icon does nothing, or says its files have moved | The project folder was moved or renamed. Open it in a terminal and run `npm run setup`. |
+| **Everything worked, then demos stopped appearing** | Demo Studio was quit from the menu-bar / system-tray icon. Double-click the icon to start it again — nothing is lost. |
 | Launcher never appears anywhere | Click the extension icon — is **Show demos** on? It's off by default. |
 | Updated, but nothing changed | Reload the extension at `chrome://extensions` (↻) and refresh the tab. For demo-level features, use **Sync** on the demo row. |
-| macOS: "app can't be opened because it is from an unidentified developer" | Right-click the app window in the Dock and choose **Open**, or approve it in **System Settings → Privacy & Security → Open Anyway**. |
-| Windows: "Windows protected your PC" (SmartScreen) | Click **More info** → **Run anyway**. This is expected for an unsigned internal tool. |
-| Extension shows "Cognigy Demo Studio isn't running" | The Studio app (or at least its window) needs to be open — go back to Step 3. |
+| Extension shows "Cognigy Demo Studio isn't running" | Double-click the Cognigy Demo Studio icon. If it's already running you'll see it in the menu bar / system tray. |
 | Launcher doesn't appear on the customer site | Check the extension popup: is a demo mapped to this website? Set the demo's **Website** field, or pick it manually in the popup. |
 | Microphone doesn't work in a voice demo | Grant microphone access when your OS/browser prompts. macOS: check **System Settings → Privacy & Security → Microphone**. Windows: check **Settings → Privacy & security → Microphone**. |
-| Port already in use / service won't start | Another copy of Cognigy Demo Studio may already be running (check for another open window, on either OS) — only one instance is needed. |
+| "Port 41700 is being used by another program" | Something else on your machine has claimed the port Demo Studio needs. Close it and start Demo Studio again. If Demo Studio itself is already running, it will tell you so and point you at the menu-bar / tray icon. |
+| The extension pill says **Needs reloading** | The extension is older than the app. Open `chrome://extensions`, click the reload arrow on Cognigy Demo Studio, then refresh any customer tab. |
 
 ---
 
-## For your IT/engineering team: packaging a real installer
+## For your IT/engineering team: why there's no .dmg / .exe
 
-Today, `npm start` runs the Electron app straight from source — there's no `.dmg`/`.exe` build
-step configured yet. If you want a one-click installer like the old Voice Agent app, the natural
-next step is adding [`electron-builder`](https://www.electron.build/) to this project, which can
-produce a signed `.dmg` + Apple notarization (macOS) and an `.exe`/MSI installer (Windows) from
-the same `apps/studio/` source — removing the Gatekeeper/SmartScreen prompts above along with the
-terminal step entirely. That's a separate, small project — flag it if it'd help your rollout.
+Demo Studio deliberately runs from source with generated launchers rather than shipping a signed
+installer. The trade is a one-time `npm install` in exchange for:
+
+- **No security warnings.** Because the launcher is created on the SE's own machine it never picks
+  up macOS's quarantine flag, so there's no Gatekeeper prompt and no SmartScreen warning. An
+  unsigned `.dmg`/`.exe` would show both — and on macOS Sequoia the old right-click → Open bypass
+  no longer exists, so the SE would have to go into System Settings → Privacy & Security.
+- **No certificates to buy or renew** (Apple Developer ID, Windows Authenticode).
+- **Demos keep building.** The app runs Vite against its own `node_modules` at runtime to build
+  each demo; packing that into an `app.asar` archive is where a naive installer breaks.
+
+If you later want a true double-click installer, [`electron-builder`](https://www.electron.build/)
+is the path, and it will need code-signing on both platforms to be worth it — plus `asarUnpack`
+for `node_modules`, `templates/`, `packages/shared/` and `extension/`, since Vite has to read real
+files from disk.

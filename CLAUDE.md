@@ -63,6 +63,49 @@ Endpoint normalization ([`packages/shared/normalize.js`](packages/shared/normali
 whatever Cognigy hands an SE — hosted webchat URL, click-to-call link, or a bare token — and turns
 it into the endpoint form the SDKs want. Reuse it rather than parsing URLs again.
 
+## Themes
+
+**Adding a theme is dropping one file in:** `assets/themes/<endpoint>/<id>.json`. Nothing else is
+edited, and the service does not need restarting.
+
+That file is read by three things that used to be three separate registries:
+
+| What | Reads | Was |
+|---|---|---|
+| the allowlist `sanitize()` validates against | `themes.syncSchema()` → `schema.registerThemes()` | a hardcoded array in `demo-schema.js` |
+| the picker tile (label, note, swatch) | `themes.catalog()` → `GET /api/themes` | a hand-written table in `renderer/themes.js` |
+| the CSS injected into the demo | `themes.styleFor()` | already the file |
+
+`name` and `note` come from the file; `swatch` does too, or is derived from the theme's own
+`--surface` / `--accent` / `--surface-sunk` tokens, so a theme file never has to carry picker
+metadata just to render a tile. The scan runs **per request** (a `themes.syncSchema()` middleware in
+`server.js`), which is what makes it restart-free; parsed themes are cached by mtime, so the repeat
+cost is a readdir per endpoint.
+
+Things worth knowing before changing this:
+
+- **`THEMES` in `demo-schema.js` is still there, and is still the source of truth for the nine
+  Webchat presets.** Disk discovery *merges into* it; it does not replace it. `demo-schema.js` is
+  shared with the extension and the templates, which run in a browser with no `fs`, so the array is
+  their only list — and the Webchat presets have **no files at all** (they are
+  CognigyWindowThemeBuilder names styled on the Endpoint, so Demo Studio composes no CSS for them).
+  Enumerating the directory *instead* would drop all nine and rewrite every Webchat demo to
+  `cognigy-default` on its next save.
+- **Discovered ids are appended, never prepended,** because `pickTheme()` falls back to the FIRST
+  entry — position is what makes a theme the endpoint's default (see §Panel styles for the same
+  rule on `panelStyle`). A dropped-in file must not silently become what every unset demo gets.
+- **Registration is additive and never un-registers.** Deleting a theme file mid-session leaves the
+  id valid until the service restarts, so demos keep the preset and merely render unstyled. The
+  alternative — dropping it — would rewrite the value out of every `demo.json` that used it, which
+  is the thing this whole page exists to prevent.
+- **`cognigy-default` and `custom` are reserved and can never be files.** The first composes to
+  nothing on purpose; the second's tokens live in `demo.json`. A `custom.json` in `assets/themes/`
+  would be loaded by nothing, so registration refuses it and says so.
+- **A dropped preset is now explained, not silent.** `sanitize()` still falls back quietly — it is
+  pure and runs on every read and write — so `store.js` compares what went in with what came out and
+  `themes.warnDropped()` says why once: no file, wrong endpoint directory, unparseable JSON, or a
+  theme dir that isn't an endpoint at all. Watch the service log; that is where these land.
+
 ## Panel styles
 
 | Style | Frame drawn by | Notes |

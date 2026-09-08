@@ -585,9 +585,17 @@
    * call controls under the SE's cursor mid-call.
    */
   function pushLine(payload) {
+    if (!inlineCall || !window.CDSVoiceTranscript) return;
+    var lines = window.CDSVoiceTranscript.readTranscription(payload);
+    for (var i = 0; i < lines.length; i++) appendLine(lines[i]);
+  }
+
+  function appendLine(line) {
     if (!inlineCall) return;
-    var line = window.CDSVoiceTranscript && window.CDSVoiceTranscript.readTranscription(payload);
-    if (!line) return;
+    // Cognigy re-sends lines; drop an immediate repeat. See pushLine in the
+    // templates' useCognigyVoice.ts, which does the same.
+    var last = inlineCall.lines[inlineCall.lines.length - 1];
+    if (last && last.role === line.role && last.text === line.text) return;
     var at = Math.max(0, Math.round((Date.now() - (inlineCall.startedAt || Date.now())) / 1000));
     inlineCall.lines.push({ role: line.role, text: line.text, at: at });
     if (line.role === "ai") {
@@ -940,6 +948,13 @@
       Promise.all([api("/api/settings"), api("/api/demos")]).then(function (results) {
         settings = results[0];
         demos = results[1].demos || [];
+        /*
+         * Hand the microphone settings to the injected audio layer. applyMic()
+         * below goes through the patched getUserMedia, so the pop-out's mic
+         * switcher gets the same cleanup every demo gets — including mid-call,
+         * where the replaceTrack path picks up an already-processed track.
+         */
+        if (window.CDSAudio && settings.audio) window.CDSAudio.apply(settings.audio);
         // Migrate pre-list-view gateways that have no id yet.
         (settings.gateways || []).forEach(function (g, i) {
           if (!g.id) g.id = "g-legacy-" + i;

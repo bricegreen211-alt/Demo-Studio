@@ -81,6 +81,31 @@
    *                    endpoint under assets/themes/<endpoint>/.
    */
   var COGNIGY_DEFAULT = "cognigy-default";
+
+  /*
+   * Never a file on disk, and never registerable as one:
+   *   cognigy-default  composes to nothing on purpose (themes.js) — Cognigy
+   *                    owns the presentation and we contribute no CSS
+   *   custom           the vibe-code slot, whose tokens live in demo.json
+   * A cognigy-default.json or custom.json dropped into assets/themes/ would be
+   * loaded by nothing, so registration skips both and says so.
+   */
+  var RESERVED_THEMES = [COGNIGY_DEFAULT, "custom"];
+
+  /*
+   * The BUILT-IN list. Not the whole list: the service walks
+   * assets/themes/<endpoint>/ at request time and appends whatever it finds
+   * (registerThemes below), so dropping a JSON file in registers the theme with
+   * no edit here and no restart.
+   *
+   * This array stays because it is the only list the non-Node consumers have —
+   * demo-schema.js is shared with the extension and the templates, which run in
+   * a browser with no fs — and because the Webchat presets below have no files
+   * at all: they are CognigyWindowThemeBuilder names applied on the Endpoint,
+   * so nothing composes CSS for them and only this array knows they are valid.
+   * Enumerating the directory INSTEAD of merging with this would drop all nine
+   * and rewrite every Webchat demo to cognigy-default on its next save.
+   */
   var THEMES = {
     "webchat": [COGNIGY_DEFAULT, "aurora", "tech", "bloom", "hibiscus", "trailhead",
                 "minimal", "nebula", "sunset", "ivory", "custom"],
@@ -116,6 +141,37 @@
 
   function themesFor(template) {
     return THEMES[template] || THEMES["webchat"];
+  }
+
+  /*
+   * Merge themes discovered on disk into the list for one endpoint. Called by
+   * the service (apps/studio/service/themes.js syncSchema) before anything
+   * sanitizes; a no-op everywhere else, so browser consumers keep the built-in
+   * list above.
+   *
+   * Additive only, and APPENDED. Both matter:
+   *   - never removing means a Webchat preset with no file, or a theme whose
+   *     file is temporarily unreadable, keeps validating instead of being
+   *     rewritten out of every demo.json by the next save
+   *   - never prepending means the default is stable, because pickTheme falls
+   *     back to the FIRST entry — a dropped-in file must not silently become
+   *     what every unset demo on that endpoint gets
+   * Idempotent, so calling it on every request costs an array scan and returns
+   * only what was genuinely new (which is what the service logs).
+   */
+  function registerThemes(template, ids) {
+    var added = [];
+    if (TEMPLATES.indexOf(template) < 0) return added;
+    var list = THEMES[template];
+    if (!list) return added;
+    (ids || []).forEach(function (raw) {
+      var id = String(raw || "");
+      if (!id || RESERVED_THEMES.indexOf(id) >= 0) return;
+      if (list.indexOf(id) >= 0) return;
+      list.push(id);
+      added.push(id);
+    });
+    return added;
   }
 
   /*
@@ -411,6 +467,7 @@
     PANEL_STYLES: PANEL_STYLES,
     CHAT_UIS: CHAT_UIS,
     THEMES: THEMES,
+    RESERVED_THEMES: RESERVED_THEMES,
     COGNIGY_DEFAULT: COGNIGY_DEFAULT,
     START_BEHAVIORS: START_BEHAVIORS,
     DEFAULT_PANEL_WIDTH: DEFAULT_PANEL_WIDTH,
@@ -418,6 +475,7 @@
     defaults: defaults,
     sanitize: sanitize,
     themesFor: themesFor,
+    registerThemes: registerThemes,
     isCognigyDefault: isCognigyDefault,
     usesWebchat3: usesWebchat3,
     usesVoiceWidget: usesVoiceWidget,

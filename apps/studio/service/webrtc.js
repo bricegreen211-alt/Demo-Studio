@@ -179,6 +179,24 @@
         var r = widgetRect();
         if (!r) return;
 
+        /*
+         * Park the microphone gear against the widget's top-right, then union
+         * its bounds into the clip. Both halves matter: anchored anywhere else
+         * the union would swell to cover a slab of the customer's page and eat
+         * clicks meant for it, and without the union the gear is cropped away
+         * entirely — present in the DOM, invisible and unclickable on screen.
+         */
+        if (window.CDSAudioPanel) {
+          window.CDSAudioPanel.anchor(r);
+          var g = window.CDSAudioPanel.rect();
+          if (g && g.width) {
+            r = {
+              left: Math.min(r.left, g.left), top: Math.min(r.top, g.top),
+              right: Math.max(r.right, g.right), bottom: Math.max(r.bottom, g.bottom)
+            };
+          }
+        }
+
         var clip = {
           top: Math.max(0, Math.floor(r.top - CLIP_PAD)),
           right: Math.max(0, Math.floor(window.innerWidth - r.right - CLIP_PAD)),
@@ -212,6 +230,9 @@
       childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"]
     });
     window.addEventListener("resize", measure);
+    // Opening the gear's popover changes the union but touches nothing the
+    // widget observer watches, so it has to poke the measure loop itself.
+    window.addEventListener("cds-audio-panel-resize", measure);
     // The widget keeps animating for a few hundred ms after its DOM settles,
     // and this is also the safety net if a mutation is ever missed.
     setInterval(measure, 400);

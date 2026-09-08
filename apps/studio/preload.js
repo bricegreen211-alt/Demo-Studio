@@ -9,5 +9,8 @@ contextBridge.exposeInMainWorld("cds", {
   openPath: true, // capability flag for the dashboard
   openDemoFolder: (slug) => ipcRenderer.send("cds-open-demo-folder", slug),
   openRemote: (gatewayId) => ipcRenderer.send("cds-open-remote", gatewayId || ""),
-  openFolder: (dir) => ipcRenderer.send("cds-open-folder", dir)
+  openFolder: (dir) => ipcRenderer.send("cds-open-folder", dir),
+  // Start-at-login. Call with no argument to read current state.
+  loginItem: (enabled) => ipcRenderer.invoke("cds-login-item", enabled),
+  makeLauncher: () => ipcRenderer.send("cds-make-launcher")
 });

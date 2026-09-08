@@ -2,12 +2,14 @@
   "name": "cognigy-demo-studio",
   "version": "1.0.0",
   "private": true,
-  "description": "Cognigy Demo Studio — local companion app + browser extension for SE demo experiences",
+  "description": "Cognigy Demo Studio \u2014 local companion app + browser extension for SE demo experiences",
   "main": "apps/studio/main.js",
   "scripts": {
     "start": "electron .",
+    "postinstall": "node assets/postinstall.js",
+    "setup": "node assets/make-launcher.js",
     "service": "node apps/studio/service/standalone.js",
-    "build:templates": "node apps/studio/service/build-templates.js",
+    "build:audio": "node assets/build-audio-clean.js",
     "seed:samples": "node assets/seed-samples.js",
     "seed:test-sites": "node assets/seed-test-sites.js",
     "doctor": "node assets/doctor.js"
@@ -16,6 +18,7 @@
     "@cognigy/click-to-call-sdk": "0.0.7",
     "@cognigy/socket-client": "^4.9.2",
     "@cognigy/webchat": "3.49.0",
+    "@sapphi-red/web-noise-suppressor": "0.4.0",
     "@vitejs/plugin-react": "^4.3.4",
     "chokidar": "^3.6.0",
     "events": "^3.3.0",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "electron": "^33.2.0",
+    "png-to-ico": "2.1.8",
     "sharp": "^0.35.4"
   }
 }

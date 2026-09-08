@@ -36,6 +36,20 @@ function createApp() {
     next();
   });
 
+  /*
+   * Themes register themselves by existing. assets/themes/<endpoint>/<id>.json
+   * is the whole registration: this re-scan teaches the shared schema the ids
+   * it found, so sanitize() keeps the preset instead of rewriting it to the
+   * endpoint's first theme, and GET /api/themes below gives the picker a tile.
+   *
+   * Per request rather than once at boot, because the service is the only thing
+   * here that needs restarting and "drop the file in, restart the service" is
+   * most of the problem this fixes. Parsed themes are cached by mtime, so the
+   * repeat cost is a readdir per endpoint.
+   */
+  themes.syncSchema();
+  app.use((req, res, next) => { themes.syncSchema(); next(); });
+
   const ok = (res, data) => res.json(data);
   const fail = (res, err, code) => res.status(code || 400).json({ error: String((err && err.message) || err) });
 
@@ -46,6 +60,14 @@ function createApp() {
   });
 
   app.get("/api/demos", (req, res) => ok(res, { demos: store.list() }));
+
+  /*
+   * The themes on disk, per endpoint, with the name/note/swatch a picker tile
+   * needs — read from the theme file itself. The dashboard merges these over
+   * its built-in table (renderer/themes.js), which is what keeps a dropped-in
+   * file from needing an edit there too.
+   */
+  app.get("/api/themes", (req, res) => ok(res, { themes: themes.catalogAll() }));
 
   app.post("/api/demos", (req, res) => {
     try {
@@ -181,6 +203,35 @@ function createApp() {
     if (Array.isArray(body.folders)) {
       patch.folders = body.folders.map((f) => String(f || "").slice(0, 80)).filter(Boolean);
     }
+    /*
+     * Microphone cleanup. Clamped here rather than trusted: these values reach
+     * an AudioWorklet, and a NaN threshold silently gates ALL audio — a demo
+     * where nobody can hear the SE and nothing looks broken.
+     */
+    if (body.audio && typeof body.audio === "object") {
+      const a = body.audio;
+      const cur = settingsStore.read().audio;
+      const num = (v, lo, hi, dflt) => {
+        const n = parseFloat(v);
+        return isNaN(n) ? dflt : Math.min(hi, Math.max(lo, n));
+      };
+      const ENGINES = ["none", "rnnoise", "gtcrn", "speex"];
+      patch.audio = {
+        echoCancellation: "echoCancellation" in a ? a.echoCancellation !== false : cur.echoCancellation,
+        noiseSuppression: "noiseSuppression" in a ? a.noiseSuppression !== false : cur.noiseSuppression,
+        autoGainControl: "autoGainControl" in a ? a.autoGainControl !== false : cur.autoGainControl,
+        engine: ENGINES.indexOf(a.engine) >= 0 ? a.engine : cur.engine,
+        gate: "gate" in a ? a.gate === true : cur.gate,
+        gateOpenThreshold: num(a.gateOpenThreshold, -100, 0, cur.gateOpenThreshold),
+        gateCloseThreshold: num(a.gateCloseThreshold, -100, 0, cur.gateCloseThreshold),
+        gateHoldMs: num(a.gateHoldMs, 0, 2000, cur.gateHoldMs),
+        panel: "panel" in a ? a.panel !== false : cur.panel
+      };
+      // The gate can't close above where it opens, or it would never shut.
+      if (patch.audio.gateCloseThreshold > patch.audio.gateOpenThreshold) {
+        patch.audio.gateCloseThreshold = patch.audio.gateOpenThreshold;
+      }
+    }
     if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
     if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
     if (body.outbound && typeof body.outbound === "object") {
@@ -271,8 +322,10 @@ function createApp() {
   });
 
   app.post("/api/extension/heartbeat", (req, res) => {
-    settingsStore.write({ extensionLastSeen: Date.now() });
-    ok(res, { ok: true });
+    const version = String((req.body && req.body.version) || "").slice(0, 20);
+    settingsStore.write({ extensionLastSeen: Date.now(), extensionVersion: version });
+    // Answer with ours so the popup can flag a mismatch without a second call.
+    ok(res, { ok: true, version: VERSION });
   });
 
   app.post("/api/import", (req, res) => {
@@ -307,7 +360,8 @@ function createApp() {
       // Not a git checkout (e.g. downloaded as a ZIP) — fall back to file dates.
       try { updatedAt = fs.statSync(path.join(REPO_ROOT, "package.json")).mtime.toISOString(); } catch (e2) {}
     }
-    const lastSeen = settingsStore.read().extensionLastSeen || 0;
+    const st = settingsStore.read();
+    const lastSeen = st.extensionLastSeen || 0;
     ok(res, {
       name: "Cognigy Demo Studio",
       version: VERSION,
@@ -318,6 +372,10 @@ function createApp() {
       extensionDir: EXTENSION_ROOT,
       demoCount: store.list().length,
       extensionConnected: Date.now() - lastSeen < 90 * 1000,
+      extensionVersion: st.extensionVersion || "",
+      // A stale extension is invisible otherwise: it keeps heartbeating
+      // happily while serving an old content script.
+      extensionStale: !!(st.extensionVersion && st.extensionVersion !== VERSION),
       extensionLastSeen: lastSeen
     });
   });
@@ -379,8 +437,34 @@ function createApp() {
     "webchat3.css": "text/css; charset=utf-8",
     "webchat3.js": "application/javascript; charset=utf-8",
     "webrtc.css": "text/css; charset=utf-8",
-    "webrtc.js": "application/javascript; charset=utf-8"
+    "webrtc.js": "application/javascript; charset=utf-8",
+    "audio-panel.js": "application/javascript; charset=utf-8"
   };
+
+  /*
+   * The microphone cleanup bundle, and the worklets and wasm it fetches at
+   * runtime. Separate from CDS_ASSETS because those live in this folder and
+   * these are vendored build output in vendor/audio/ — and because .wasm has
+   * to be served as application/wasm or WebAssembly.instantiateStreaming
+   * refuses it.
+   */
+  app.get("/_cds/audio-clean.js", (req, res) => {
+    res.set("Content-Type", "application/javascript; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(__dirname, "vendor", "cds-audio-clean.js"));
+  });
+  app.get("/_cds/audio/:file", (req, res) => {
+    // Whitelisted by shape so this route can never be walked out of vendor/audio/.
+    if (!/^[A-Za-z0-9_]+\.(js|wasm)$/.test(req.params.file)) return res.sendStatus(404);
+    const file = path.join(__dirname, "vendor", "audio", req.params.file);
+    if (!fs.existsSync(file)) return res.sendStatus(404);
+    res.set("Content-Type", req.params.file.endsWith(".wasm")
+      ? "application/wasm"
+      : "application/javascript; charset=utf-8");
+    // Vendored and versioned with the app, unlike the demo pages around it.
+    res.set("Cache-Control", "public, max-age=3600");
+    res.sendFile(file);
+  });
   app.get("/_cds/:file", (req, res) => {
     const type = CDS_ASSETS[req.params.file];
     if (!type) return res.sendStatus(404);
@@ -450,10 +534,42 @@ function createApp() {
      * Empty string for Cognigy Default, which contributes nothing by design.
      */
     const themeStyle = themes.styleFor(cfg);
-    if (themeStyle) html = html.replace("</head>", themeStyle + "</head>");
+    // Both go in <head>: the audio patch has to be installed before
+    // /_cds/webrtc-widget.js in <body> boots JsSIP and asks for the mic.
+    html = html.replace("</head>", themeStyle + audioTags() + "</head>");
     res.set("Cache-Control", "no-store");
     res.set("Content-Type", "text/html; charset=utf-8");
     return res.send(html);
+  }
+
+  /*
+   * The microphone cleanup layer, injected into EVERY voice surface.
+   *
+   * Keyed on nothing — not the template, not the theme. That is deliberate and
+   * it is the whole point of doing this as a getUserMedia patch: usesVoiceWidget()
+   * serves a demo two completely different ways depending on its THEME (Cognigy
+   * Default gets Cognigy's widget, everything else gets the demo's own dist/),
+   * so any allowlist here would need editing every time a theme is added and
+   * would silently skip vibe-coded ones. The patch is inert until something
+   * asks for a microphone, so a chat-only demo pays a few KB and no CPU.
+   *
+   * audio-panel.js (the gear) always loads but renders nothing unless
+   * diagnostics are on; it still arms its hotkey, which is what lets an SE
+   * reach the gate mid-call on a demo they'd already cleaned up for a customer.
+   */
+  function audioTags() {
+    const st = settingsStore.read();
+    const data = Object.assign({}, st.audio, {
+      base: "/_cds/audio/",
+      debug: st.showDiagnostics !== false,
+      diagnostics: st.showDiagnostics !== false
+    });
+    // Escaping "<" makes a </script> breakout impossible, same as the config
+    // blobs above.
+    return '<script>window.__CDS_AUDIO__=' +
+      JSON.stringify(data).replace(/</g, "\\u003c") + ';</script>' +
+      '<script src="/_cds/audio-clean.js"></script>' +
+      '<script src="/_cds/audio-panel.js"></script>';
   }
 
   // Studio-owned stylesheets injected into a demo's page, keyed by panelStyle.
@@ -521,20 +637,22 @@ function createApp() {
        * nothing by design.
        */
       const themeStyle = themes.styleFor(demoCfg);
-      if (themeStyle || sheets.length) {
-        let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-        /*
-         * Order is load-bearing. The theme goes first so the demo's own
-         * stylesheet is overridden on equal specificity; clear-mode.css goes
-         * LAST because it is entirely !important and must win over both.
-         */
-        const tags = themeStyle +
-          sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
-        html = html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html + tags;
-        res.set("Cache-Control", "no-store");
-        res.set("Content-Type", "text/html; charset=utf-8");
-        return res.send(html);
-      }
+      let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+      /*
+       * Order is load-bearing. The theme goes first so the demo's own
+       * stylesheet is overridden on equal specificity; clear-mode.css goes
+       * LAST because it is entirely !important and must win over both.
+       *
+       * audioTags() is unconditional — this block used to run only when there
+       * was a theme or a panel stylesheet to add. Every demo index gets the
+       * audio layer, which is what makes it theme-proof and template-proof.
+       */
+      const tags = themeStyle + audioTags() +
+        sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
+      html = html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html + tags;
+      res.set("Cache-Control", "no-store");
+      res.set("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
     }
 
     express.static(root, { cacheControl: false, etag: false, lastModified: false, setHeaders: (r) => r.set("Cache-Control", "no-store") })(req, res, next);
@@ -604,16 +722,44 @@ function start() {
   migrateFollowMe();
   reportChatUiChanges();
   const app = createApp();
-  const server = app.listen(PORT, "127.0.0.1", () => {
-    console.log("[service] Cognigy Demo Studio service on http://localhost:" + PORT);
+  const handle = { server: null, watcher: null, port: PORT, listenFailed: false };
+
+  const server = app.listen(PORT, "127.0.0.1");
+  handle.server = server;
+
+  /*
+   * "listening" and "error" both arrive on a later tick, so a caller that
+   * checked listenFailed synchronously would always see false. Await this.
+   */
+  handle.ready = new Promise((resolve) => {
+    server.once("listening", () => resolve(true));
+    server.once("error", () => resolve(false));
   });
-  // Don't crash the app if another Studio/dev service already owns the port —
-  // the dashboard simply talks to that one.
+
+  /*
+   * The watcher only starts once we actually own the port.
+   *
+   * It used to start unconditionally, right after a listen that may have
+   * failed — so a second Studio ran a second chokidar watcher and a second
+   * Vite builder against the same demo folders, two processes writing the same
+   * dist/ at the same time. That is a corruption risk, not just noise.
+   */
+  server.on("listening", () => {
+    console.log("[service] Cognigy Demo Studio service on http://localhost:" + PORT);
+    handle.watcher = builder.startWatcher();
+  });
+
+  /*
+   * Don't crash on a busy port — but do record it, so the Electron shell can
+   * find out who owns 41700 and tell the SE, instead of pointing a window at
+   * whatever happens to be there.
+   */
   server.on("error", (err) => {
+    handle.listenFailed = true;
     console.error("[service] not started:", err.code || err.message);
   });
-  const watcher = builder.startWatcher();
-  return { server, watcher, port: PORT };
+
+  return handle;
 }
 
 module.exports = { createApp, start, PORT };

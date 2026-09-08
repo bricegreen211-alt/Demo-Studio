@@ -12,9 +12,21 @@
  * SIP INFO body is emitted as "infoReceived", which is also where mid-call
  * cards and xApp payloads come through.
  *
- * That inner value has been seen as a bare string, as { message } holding a
- * string or an array of strings, and as { text } / { transcript }, so all of
- * them are read rather than picking one and hoping.
+ * The shape of that inner value was guessed at before and guessed wrong, so
+ * nothing ever rendered. It is read off Cognigy's own widget now, whose
+ * handler is unambiguous:
+ *
+ *   client.on("transcription", p => p.messages.map(m => ({ text: m.text,
+ *                                                          originator: p.originator })))
+ *
+ * so it is  { originator: "bot" | "user", messages: [ { text }, ... ] }  —
+ * "messages" plural, holding OBJECTS, with the speaker on the envelope rather
+ * than on each line. The old reader looked for "message" singular and would
+ * have stringified those objects to "[object Object]" had it found them.
+ *
+ * One event can carry several messages, and the widget de-duplicates by text +
+ * originator within a second — so Cognigy does re-send lines, and this returns
+ * a LIST for the caller to append with that in mind.
  */
 /*
  * Same UMD shape as normalize.js — assign BOTH, don't choose. Under Vite the
@@ -30,29 +42,30 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  /**
-   * @returns {{role: "user"|"ai", text: string}|null}
-   *   null for anything with no speech in it — an empty line rendered as a
-   *   blank bubble is worse than no line at all.
-   */
-  function readTranscription(payload) {
-    if (payload == null) return null;
-    if (typeof payload === "string") {
-      return payload.trim() ? { role: "ai", text: payload.trim() } : null;
+  function textOf(v, depth) {
+    if (depth > 4 || v == null) return "";
+    if (typeof v === "string") return v.trim();
+    if (typeof v === "number") return String(v);
+    if (Array.isArray(v)) {
+      var parts = [];
+      for (var i = 0; i < v.length; i++) {
+        var t = textOf(v[i], depth + 1);
+        if (t) parts.push(t);
+      }
+      return parts.join(" ");
     }
+    if (typeof v === "object") {
+      var inner = v.text != null ? v.text
+        : v.message != null ? v.message
+        : v.transcript != null ? v.transcript
+        : v.utterance != null ? v.utterance
+        : v.content;
+      return textOf(inner, depth + 1);
+    }
+    return "";
+  }
 
-    var raw = payload.message;
-    if (raw == null) raw = payload.text;
-    if (raw == null) raw = payload.transcript;
-    if (raw == null) raw = payload.utterance;
-    if (raw == null) raw = payload.content;
-    if (raw == null) raw = payload.transcription;
-
-    var text = "";
-    if (Array.isArray(raw)) text = raw.filter(Boolean).map(String).join(" ");
-    else if (typeof raw === "string") text = raw;
-    if (!text.trim()) return null;
-
+  function roleOf(payload) {
     var who = String(
       payload.originator != null ? payload.originator :
       payload.role != null ? payload.role :
@@ -60,11 +73,51 @@
       payload.participant != null ? payload.participant :
       payload.source != null ? payload.source : ""
     );
-    // Default to the agent: Cognigy is the side sending these, so an
-    // unlabelled line is far more likely to be its own speech than the
-    // caller's.
-    var role = /user|caller|human|local|customer/i.test(who) ? "user" : "ai";
-    return { role: role, text: text.trim() };
+    /*
+     * Cognigy sends "bot" for the agent and "user" for the caller — the
+     * widget switches on exactly `"bot" === originator`. The wider pattern is
+     * kept for the other names the same field has appeared under, and an
+     * unlabelled line defaults to the agent, since Cognigy is the side
+     * sending these.
+     */
+    return /^(user|caller|human|local|customer)$/i.test(who) ? "user" : "ai";
+  }
+
+  /**
+   * @returns {Array<{role: "user"|"ai", text: string}>}
+   *   One entry per message. Empty array for anything with no speech in it —
+   *   a blank line rendered as an empty bubble is worse than no line.
+   */
+  function readTranscription(payload) {
+    if (payload == null) return [];
+    if (typeof payload === "string") {
+      var only = payload.trim();
+      return only ? [{ role: "ai", text: only }] : [];
+    }
+    if (typeof payload !== "object") return [];
+
+    var role = roleOf(payload);
+    var out = [];
+
+    // The real shape first: one entry per message, so a line is not merged
+    // with the next one just because they arrived together.
+    if (Array.isArray(payload.messages)) {
+      for (var i = 0; i < payload.messages.length; i++) {
+        var t = textOf(payload.messages[i], 0);
+        if (t) out.push({ role: role, text: t });
+      }
+      return out;
+    }
+
+    // Everything else collapses to a single line.
+    var single = textOf(
+      payload.message != null ? payload.message :
+      payload.text != null ? payload.text :
+      payload.transcript != null ? payload.transcript :
+      payload.utterance != null ? payload.utterance :
+      payload.content != null ? payload.content :
+      payload.transcription, 0);
+    return single ? [{ role: role, text: single }] : [];
   }
 
   return { readTranscription: readTranscription };

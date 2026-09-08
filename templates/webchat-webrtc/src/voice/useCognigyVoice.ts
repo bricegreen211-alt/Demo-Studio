@@ -124,7 +124,18 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
 
   const pushLine = (role: TranscriptLine["role"], text: string) => {
     if (!text) return;
-    setTranscript((t) => [...t, { id: lineId(), role, text, at: Date.now() }]);
+    setTranscript((t) => {
+      /*
+       * Cognigy re-sends transcript lines — its own widget de-duplicates by
+       * text + originator within a second, which is only worth doing if
+       * repeats actually arrive. Dropping an immediate repeat is enough: a
+       * caller who genuinely says the same thing twice in a row says it with
+       * something in between.
+       */
+      const last = t[t.length - 1];
+      if (last && last.role === role && last.text === text) return t;
+      return [...t, { id: lineId(), role, text, at: Date.now() }];
+    });
   };
 
   const markAiSpeaking = useCallback(() => {
@@ -231,13 +242,16 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
        */
       (client as any).on("transcription", (payload: any) => {
         vlog("transcription", payload);
-        const line = voiceTranscript.readTranscription(payload);
-        if (!line) {
+        const lines = voiceTranscript.readTranscription(payload);
+        if (!lines.length) {
           vlog("transcription payload had no readable text — shape not recognised", payload);
           return;
         }
-        if (line.role === "ai") markAiSpeaking();
-        pushLine(line.role, line.text);
+        // One event can carry several messages, each its own line.
+        lines.forEach((line: { role: "user" | "ai"; text: string }) => {
+          if (line.role === "ai") markAiSpeaking();
+          pushLine(line.role, line.text);
+        });
       });
 
       /*

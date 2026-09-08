@@ -30,11 +30,16 @@ people already working in this repo.
 ```bash
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git
 cd Demo-Studio
-npm install
+npm install          # installs deps AND creates the launcher icons
 npm run doctor       # checks your setup and where files will live
 npm start            # Electron app (starts the service + opens the dashboard)
 npm run service      # or: service only, dashboard at http://localhost:41700
+npm run setup        # recreate the launcher icons (after moving the folder)
 ```
+
+`npm install` puts a **Cognigy Demo Studio** launcher on the Desktop, in Applications / the Start
+Menu, and in the project folder. Day to day you double-click that — `npm start` is the developer
+path.
 
 Clone it into your **Documents** folder (`~/Documents/Demo-Studio`, or
 `%USERPROFILE%\Documents\Demo-Studio` on Windows) — that's what the docs assume.
@@ -48,9 +53,10 @@ demos don't follow you around every tab while you work. The toolbar icon shows a
 when it's active. The same instructions, with a copy-able path, live in the app under
 **Settings → Browser extension**.
 
-> **The app runs in your terminal session.** Closing the terminal — or the Studio window — quits
-> Demo Studio, and demos stop appearing until you run `npm start` again. Minimize rather than
-> close. Packaging it as a double-clickable app is the planned fix.
+> **Demo Studio keeps running when you close its window.** The local service that feeds every demo
+> lives in the app process, so closing the window just hides it — look for the icon in the menu bar
+> (macOS) or system tray (Windows). Choose **Quit (stops all demos)** there when you actually want
+> it stopped. Turn on **Settings → Starting up** and it launches at login too.
 
 ### Updating
 

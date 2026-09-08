@@ -1,10 +1,19 @@
 /*
  * Cognigy Demo Studio — the theme catalogue the demo form picks from.
  *
- * Names and order come from packages/shared/demo-schema.js THEMES; this file
- * adds only what a *picker* needs — a human label, one line of description, and
- * a few swatches to render a tile. The actual token values live in
- * assets/themes/<endpoint>/<id>.json and are applied by the service, not here.
+ * A tile needs three things a token file doesn't: a human label, one line of
+ * description, and a few swatches. Those come from the theme file itself —
+ * assets/themes/<endpoint>/<id>.json carries name and note, and the service
+ * derives the swatch from the theme's own tokens — fetched through
+ * GET /api/themes by load() below. So adding a theme is adding that one file;
+ * there is nothing to add here.
+ *
+ * The table in this file is what remains after that: the entries that have no
+ * file and never will. Cognigy Default composes to nothing on purpose, Custom
+ * lives in demo.json, and the nine Webchat presets are
+ * CognigyWindowThemeBuilder names styled on the Endpoint — Demo Studio ships no
+ * CSS for any of them, so nothing on disk could describe them. It is also what
+ * paints before the fetch lands, and if the fetch fails.
  *
  * Kept as a separate script (no build step in this dashboard) so the picker and
  * anything later — a Theme Designer, an export — read one list.
@@ -89,13 +98,51 @@
     "webchat-webrtc": COMBO
   };
 
+  /* What GET /api/themes found on disk, by endpoint. Empty until load(). */
+  var DISCOVERED = {};
+
+  /*
+   * The built-in table with the files on disk merged over it.
+   *
+   * A file WINS for an entry that is in both, because the file is the theme:
+   * Halo's name and note are already written in its own halo.json, and
+   * two copies of the same sentence is how they drift. A file with no built-in
+   * entry is APPENDED, matching where demo-schema.registerThemes puts it, so
+   * the first tile stays the theme an unset demo actually gets.
+   */
+  function mergedFor(template) {
+    var out = (BY_TEMPLATE[template] || WEBCHAT).slice();
+    (DISCOVERED[template] || []).forEach(function (found) {
+      for (var i = 0; i < out.length; i++) {
+        if (out[i].id === found.id) { out[i] = found; return; }
+      }
+      out.push(found);
+    });
+    return out;
+  }
+
+  /*
+   * Refresh from the service. Resolves to true when the catalogue changed, so
+   * the caller can repaint a picker that is already on screen; never rejects,
+   * because a dashboard that can't reach /api/themes should still show the
+   * built-in themes rather than an empty Theme section.
+   */
+  function load() {
+    return fetch("/api/themes").then(function (r) { return r.json(); }).then(function (j) {
+      var next = (j && j.themes) || {};
+      var changed = JSON.stringify(next) !== JSON.stringify(DISCOVERED);
+      DISCOVERED = next;
+      return changed;
+    }).catch(function () { return false; });
+  }
+
   /*
    * The list for one endpoint, in display order: Cognigy Default, then a rule,
    * then that endpoint's themes, then Custom. The rule is a real entry so the
    * picker doesn't have to know where to draw it.
    */
   function listFor(template) {
-    var themes = BY_TEMPLATE[template] || WEBCHAT;
+    var themes = mergedFor(template);
     /*
      * The combination has no Cognigy Default — it would mean both of Cognigy's
      * own widgets stacked, and nothing mounts them yet. Offering it would be a
@@ -117,14 +164,24 @@
   }
 
   function get(id, template) {
-    var all = [DEFAULT_ENTRY, CUSTOM_ENTRY].concat(BY_TEMPLATE[template] || []);
+    var all = [DEFAULT_ENTRY, CUSTOM_ENTRY].concat(mergedFor(template));
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return DEFAULT_ENTRY;
   }
 
   root.CDSThemes = {
     listFor: listFor,
+    load: load,
     get: get,
+    // The theme an unset demo on this endpoint actually gets: the first entry,
+    // matching pickTheme() in demo-schema.js. Not DEFAULT_ID — the combination
+    // does not offer Cognigy Default, so falling back to it there picks a theme
+    // the picker can't show and the schema replaces on save.
+    defaultFor: function (template) {
+      var list = listFor(template);
+      for (var i = 0; i < list.length; i++) if (list[i].id) return list[i].id;
+      return DEFAULT_ENTRY.id;
+    },
     DEFAULT_ID: DEFAULT_ENTRY.id
   };
 })(typeof self !== "undefined" ? self : this);

@@ -1042,3 +1042,70 @@ label.is-inert input { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .rc-halo .cds-wave.on i { animation: none; transform: scaleY(.65); }
 }
+
+/* ── Microphone settings: live level meter ──────────────────────────────
+   Reads the room, not the processed signal, so a gate threshold is set
+   against what the mic actually hears. The mark is the open threshold; the
+   dot turns green while the gate would be passing audio. */
+.audio-meter {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+.audio-meter-fill {
+  position: absolute;
+  inset: 0 100% 0 0;
+  background: var(--primary);
+  transition: right .05s linear;
+}
+.audio-meter-mark {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 12px;
+  background: var(--nice-pink);
+  display: none;
+}
+.audio-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.audio-dot.open { background: var(--nice-green); }
+
+/* The range inputs sit inside .setting-field, which is laid out for text
+   inputs; they need their own width and no border box. */
+.setting-field input[type="range"] {
+  padding: 0;
+  border: none;
+  background: none;
+  accent-color: var(--primary);
+}
+.setting-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.setting-field select:focus { outline: none; border-color: var(--primary); }
+
+/* Inline text button — used by the "project has moved" recovery prompt. */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover { color: var(--primary-deep); }
