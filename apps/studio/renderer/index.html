@@ -645,6 +645,16 @@
        other vendor bundles so the dashboard, the demo pages and Remote
        Control's pop-out all run the exact same build. -->
   <script src="/_cds/audio-clean.js"></script>
+  <!-- The gear UI for the cleanup above — noise suppression engine, the noise
+       gate and its thresholds, echo cancellation, auto gain, the level meter.
+       Demo pages get this floating next to the widget; Remote Control's
+       pop-out is the one other voice surface in the app and had no way to
+       reach any of it short of the Settings page in the OTHER window, so
+       remote.js shows this one explicitly rather than relying on the
+       diagnostics-gated auto-open those pages use (see CDSAudioPanel.show()
+       in remote.js — this window is never customer-facing, so there is
+       nothing to gate). -->
+  <script src="/_cds/audio-panel.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
 </body>

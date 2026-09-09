@@ -964,6 +964,21 @@
           $("rcOutbound").hidden = true;
           $("rcPopout").hidden = false;
           loadPopout();
+          /*
+           * The mic gear (noise suppression engine, gate + thresholds, echo
+           * cancellation, auto gain, live meter) — the pop-out is the one
+           * voice surface in the app that had no way to reach any of this
+           * short of the Settings page, which lives in the OTHER window an
+           * SE has usually dragged this one off-screen from.
+           *
+           * .show() rather than relying on audio-panel.js's own auto-open
+           * (gated on Settings > diagnostics, which exists to keep the gear
+           * off a CUSTOMER's screen during a real demo). Nothing here is ever
+           * customer-facing, so that gate would just as often hide it when
+           * it's most wanted — mid-call, off-screen, with the customer none
+           * the wiser either way.
+           */
+          if (window.CDSAudioPanel) window.CDSAudioPanel.show();
           return;
         }
         $("obEndpoint").value = (settings.outbound && settings.outbound.endpointUrl) || "";
