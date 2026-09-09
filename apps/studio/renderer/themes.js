@@ -153,13 +153,17 @@
       return themes.concat([{ rule: true }, CUSTOM_ENTRY]);
     }
     /*
-     * WebRTC leads with Halo and keeps Cognigy Default below the rule. The
-     * order here has to match THEMES in packages/shared/demo-schema.js, or the
-     * tile shown first is not the one an unset demo actually gets.
+     * WebRTC used to lead with Halo and put Cognigy Default below the rule,
+     * on the theory that picker order had to match THEMES in
+     * packages/shared/demo-schema.js so the tile shown first was the one an
+     * unset demo actually got. That coupling was never real: an unset demo's
+     * theme comes from themesFor(template)[0] in the schema, which this file
+     * never reads — get() and listFor() only ever consult mergedFor(), so the
+     * picker's display order and the schema's default are independent. Halo
+     * stays the default for a new WebRTC demo (THEMES.webrtc still leads with
+     * it); only where it's shown in the LIST changes here, falling through to
+     * the same Default-first order every other endpoint uses.
      */
-    if (template === "webrtc") {
-      return themes.concat([{ rule: true }, DEFAULT_ENTRY, CUSTOM_ENTRY]);
-    }
     return [DEFAULT_ENTRY, { rule: true }].concat(themes, [{ rule: true }, CUSTOM_ENTRY]);
   }
 

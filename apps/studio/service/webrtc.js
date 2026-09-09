@@ -262,14 +262,20 @@
       var m = String(state.className).match(/_content_container_([a-z]+)/i);
       phase = m ? m[1] : "";
     }
-    // Which demo-page position the Endpoint asked for — the class the widget
-    // puts on <body> itself. Worth surfacing: it is set in Cognigy, not here,
-    // and it is the first thing to check when a demo sits in the wrong place.
+    /*
+     * The class the widget put on <body> from the Endpoint's own
+     * webrtcWidgetConfig.demoPage.position — reported for reference only.
+     * webrtc.css defines no rule for it any more, so it does not affect
+     * where the widget actually sits; Panel Side (shown right after "style")
+     * is what corner it renders in. Surfaced here so a mismatch between what
+     * Cognigy's own demo page would show and what this one shows is obvious
+     * rather than a mystery.
+     */
     var pos = document.body.className.match(/webrtc-position-(\w+)/);
     el.textContent =
       "style " + (cfg.panelStyle || "?") + " " + (cfg.panelSide || "right") +
       " · click-to-call" + (phase ? " · " + phase : "") +
-      " · " + (pos ? pos[1] : "position?") +
+      " · endpoint asked " + (pos ? pos[1] : "?") +
       (document.documentElement.classList.contains("cds-embedded") ? " · embedded" : " · standalone") +
       " · theme " + (cfg.theme || "cognigy-default") +
       " · widget " + Math.round(r.right - r.left) + "x" + Math.round(r.bottom - r.top) +

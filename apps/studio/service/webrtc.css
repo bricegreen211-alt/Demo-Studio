@@ -22,27 +22,48 @@ html, body {
 /*
  * ---------- the demo-page position ----------
  *
- * Copied verbatim from Cognigy's own hosted WebRTC page, where it is the only
- * widget rule in that page's inline <style>. This is the half that is easy to
- * miss: the BUNDLE only puts a class on <body> — webrtc-position-centered or
- * webrtc-position-bottomRight, chosen from the Endpoint's
- * webrtcWidgetConfig.demoPage.position — and the HOST PAGE is what defines
- * what that class means. Load the widget without it and the class lands on a
- * page with no rule to match, so the widget keeps its built-in corner default
- * (.css-ilu6hu .webrtc_widget_outer_wrapper { bottom:40px; right:16px }) and a
- * demo looks nothing like the same Endpoint opened on Cognigy's page.
+ * Cognigy's own hosted page reads webrtcWidgetConfig.demoPage.position off the
+ * Endpoint and shows either a centered widget or its built-in bottom-RIGHT
+ * corner — bottomRight is the only corner Cognigy's schema knows, there is no
+ * bottomLeft, and most SEs never touch that Endpoint field at all. Demo
+ * Studio already has an authoritative left/right control that every other
+ * panel style in the app honors — Panel Side — so Cognigy Default uses that
+ * instead of the Endpoint's own setting, for the same reason: one control
+ * that always works rather than a per-Endpoint field nobody sets.
  *
- * There is deliberately no rule for webrtc-position-bottomRight: that IS the
- * widget's built-in default, so the class needs no CSS on Cognigy's page or
- * on ours.
+ * So this page does NOT define a rule for "webrtc-position-centered" the way
+ * it once did — that made every demo whose Endpoint happened to be
+ * configured "centered" render centered regardless of Panel Side, which is
+ * the bug this replaces. The widget bundle itself carries no CSS for either
+ * position class (verified in the dist — KV is just a name lookup); Cognigy's
+ * OWN hosted page is what gives "centered" meaning, in its own inline
+ * <style>. Define no rule here and the class is inert, leaving only the
+ * widget's built-in bottom-right default and the override below.
+ *
+ * That override needs !important on left/right/transform/align-items only:
+ * they are the properties the LEFT case has to flip away from the widget's
+ * non-!important bottom-right default, and !important makes that certain
+ * regardless of the order its emotion-injected stylesheet happens to load
+ * in. top/bottom/right on the right-side rule merely restate that default —
+ * they need none, and stay plain so they read as documentation, not a fight.
+ *
+ * cds-side-left / cds-side-right come from cfg.panelSide, set on <html> in
+ * webrtc.js — the identical mechanism the overlay launcher and Halo's panel
+ * already use for corner placement, so a demo's Side setting means the same
+ * thing everywhere.
  */
-.webrtc-position-centered .webrtc_widget_outer_wrapper {
-  transform: translate(-50%, -50%);
-  bottom: unset !important;
-  right: unset !important;
-  top: 50% !important;
-  left: 50% !important;
-  align-items: center !important;
+html.cds-side-right .webrtc_widget_outer_wrapper {
+  top: auto;
+  bottom: 40px;
+  right: 16px;
+}
+html.cds-side-left .webrtc_widget_outer_wrapper {
+  top: auto;
+  bottom: 40px;
+  left: 16px;
+  right: auto !important;
+  transform: none !important;
+  align-items: flex-start !important;
 }
 
 /*
