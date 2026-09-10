@@ -17,6 +17,12 @@ const builder = require("../apps/studio/service/builder");
 
 const SITE = "https://www.cognigy.com";
 
+/*
+ * Every sample is simulated (endpoint "mock"), and mock never routes to the
+ * real Cognigy Webchat v3 widget — that would mean serving scripted answers as
+ * if they came from a live agent. So all samples pin chatUi to "studio"
+ * explicitly rather than inherit the webchat3 default and silently fall back.
+ */
 const SAMPLES = [
   /* ── The "looks like part of the site" set: small overlay widgets ────── */
   {
@@ -27,6 +33,7 @@ const SAMPLES = [
     launcherText: "Chat with us",
     agentName: "Ava",
     welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
+    chatUi: "studio",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
   },
   {
@@ -46,6 +53,7 @@ const SAMPLES = [
     launcherText: "Ask Ava",
     agentName: "Ava",
     welcomeMessage: "Hi! I'm Ava — chat here, or switch to voice any time.",
+    chatUi: "studio",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "mock" }
   },
 
@@ -59,16 +67,8 @@ const SAMPLES = [
     launcherText: "Ask Ava",
     agentName: "Ava",
     welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
+    chatUi: "studio",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
-  },
-  {
-    name: "Voice — Phone mockup",
-    template: "webrtc",
-    panelStyle: "phone",
-    launcher: "voice-wave",
-    launcherText: "Call Ava",
-    agentName: "Ava",
-    cognigy: { chatEndpoint: "", voiceEndpoint: "mock" }
   },
   {
     name: "Webchat — Solid side panel",
@@ -79,6 +79,7 @@ const SAMPLES = [
     launcherText: "Ask Ava",
     agentName: "Ava",
     welcomeMessage: "Hi! I'm Ava. Ask me anything about Cognigy.",
+    chatUi: "studio",
     cognigy: { chatEndpoint: "mock", voiceEndpoint: "" }
   }
 ];

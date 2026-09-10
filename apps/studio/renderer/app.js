@@ -31,10 +31,7 @@
   var collapsedFolders = {}; // session-local collapse state
 
   function loadList() {
-    $("listView").hidden = false;
-    $("editView").hidden = true;
-    $("remoteView").hidden = true;
-    $("settingsView").hidden = true;
+    showView("listView");
     editingId = null;
     Promise.all([api("/api/demos"), api("/api/settings")]).then(function (results) {
       allDemos = results[0].demos || [];
@@ -46,13 +43,99 @@
 
   var TEMPLATE_LABEL = { "webchat": "Webchat", "webrtc": "WebRTC", "webchat-webrtc": "Webchat + WebRTC" };
 
+  /*
+   * settings.folders IS the order — it used to be sorted alphabetically here,
+   * which threw that away. Folders an SE dragged into an order stay in it; any
+   * folder discovered only on a demo (imported, or hand-edited demo.json) is
+   * appended, sorted, so it still shows up.
+   */
   function allFolderNames() {
     var names = folders.slice();
+    var extra = [];
     allDemos.forEach(function (d) {
-      if (d.folder && names.indexOf(d.folder) < 0) names.push(d.folder);
+      if (d.folder && names.indexOf(d.folder) < 0 && extra.indexOf(d.folder) < 0) extra.push(d.folder);
     });
-    return names.sort(function (a, b) { return a.localeCompare(b); });
+    extra.sort(function (a, b) { return a.localeCompare(b); });
+    return names.concat(extra);
   }
+
+  /* ---------------- folders: drag, rename, delete ---------------- */
+  /*
+   * One module-level `drag` describes what is in flight — a demo being filed,
+   * or a folder being reordered — because HTML5 drag-and-drop's dataTransfer is
+   * unreadable during dragover, which is exactly when the drop target has to
+   * decide whether it will accept.
+   */
+  var drag = null;
+
+  function clearDropHints() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".drop-into, .drop-before"),
+      function (el) { el.classList.remove("drop-into", "drop-before"); }
+    );
+  }
+
+  // A folder header accepts a demo (file it here) or a folder (drop before me).
+  function wireFolderDrop(head, name) {
+    head.addEventListener("dragstart", function (ev) {
+      drag = { kind: "folder", name: name };
+      try { ev.dataTransfer.setData("text/plain", name); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    head.addEventListener("dragend", function () { drag = null; clearDropHints(); });
+    head.addEventListener("dragover", function (ev) {
+      if (!drag) return;
+      if (drag.kind === "demo" && drag.from === name) return;  // already here
+      if (drag.kind === "folder" && drag.name === name) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      clearDropHints();
+      head.classList.add(drag.kind === "demo" ? "drop-into" : "drop-before");
+    });
+    head.addEventListener("dragleave", function () { head.classList.remove("drop-into", "drop-before"); });
+    head.addEventListener("drop", function (ev) {
+      ev.preventDefault();
+      var d = drag;
+      clearDropHints();
+      drag = null;
+      if (!d) return;
+      if (d.kind === "demo") return moveDemoToFolder(d.id, name);
+      if (d.kind === "folder") return reorderFolder(d.name, name);
+    });
+  }
+
+  function moveDemoToFolder(id, folder) {
+    api("/api/demos/" + id, putJson({ folder: folder })).then(loadList).catch(alertErr);
+  }
+
+  // Drop `moved` immediately before `before`; passing null means send to the end.
+  function reorderFolder(moved, before) {
+    var order = allFolderNames().filter(function (f) { return f !== moved; });
+    var at = before ? order.indexOf(before) : order.length;
+    order.splice(at < 0 ? order.length : at, 0, moved);
+    folders = order;
+    api("/api/folders/reorder", postJson({ folders: order })).then(loadList).catch(alertErr);
+  }
+
+  var folderActions = {
+    rename: function (name) {
+      var next = prompt("Rename folder:", name);
+      if (next === null) return;
+      next = next.trim().slice(0, 80);
+      if (!next || next === name) return;
+      var merging = allFolderNames().indexOf(next) >= 0;
+      if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+      collapsedFolders[next] = collapsedFolders[name];   // carry the open/closed state over
+      api("/api/folders/rename", postJson({ from: name, to: next })).then(loadList).catch(alertErr);
+    },
+    delete: function (name) {
+      var count = allDemos.filter(function (d) { return d.folder === name; }).length;
+      if (!confirm('Delete the folder "' + name + '"?\n\n' +
+                   (count
+                     ? count + (count === 1 ? " demo moves" : " demos move") + " back to the top level. Nothing is deleted."
+                     : "It is empty."))) return;
+      api("/api/folders/delete", postJson({ name: name })).then(loadList).catch(alertErr);
+    }
+  };
 
   function renderFolderOptions() {
     var dl = $("folderOptions");
@@ -88,18 +171,37 @@
     });
 
     (groups[""] || []).forEach(function (d) { list.appendChild(row(d)); });
-    Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (f) {
-      if (!f) return;
+    // allFolderNames(), not a sort of the group keys — the stored order IS the
+    // display order, or dragging a folder would persist and never show.
+    allFolderNames().forEach(function (f) {
+      if (!f || !groups[f]) return;
       if (q && groups[f].length === 0) return; // hide empty folders while searching
       var head = document.createElement("div");
       head.className = "folder-head" + (collapsedFolders[f] && !q ? " collapsed" : "");
-      head.innerHTML = '<span class="folder-caret">▾</span><span class="folder-ico">📁</span> <b></b> <span class="folder-count"></span>';
+      head.setAttribute("data-folder", f);
+      head.draggable = true;
+      head.innerHTML =
+        '<span class="folder-grip" data-ico="drag_indicator" data-size="16" title="Drag to reorder"></span>' +
+        '<span class="folder-caret" data-ico="expand_more" data-size="18"></span>' +
+        '<span class="folder-ico" data-ico="folder" data-size="16"></span> <b></b> ' +
+        '<span class="folder-count"></span>' +
+        '<span class="folder-tools">' +
+          '<button class="icon-btn" data-fact="rename" title="Rename folder" aria-label="Rename folder"></button>' +
+          '<button class="icon-btn" data-fact="delete" title="Delete folder" aria-label="Delete folder"></button>' +
+        '</span>';
+      head.querySelector('[data-fact="rename"]').innerHTML = CDSIcons.svg("edit", 15);
+      head.querySelector('[data-fact="delete"]').innerHTML = CDSIcons.svg("delete", 15);
+      CDSIcons.hydrate(head);
       head.querySelector("b").textContent = f;
       head.querySelector(".folder-count").textContent = groups[f].length + (groups[f].length === 1 ? " demo" : " demos");
-      head.addEventListener("click", function () {
+      head.addEventListener("click", function (ev) {
+        var act = ev.target.closest("[data-fact]");
+        if (act) { ev.stopPropagation(); return folderActions[act.getAttribute("data-fact")](f); }
+        if (ev.target.closest(".folder-grip")) return;   // grip is for dragging
         collapsedFolders[f] = !collapsedFolders[f];
         renderList();
       });
+      wireFolderDrop(head, f);
       list.appendChild(head);
       if (!collapsedFolders[f] || q) {
         groups[f].forEach(function (d) { list.appendChild(row(d, true)); });
@@ -110,6 +212,14 @@
   function row(d, indented) {
     var el = document.createElement("div");
     el.className = "demo-row" + (indented ? " in-folder" : "");
+    el.draggable = true;
+    el.setAttribute("data-demo", d.id);
+    el.addEventListener("dragstart", function (ev) {
+      drag = { kind: "demo", id: d.id, from: d.folder || "" };
+      el.classList.add("dragging");
+      try { ev.dataTransfer.setData("text/plain", d.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+    });
+    el.addEventListener("dragend", function () { drag = null; clearDropHints(); el.classList.remove("dragging"); });
     var chips = '<span class="chip chip-template">' + TEMPLATE_LABEL[d.template] + "</span>";
     if (!d.built) chips += ' <span class="chip chip-unbuilt">Building…</span>';
     el.innerHTML =
@@ -131,6 +241,31 @@
     });
     return el;
   }
+
+  /*
+   * The list background is the "no folder" target, so a demo can be dragged
+   * back out. Without it a demo could be filed but never unfiled by dragging.
+   */
+  (function () {
+    var list = $("demoList");
+    list.addEventListener("dragover", function (ev) {
+      if (!drag || drag.kind !== "demo" || !drag.from) return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      list.classList.add("drop-into");
+    });
+    list.addEventListener("dragleave", function () { list.classList.remove("drop-into"); });
+    list.addEventListener("drop", function (ev) {
+      if (!drag || drag.kind !== "demo") return;
+      if (ev.target.closest(".folder-head") || ev.target.closest(".demo-row")) return;
+      ev.preventDefault();
+      var id = drag.id;
+      drag = null;
+      list.classList.remove("drop-into");
+      moveDemoToFolder(id, "");
+    });
+  })();
 
   $("findInput").addEventListener("input", renderList);
 
@@ -199,19 +334,24 @@
   /* ---------------- edit view ---------------- */
 
   function openEdit(slug) {
-    $("listView").hidden = true;
-    $("editView").hidden = false;
-    $("remoteView").hidden = true;
-    $("settingsView").hidden = true;
+    showView("editView");
     editingId = slug || null;
     $("formTitle").textContent = slug ? "Edit Demo Experience" : "New Demo Experience";
     $("saveBtn").textContent = slug ? "Save" : "Create Demo";
-    $("f-template-set").style.opacity = slug ? ".5" : "1";
-    $("f-template-set").style.pointerEvents = slug ? "none" : "auto";
     $("saveStatus").textContent = "";
     $("buildStatus").textContent = "";
     setVibecodeRow(null);
     renderFolderOptions();
+
+    /*
+     * Re-read the theme catalogue every time the form opens, so a theme file
+     * dropped into assets/themes/ while the dashboard was open shows up on the
+     * next Edit rather than on the next reload. Fire and forget: the built-in
+     * list paints immediately and this repaints only if it found something new.
+     */
+    CDSThemes.load().then(function (changed) {
+      if (changed && $("editView") && !$("editView").hidden) renderThemeList();
+    });
 
     if (!slug) {
       fillForm(null);
@@ -236,70 +376,442 @@
     $("demoPath").textContent = hasDemo ? demo.path : "";
   }
 
+  /* ---------------- demo form ---------------- */
+  /*
+   * Driven by two choices — Endpoint, then Theme — with everything else
+   * following. Chat UI used to be a third radio here; it is now derived in
+   * demo-schema.sanitize(), because it was always a consequence rather than a
+   * decision, which is why it kept appearing greyed out.
+   */
+
+  // Live state for the controls that aren't plain inputs.
+  var form = {
+    template: "webchat-webrtc",
+    theme: "cognigy-default",
+    launcher: "ai-orb",
+    launcherImage: "",
+    side: "right",
+    panelStyle: "overlay",
+    startingBehavior: "greeting"
+  };
+
+  var LAUNCHER_ART = {
+    "ai-orb":     { name: "AI Orb",      cls: "",      icon: "blur_on" },
+    "ai-spark":   { name: "AI Spark",    cls: "spark", icon: "auto_awesome" },
+    "voice-wave": { name: "Voice Wave",  cls: "",      icon: "graphic_eq" },
+    "chat":       { name: "Chat Bubble", cls: "",      icon: "chat" }
+  };
+
+  var THEME_SUB = {
+    "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. The rest are CSS themes applied to that same widget.",
+    "webrtc": "Cognigy Default is Cognigy's own click-to-call widget. Halo is the voice shell Demo Studio draws."
+  };
+
+  var PANEL_STYLE_HINT = {
+    overlay: "Nothing of ours paints. The widget floats on the customer's site exactly as if they had deployed it themselves.",
+    solid: "A drawer slides in from the side, with a title bar, and the panel fills it."
+  };
+
+
+  var START_HINT = {
+    greeting: "The assistant speaks first as soon as the panel opens.",
+    button: "The visitor presses a button before anything is sent."
+  };
+
+  function isDefaultTheme() { return form.theme === "cognigy-default"; }
+
+  function renderThemeList() {
+    $("themeList").innerHTML = CDSThemes.listFor(form.template).map(function (t) {
+      if (t.rule) return '<div class="theme-rule" role="presentation"></div>';
+      var on = t.id === form.theme;
+      return '<button type="button" class="theme-tile' + (on ? " on" : "") + '"' +
+        ' role="radio" aria-checked="' + (on ? "true" : "false") + '" data-theme="' + t.id + '">' +
+        '<span class="theme-swatch" aria-hidden="true">' +
+          t.swatch.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("") +
+        '</span>' +
+        '<span class="theme-name">' + esc(t.name) + '</span>' +
+        '<span class="theme-note">' + esc(t.note) + '</span>' +
+      '</button>';
+    }).join("");
+    $("themeSub").textContent = THEME_SUB[form.template] || "";
+  }
+
+  function renderLauncherList() {
+    var tiles = Object.keys(LAUNCHER_ART).map(function (id) {
+      var a = LAUNCHER_ART[id];
+      var on = form.launcher === id && !form.launcherImage;
+      return '<button type="button" class="launcher-tile' + (on ? " on" : "") + '"' +
+        ' role="radio" aria-checked="' + (on ? "true" : "false") + '" data-launcher="' + id + '">' +
+        '<span class="launcher-art ' + a.cls + '">' + CDSIcons.svg(a.icon, 20) + '</span>' +
+        '<span class="launcher-name">' + esc(a.name) + '</span>' +
+      '</button>';
+    });
+    /*
+     * The upload tile shows the uploaded art once there is one, so the picker
+     * reflects what the demo will actually draw.
+     *
+     * Disabled until the upload route exists. A control that opens a file
+     * picker and then silently drops the file is the same bug the Template
+     * radios had — it looks like it worked. Better to say so.
+     */
+    var upOn = !!form.launcherImage;
+    tiles.push('<button type="button" class="launcher-tile' + (upOn ? " on" : "") + '"' +
+      ' disabled title="Not wired up yet — the upload route is next."' +
+      ' role="radio" aria-checked="' + (upOn ? "true" : "false") + '" data-launcher="__upload">' +
+      '<span class="launcher-art upload">' +
+        (upOn ? '<img src="' + esc(form.launcherImage) + '" alt="" />' : CDSIcons.svg("add_photo_alternate", 18)) +
+      '</span>' +
+      '<span class="launcher-name">' + (upOn ? "Your image" : "Upload") + '</span>' +
+    '</button>');
+    $("launcherList").innerHTML = tiles.join("");
+  }
+
+  function paintSeg(id, attr, value) {
+    var seg = $(id);
+    if (!seg) return;
+    Array.prototype.forEach.call(seg.querySelectorAll("[data-" + attr + "]"), function (b) {
+      var on = b.getAttribute("data-" + attr) === value;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
+  // The one function that keeps the form coherent.
+  function syncForm() {
+    $("l-chat").hidden = form.template === "webrtc";
+    $("l-voice").hidden = form.template === "webchat";
+
+
+    /*
+     * Both styles are offered everywhere now. Overlay is the default; Panel is
+     * always available, including on Halo — in that style the demo renders its
+     * panel without its own shell and the extension supplies the launcher and
+     * drawer, so there is no second launcher to collide with.
+     */
+
+    /*
+     * Cognigy Default takes the launcher, agent name, greeting and starters
+     * from the Endpoint, so these cards are hidden rather than greyed out —
+     * the old half-state looked editable and did nothing.
+     */
+    $("appearanceCard").hidden = isDefaultTheme();
+    $("automationsCard").hidden = isDefaultTheme();
+    // Inside the Appearance card, which is already hidden for Cognigy Default,
+    // so this only has to hide for the endpoint that has no voice at all.
+    $("transcriptRow").hidden = form.template === "webchat";
+
+    paintSeg("sideSeg", "side", form.side);
+    paintSeg("styleSeg", "style", form.panelStyle);
+    paintSeg("startSeg", "start", form.startingBehavior);
+    $("panelStyleHint").textContent = PANEL_STYLE_HINT[form.panelStyle] || "";
+    $("startHint").textContent = START_HINT[form.startingBehavior] || "";
+    renderThemeList();
+    renderLauncherList();
+  }
+
   function fillForm(d) {
     $("f-name").value = d ? d.name : "";
     $("f-website").value = d ? d.website : "";
     $("f-folder").value = d ? (d.folder || "") : "";
-    setRadio("template", d ? d.template : "webchat-webrtc");
+
+    form.template = d ? d.template : "webchat-webrtc";
+    // What it was when opened. Changing the endpoint re-copies the demo's
+    // source, so the save path warns rather than doing it silently.
+    form.openedAs = d ? d.template : null;
+    form.theme = (d && d.theme && d.theme.preset) || "cognigy-default";
+    form.launcher = (d && d.launcher) || "ai-orb";
+    form.launcherImage = (d && d.launcherImage) || "";
+    form.side = d ? d.panelSide : "right";
+    form.panelStyle = d ? (d.panelStyle || "overlay") : "overlay";
+    form.startingBehavior = (d && d.startingBehavior) || "greeting";
+
+    $("f-endpoint").value = form.template;
     $("f-chat").value = d ? d.cognigy.chatEndpoint : "";
     $("f-voice").value = d ? d.cognigy.voiceEndpoint : "";
-    setRadio("launcher", d ? d.launcher : "ai-orb");
-    setRadio("side", d ? d.panelSide : "right");
-    setRadio("panelStyle", d ? (d.panelStyle || "solid") : "solid");
-    syncPanelStyleHint();
-    $("f-width").value = d && [360, 420, 520, 650].indexOf(d.panelWidth) >= 0 ? String(d.panelWidth) : "0";
+    /*
+     * Read the widths off the <select> rather than repeating them. The list
+     * used to be a literal here and was not updated when 800/1000/1200 were
+     * added, so a demo at one of those showed "Endpoint default" — and saving
+     * the form then wrote 0 back, silently resetting a width the SE had set.
+     */
+    var widthOpts = Array.prototype.map.call($("f-width").options, function (o) { return o.value; });
+    $("f-width").value = d && widthOpts.indexOf(String(d.panelWidth)) >= 0 ? String(d.panelWidth) : "0";
     $("f-agent").value = d ? d.agentName : "";
     $("f-label").value = d ? d.launcherText : "";
     $("f-showlabel").checked = d ? !!d.showLauncherText : true;
     $("f-welcome").value = d ? d.welcomeMessage : "";
-    $("f-primary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.primaryColor) ? d.theme.primaryColor : "#3694fc";
-    $("f-secondary").value = d && /^#[0-9a-f]{6}$/i.test(d.theme.secondaryColor) ? d.theme.secondaryColor : "#f1f5f9";
-    $("f-logo").value = d ? d.theme.logo : "";
-    $("f-userid").value = d ? d.userId : "followme";
-    syncEndpointVisibility();
+    $("f-teaser").value = (d && d.teaserMessage) || "";
+    $("f-transcript").checked = d ? d.showTranscript !== false : true;
+
+    var starters = (d && d.starters) || [];
+    for (var i = 0; i < 3; i++) $("f-starter-" + i).value = starters[i] || "";
+
+    syncForm();
   }
 
   function formValues() {
+    var starters = [];
+    for (var i = 0; i < 3; i++) starters.push($("f-starter-" + i).value);
     return {
       name: $("f-name").value.trim(),
       website: $("f-website").value.trim(),
       folder: $("f-folder").value.trim(),
-      template: radio("template"),
-      panelSide: radio("side"),
-      panelStyle: radio("panelStyle"),
+      template: form.template,
+      panelSide: form.side,
+      panelStyle: form.panelStyle,
       panelWidth: parseInt($("f-width").value, 10) || 0,
-      launcher: radio("launcher"),
+      launcher: form.launcher,
+      launcherImage: form.launcherImage,
       launcherText: $("f-label").value.trim(),
       showLauncherText: $("f-showlabel").checked,
       agentName: $("f-agent").value.trim() || "AI Assistant",
       welcomeMessage: $("f-welcome").value.trim(),
-      userId: $("f-userid").value.trim() || "followme",
+      starters: starters,
+      startingBehavior: form.startingBehavior,
+      teaserMessage: $("f-teaser").value.trim(),
+      showTranscript: $("f-transcript").checked,
       cognigy: { chatEndpoint: $("f-chat").value.trim(), voiceEndpoint: $("f-voice").value.trim() },
-      theme: { primaryColor: $("f-primary").value, secondaryColor: $("f-secondary").value, logo: $("f-logo").value.trim() }
+      // chatUi is intentionally absent — sanitize() derives it from the above.
+      theme: { preset: form.theme }
     };
   }
 
-  function syncEndpointVisibility() {
-    var t = radio("template");
-    $("l-chat").style.display = t === "webrtc" ? "none" : "block";
-    $("l-voice").style.display = t === "webchat" ? "none" : "block";
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('input[name="template"]'), function (el) {
-    el.addEventListener("change", syncEndpointVisibility);
+  $("f-endpoint").addEventListener("change", function () {
+    form.template = $("f-endpoint").value;
+    /*
+     * Themes are per endpoint, so one selected for the previous endpoint may
+     * not exist here. sanitize() would fall back silently on save; do it now
+     * and visibly instead.
+     */
+    var ok = CDSThemes.listFor(form.template).some(function (t) { return t.id === form.theme; });
+    /*
+     * The new endpoint's FIRST theme, which is what sanitize() would pick.
+     * This used to be Cognigy Default unconditionally — a theme the combination
+     * does not offer, so switching to it selected a tile that wasn't there and
+     * the save came back as Halo anyway.
+     */
+    if (!ok) form.theme = CDSThemes.defaultFor(form.template);
+    syncForm();
   });
 
-  var PANEL_STYLE_HINT = {
-    solid: "Opaque panel — the classic slide-out.",
-    clear: "See-through panel: the customer's site shows through, only the chat/voice elements paint.",
-    phone: "Floating phone mockup — great for simulating a call on a mobile device.",
-    overlay: "The demo draws its own launcher icon and panel — both vibe-codeable in src/shell/. The extension just supplies a transparent frame."
-  };
-  function syncPanelStyleHint() {
-    $("panelStyleHint").textContent = PANEL_STYLE_HINT[radio("panelStyle")] || "";
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('input[name="panelStyle"]'), function (el) {
-    el.addEventListener("change", syncPanelStyleHint);
+  $("themeList").addEventListener("click", function (e) {
+    var tile = e.target.closest("[data-theme]");
+    if (!tile) return;
+    form.theme = tile.getAttribute("data-theme");
+    syncForm();
   });
+
+  $("launcherList").addEventListener("click", function (e) {
+    var tile = e.target.closest("[data-launcher]");
+    if (!tile) return;
+    var v = tile.getAttribute("data-launcher");
+    if (v === "__upload") return $("launcherFile").click();
+    form.launcher = v;
+    form.launcherImage = "";
+    syncForm();
+  });
+
+  ["sideSeg:side", "styleSeg:style", "startSeg:start"].forEach(function (pair) {
+    var bits = pair.split(":"), id = bits[0], attr = bits[1];
+    $(id).addEventListener("click", function (e) {
+      var b = e.target.closest("[data-" + attr + "]");
+      if (!b) return;
+      var v = b.getAttribute("data-" + attr);
+      if (attr === "side") form.side = v;
+      else if (attr === "style") form.panelStyle = v;
+      else form.startingBehavior = v;
+      syncForm();
+    });
+  });
+
+  var followEl = $("f-followme");
+  if (followEl) {
+    var followSaveTimer = null;
+    followEl.addEventListener("input", function () {
+      clearTimeout(followSaveTimer);
+      $("followMeStatus").textContent = "Saving…";
+      // Debounced: this is a free-text field, and every keystroke would
+      // otherwise be a settings write.
+      followSaveTimer = setTimeout(function () {
+        var v = followEl.value.trim() || "followme";
+        api("/api/settings", putJson({ followMeUserId: v }))
+          .then(function () {
+            $("followMeStatus").textContent = v === "followme"
+              ? "Live Follow will track this conversation."
+              : 'Using "' + v + '" — Live Follow only tracks "followme".';
+          })
+          .catch(function () { $("followMeStatus").textContent = "Couldn't save."; });
+      }, 400);
+    });
+  }
+
+  var diagEl = $("f-diagnostics");
+  if (diagEl) {
+    diagEl.addEventListener("change", function () {
+      $("diagnosticsStatus").textContent = "Saving…";
+      api("/api/settings", putJson({ showDiagnostics: diagEl.checked }))
+        .then(function () {
+          $("diagnosticsStatus").textContent = diagEl.checked
+            ? "On — refresh a demo to see the badge."
+            : "Off — refresh a demo to hide it.";
+        })
+        .catch(function () { $("diagnosticsStatus").textContent = "Couldn't save."; });
+    });
+  }
+
+  /* ---------------- microphone ----------------
+   *
+   * Global rather than per demo, like preferredMicId: it describes this
+   * machine and this room. The same values reach every demo, every theme and
+   * Remote Control through the injected audio layer, so this card and the gear
+   * on the widget are two views of one setting.
+   */
+
+  var audioCfg = null;      // last known server state
+  var audioMeter = null;    // live preview, only while Settings is on screen
+  var audioRaf = 0;
+  var audioSave = 0;
+
+  function renderAudio() {
+    if (!audioCfg || !$("f-audio-engine")) return;
+    var c = audioCfg;
+    $("f-audio-engine").value = c.engine;
+    $("f-audio-gate").checked = !!c.gate;
+    $("audioGateRows").hidden = !c.gate;
+    $("f-audio-open").value = c.gateOpenThreshold;
+    $("f-audio-close").value = c.gateCloseThreshold;
+    $("f-audio-hold").value = c.gateHoldMs;
+    $("f-audio-openVal").textContent = c.gateOpenThreshold + " dB";
+    $("f-audio-closeVal").textContent = c.gateCloseThreshold + " dB";
+    $("f-audio-holdVal").textContent = c.gateHoldMs + " ms";
+    $("f-audio-ec").checked = c.echoCancellation !== false;
+    $("f-audio-ns").checked = c.noiseSuppression !== false;
+    $("f-audio-agc").checked = c.autoGainControl !== false;
+    $("audioMeterMark").style.display = c.gate ? "block" : "none";
+    $("audioMeterMark").style.left = pct(c.gateOpenThreshold) + "%";
+    // Both at once is not wrong, but it is the usual cause of "why does my
+    // voice sound thin" — worth saying before an SE debugs it on a live call.
+    $("audioStackHint").textContent = (c.engine !== "none" && c.noiseSuppression !== false)
+      ? "Browser suppression is stacked on top of " + c.engine + ". If speech sounds thin or pumpy, turn this one off first."
+      : "";
+    // The demo layer reads this, so the dashboard's own Remote Control pop-out
+    // picks up a change without a reload.
+    if (window.CDSAudio) window.CDSAudio.apply(c);
+  }
+
+  function pct(db) { return Math.max(0, Math.min(100, (db + 90) / 90 * 100)); }
+
+  function saveAudio(patch) {
+    audioCfg = Object.assign({}, audioCfg, patch);
+    renderAudio();
+    clearTimeout(audioSave);
+    $("audioStatus").textContent = "Saving…";
+    audioSave = setTimeout(function () {
+      api("/api/settings", putJson({ audio: audioCfg }))
+        .then(function (st) {
+          // Trust the server's clamped values over ours.
+          audioCfg = st.audio;
+          renderAudio();
+          $("audioStatus").textContent = audioCfg.engine === "none" && !audioCfg.gate
+            ? "Browser processing only."
+            : "Applies to every demo and to Remote Control.";
+        })
+        .catch(function () { $("audioStatus").textContent = "Couldn't save."; });
+    }, 250);
+  }
+
+  function bindAudio() {
+    if (!$("f-audio-engine")) return;
+    $("f-audio-engine").addEventListener("change", function (e) { saveAudio({ engine: e.target.value }); });
+    $("f-audio-gate").addEventListener("change", function (e) { saveAudio({ gate: e.target.checked }); });
+    $("f-audio-ec").addEventListener("change", function (e) { saveAudio({ echoCancellation: e.target.checked }); });
+    $("f-audio-ns").addEventListener("change", function (e) { saveAudio({ noiseSuppression: e.target.checked }); });
+    $("f-audio-agc").addEventListener("change", function (e) { saveAudio({ autoGainControl: e.target.checked }); });
+    $("f-audio-open").addEventListener("input", function (e) {
+      var v = parseFloat(e.target.value);
+      var patch = { gateOpenThreshold: v };
+      // The gate can never close above where it opens, or it would never shut.
+      if (audioCfg.gateCloseThreshold > v) patch.gateCloseThreshold = v - 10;
+      saveAudio(patch);
+    });
+    $("f-audio-close").addEventListener("input", function (e) {
+      saveAudio({ gateCloseThreshold: Math.min(parseFloat(e.target.value), audioCfg.gateOpenThreshold) });
+    });
+    $("f-audio-hold").addEventListener("input", function (e) { saveAudio({ gateHoldMs: parseFloat(e.target.value) }); });
+  }
+
+  /*
+   * The meter opens its own microphone, so it runs ONLY while Settings is on
+   * screen. Left running it would keep the OS mic indicator lit for as long as
+   * the SE had the dashboard open, which looks exactly like a bug.
+   */
+  function startAudioMeter() {
+    if (audioMeter || !window.CDSAudio || !$("audioMeterFill")) return;
+    audioMeter = "pending";
+    window.CDSAudio.monitor().then(function (m) {
+      if (audioMeter !== "pending") { m.stop(); return; }   // navigated away while awaiting
+      audioMeter = m;
+      var fill = $("audioMeterFill"), dot = $("audioMeterDot"), text = $("audioMeterText");
+      (function frame() {
+        if (!audioMeter || audioMeter === "pending") return;
+        var r = audioMeter.read();
+        fill.style.right = (100 - pct(r.db)) + "%";
+        dot.className = "audio-dot" + (r.open ? " open" : "");
+        text.textContent = Math.round(r.db) + " dB" +
+          (audioCfg && audioCfg.gate ? (r.open ? " — gate open" : " — gate closed") : "");
+        audioRaf = requestAnimationFrame(frame);
+      })();
+    }).catch(function () {
+      audioMeter = null;
+      $("audioMeterText").textContent = "No microphone available.";
+    });
+  }
+
+  function stopAudioMeter() {
+    if (audioRaf) { cancelAnimationFrame(audioRaf); audioRaf = 0; }
+    if (audioMeter && audioMeter !== "pending") audioMeter.stop();
+    audioMeter = null;
+    if ($("audioMeterText")) $("audioMeterText").textContent = "Open Settings to hear the room…";
+    if ($("audioMeterFill")) $("audioMeterFill").style.right = "100%";
+  }
+
+  bindAudio();
+
+  /* ---------------- starting up ----------------
+   *
+   * Only meaningful inside the Electron app: the toggle registers the
+   * generated launcher (.app / .lnk) as a login item, so Login Items shows
+   * "Cognigy Demo Studio" rather than "Electron".
+   */
+  function loadStartup() {
+    if (!(window.cds && window.cds.loginItem)) return;   // plain browser tab
+    $("startupCard").hidden = false;
+    window.cds.loginItem().then(function (st) {
+      if (!st || !st.supported) { $("startupCard").hidden = true; return; }
+      $("f-login-item").checked = !!st.enabled;
+      $("startupStatus").textContent = st.enabled
+        ? "Demo Studio starts automatically and waits in the background."
+        : "You'll need to open Demo Studio yourself before a demo.";
+      $("startupStale").hidden = !st.stale;
+    }).catch(function () { $("startupCard").hidden = true; });
+  }
+
+  if ($("f-login-item")) {
+    $("f-login-item").addEventListener("change", function (e) {
+      $("startupStatus").textContent = "Saving…";
+      window.cds.loginItem(e.target.checked).then(function (st) {
+        $("f-login-item").checked = !!(st && st.enabled);
+        $("startupStatus").textContent = (st && st.enabled)
+          ? "Demo Studio starts automatically and waits in the background."
+          : "You'll need to open Demo Studio yourself before a demo.";
+      }).catch(function () { $("startupStatus").textContent = "Couldn't change that."; });
+    });
+    $("rebuildLauncher").addEventListener("click", function () {
+      window.cds.makeLauncher();
+      $("startupStale").hidden = true;
+      $("startupStatus").textContent = "Shortcuts recreated.";
+    });
+  }
 
   function setPreview(slug) {
     var frame = $("previewFrame");
@@ -322,6 +834,20 @@
     var vals = formValues();
     if (!vals.name) { $("saveStatus").textContent = "Customer name is required."; return; }
     $("saveStatus").textContent = "Saving…";
+    /*
+     * Changing the endpoint changes which template the demo folder holds, so
+     * store.update() re-copies the source and backs the old one up to
+     * _backup-<timestamp>/. That is recoverable but it discards vibe-coded work
+     * from the live folder, so it must never happen as a surprise.
+     */
+    if (editingId && form.openedAs && form.openedAs !== vals.template) {
+      var ok = confirm(
+        "Changing the endpoint replaces this demo's source with the " + vals.template +
+        " template.\n\nYour current source is backed up inside the demo folder first, but any " +
+        "vibe-coded changes will no longer be live.\n\nContinue?");
+      if (!ok) { $("saveStatus").textContent = ""; return; }
+    }
+
     var req = editingId
       ? api("/api/demos/" + editingId, putJson(vals))
       : api("/api/demos", postJson(vals));
@@ -331,8 +857,7 @@
       editingId = d.id;
       $("formTitle").textContent = "Edit Demo Experience";
       $("saveBtn").textContent = "Save";
-      $("f-template-set").style.pointerEvents = "none";
-      $("f-template-set").style.opacity = ".5";
+      form.openedAs = d.template;
       $("saveStatus").textContent = "Saved.";
       setTimeout(function () { $("saveStatus").textContent = ""; }, 2000);
       setVibecodeRow(d);
@@ -378,7 +903,7 @@
     var p = $("demoPath").textContent;
     if (!p) return;
     try { navigator.clipboard.writeText(p); } catch (e) {}
-    $("copyPathBtn").textContent = "Copied ✓";
+    $("copyPathBtn").innerHTML = CDSIcons.svg("check", 15) + " Copied";
     setTimeout(function () { $("copyPathBtn").textContent = "Copy folder path"; }, 1600);
   });
 
@@ -394,7 +919,8 @@
       try { parsed = JSON.parse(reader.result); } catch (e) { alert("Not a valid JSON export."); return; }
       api("/api/import", postJson(parsed)).then(function (res) {
         var lines = (res.results || []).map(function (r) {
-          return r.ok ? "✓ " + esc(r.name) : "✗ " + esc(r.name) + " — " + esc(r.error || "failed");
+          return (r.ok ? CDSIcons.svg("check", 15) : CDSIcons.svg("close", 15)) + " " +
+            esc(r.name) + (r.ok ? "" : " — " + esc(r.error || "failed"));
         });
         modal("Import complete", '<div style="font-size:13.5px;line-height:1.9">' + lines.join("<br>") + "</div>");
         location.hash = "#demos";
@@ -435,7 +961,8 @@
       var ready = checks.every(function (c) { return c.ok; });
       var html = '<div class="pf-verdict ' + (ready ? "ok" : "bad") + '">' + (ready ? "READY TO DEMO" : "ISSUES FOUND") + "</div>";
       checks.forEach(function (c) {
-        html += '<div class="pf-check ' + (c.ok ? "ok" : "bad") + '"><span class="mark">' + (c.ok ? "✓" : "✗") + "</span><span>" +
+        html += '<div class="pf-check ' + (c.ok ? "ok" : "bad") + '"><span class="mark">' +
+          CDSIcons.svg(c.ok ? "check" : "close", 16) + "</span><span>" +
           esc(c.label) + (c.detail && !c.ok ? '<span class="detail">' + esc(c.detail) + "</span>" : "") + "</span></div>";
       });
       $("modalBody").innerHTML = html;
@@ -467,6 +994,19 @@
   }
 
   function loadSettings() {
+    api("/api/settings").then(function (st) {
+      $("f-diagnostics").checked = st.showDiagnostics !== false;
+      audioCfg = st.audio;
+      renderAudio();
+      startAudioMeter();
+      loadStartup();
+      var fm = st.followMeUserId || "followme";
+      $("f-followme").value = fm;
+      $("followMeStatus").textContent = fm === "followme"
+        ? "Live Follow will track this conversation."
+        : 'Using "' + fm + '" — Live Follow only tracks "followme".';
+    }).catch(function () {});
+
     api("/api/about").then(function (a) {
       $("aboutName").textContent = a.name;
       $("aboutVersion").textContent = "Version " + a.version + (a.commit ? " (" + a.commit + ")" : "");
@@ -482,7 +1022,17 @@
       var pill = $("extPill");
       var banner = $("extBanner");
       var steps = $("extSteps");
-      if (a.extensionConnected) {
+      if (a.extensionConnected && a.extensionStale) {
+        // Loud, because the symptom otherwise looks like "the update did
+        // nothing" rather than "the extension was never reloaded".
+        pill.className = "pill warn";
+        pill.textContent = "Needs reloading";
+        banner.hidden = false;
+        banner.innerHTML = "The extension is running version <b>" + a.extensionVersion +
+          "</b> but Demo Studio is <b>" + a.version + "</b>. Open <b>chrome://extensions</b>, click " +
+          "the reload arrow on Cognigy Demo Studio, then refresh any customer tab you have open.";
+        steps.hidden = true;
+      } else if (a.extensionConnected) {
         pill.className = "pill ok";
         pill.textContent = "Installed";
         banner.hidden = false;
@@ -525,31 +1075,166 @@
     window.location.href = "/api/export";
   });
 
+  /* ---------------- appearance ---------------- */
+
+  /*
+   * Theme + rail state live in settings.json (so they survive a reinstall and
+   * are shared with the Remote Control pop-out, which loads the same origin),
+   * and are mirrored into localStorage purely so the inline <head> script can
+   * apply them before first paint. settings.json wins on boot.
+   */
+  var THEMES = ["system", "light", "dark"];
+  var THEME_ICON = { system: "contrast", light: "light_mode", dark: "dark_mode" };
+  var THEME_LABEL = { system: "Match my system", light: "Light", dark: "Dark" };
+  var theme = "system";
+  var railMini = false;
+
+  function applyTheme(next) {
+    theme = THEMES.indexOf(next) >= 0 ? next : "system";
+    var root = document.documentElement;
+    // No attribute at all = follow the OS, which the media query handles.
+    if (theme === "system") delete root.dataset.theme;
+    else root.dataset.theme = theme;
+    try { localStorage.setItem("cdsTheme", theme); } catch (e) {}
+
+    var btn = $("themeBtn");
+    if (btn) {
+      btn.innerHTML = CDSIcons.svg(THEME_ICON[theme], 18);
+      btn.title = "Appearance: " + THEME_LABEL[theme];
+      btn.setAttribute("aria-label", btn.title);
+    }
+    var seg = $("themeSeg");
+    if (seg) {
+      Array.prototype.forEach.call(seg.querySelectorAll("[data-theme-choice]"), function (b) {
+        var on = b.getAttribute("data-theme-choice") === theme;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+    var st = $("themeStatus");
+    if (st) {
+      st.textContent = theme === "system"
+        ? "Following your system setting."
+        : THEME_LABEL[theme] + " — always, whatever your system is set to.";
+    }
+  }
+
+  function applyRail(mini) {
+    railMini = !!mini;
+    var root = document.documentElement;
+    if (railMini) root.dataset.rail = "mini"; else delete root.dataset.rail;
+    try { localStorage.setItem("cdsRail", railMini ? "mini" : "full"); } catch (e) {}
+
+    var btn = $("railBtn");
+    if (btn) {
+      btn.innerHTML = CDSIcons.svg(railMini ? "chevron_right" : "chevron_left", 18);
+      btn.title = railMini ? "Expand sidebar" : "Collapse sidebar";
+      btn.setAttribute("aria-label", btn.title);
+      btn.setAttribute("aria-expanded", railMini ? "false" : "true");
+    }
+  }
+
+  function saveAppearance(patch) {
+    api("/api/settings", putJson(patch)).catch(function () {});
+  }
+
+  function initAppearance() {
+    applyTheme(theme);
+    applyRail(railMini);
+
+    $("themeBtn").addEventListener("click", function () {
+      var next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+      applyTheme(next);
+      saveAppearance({ theme: next });
+    });
+    $("railBtn").addEventListener("click", function () {
+      applyRail(!railMini);
+      saveAppearance({ sidebarCollapsed: railMini });
+    });
+    $("themeSeg").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-theme-choice]");
+      if (!b) return;
+      var next = b.getAttribute("data-theme-choice");
+      applyTheme(next);
+      saveAppearance({ theme: next });
+    });
+    // Cmd/Ctrl+B is the conventional sidebar toggle.
+    document.addEventListener("keydown", function (e) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        applyRail(!railMini);
+        saveAppearance({ sidebarCollapsed: railMini });
+      }
+    });
+
+    // Reconcile the paint-time guess against the real source of truth.
+    api("/api/settings").then(function (st) {
+      if (st.theme !== theme) applyTheme(st.theme);
+      if (!!st.sidebarCollapsed !== railMini) applyRail(st.sidebarCollapsed);
+    }).catch(function () {});
+  }
+
   /* ---------------- sidebar router ---------------- */
 
-  function route() {
-    var hash = (location.hash || "#demos").split("&")[0];
-    var isRemote = hash === "#remote";
-    var isSettings = hash === "#settings";
-    $("nav-demos").classList.toggle("on", !isRemote && !isSettings);
-    $("nav-remote").classList.toggle("on", isRemote);
-    $("nav-settings").classList.toggle("on", isSettings);
-
-    if (isRemote) {
-      $("listView").hidden = true;
-      $("editView").hidden = true;
-      $("settingsView").hidden = true;
-      $("remoteView").hidden = false;
-      if (window.CDSRemote) window.CDSRemote.show();
-    } else if (isSettings) {
-      $("listView").hidden = true;
-      $("editView").hidden = true;
-      $("remoteView").hidden = true;
-      $("settingsView").hidden = false;
-      loadSettings();
-    } else {
-      loadList();
+  /*
+   * The sidebar sections. Adding one means an entry here plus a <main> in
+   * index.html — the rail markup, the active state and the view switching all
+   * follow from this array, so there is no third place to forget.
+   */
+  var NAV = [
+    {
+      id: "demos", hash: "#demos", label: "Demo Experiences", icon: "dashboard",
+      /*
+       * Deliberately declares no view. #demos owns TWO <main>s: loadList() and
+       * openEdit() move between listView and editView without a hash change,
+       * so they keep ownership of that pair. Giving this entry a view would
+       * make route() slam the list back over the demo editor.
+       */
+      onShow: loadList
+    },
+    {
+      id: "remote", hash: "#remote", label: "Remote Control", icon: "call",
+      view: "remoteView",
+      onShow: function () { if (window.CDSRemote) window.CDSRemote.show(); }
+    },
+    {
+      id: "settings", hash: "#settings", label: "Settings", icon: "settings",
+      view: "settingsView", onShow: loadSettings
     }
+  ];
+
+  // Every <main> the router owns; showView() reveals one and hides the rest.
+  var VIEWS = ["listView", "editView", "remoteView", "settingsView"];
+
+  function showView(id) {
+    for (var i = 0; i < VIEWS.length; i++) $(VIEWS[i]).hidden = VIEWS[i] !== id;
+  }
+
+  function renderNav() {
+    $("sideNav").innerHTML = NAV.map(function (n) {
+      // title + aria-label unconditionally: the label collapses to zero width
+      // when the rail is minimised, and the accessible name must not go with it.
+      return '<a href="' + n.hash + '" id="nav-' + n.id + '" class="side-item"' +
+             ' title="' + n.label + '" aria-label="' + n.label + '">' +
+             '<span class="side-ico" data-ico="' + n.icon + '" data-size="19"></span>' +
+             '<span class="side-label">' + n.label + "</span></a>";
+    }).join("");
+    CDSIcons.hydrate($("sideNav"));
+  }
+
+  function route() {
+    // The meter holds a live microphone; nothing but the Settings view should.
+    stopAudioMeter();
+    var hash = (location.hash || "#demos").split("&")[0];
+    var item = NAV[0];
+    for (var i = 0; i < NAV.length; i++) if (NAV[i].hash === hash) item = NAV[i];
+
+    for (var j = 0; j < NAV.length; j++) {
+      var a = $("nav-" + NAV[j].id);
+      if (a) a.classList.toggle("on", NAV[j] === item);
+    }
+    if (item.view) showView(item.view);
+    if (item.onShow) item.onShow();
   }
   window.addEventListener("hashchange", route);
 
@@ -557,5 +1242,15 @@
   if (/popout=1/.test(location.hash)) document.body.classList.add("popout");
 
   /* ---------------- boot ---------------- */
+  try {
+    var t0 = localStorage.getItem("cdsTheme");
+    if (THEMES.indexOf(t0) >= 0) theme = t0;
+    railMini = localStorage.getItem("cdsRail") === "mini";
+  } catch (e) {}
+  CDSIcons.hydrate();
+  // Themes on disk, merged over the built-in table before anything paints one.
+  CDSThemes.load();
+  renderNav();
+  initAppearance();
   route();
 })();

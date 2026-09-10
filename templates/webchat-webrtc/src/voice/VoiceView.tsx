@@ -1,26 +1,36 @@
 /*
- * Custom Cognigy voice UI (SOW §9.2): start/end call, mute, mic status, call
- * timer, connection + listening + AI-speaking states, live transcription where
- * available, graceful errors. Branding via demo.json CSS variables.
+ * Halo voice pane: call status strip, live transcript, Mute + Call footer.
+ *
+ * Every line in the transcript comes from Cognigy — the click-to-call SDK
+ * turns a SIP INFO body carrying "_transcription" into a transcription event,
+ * and useCognigyVoice puts it here. There is no scripted call: with no
+ * endpoint, or a wrong one, this reports the failure instead of playing one.
+ *
+ * No dial pad, deliberately. The click-to-call widget has Call, Mute and End
+ * and nothing else, so a keypad here would be a control the real product
+ * doesn't have.
  */
 import { useEffect, useRef } from "react";
 import { DemoConfig } from "../config";
 import { CognigyVoice } from "./useCognigyVoice";
+import { Icon } from "../icons";
 
 function fmt(seconds: number): string {
-  const m = Math.floor(seconds / 60), s = seconds % 60;
-  return m + ":" + String(s).padStart(2, "0");
+  return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
 }
 
-const STATUS_TEXT: Record<string, string> = {
-  unsupported: "This browser doesn't support voice calls",
-  idle: "Ready when you are",
+const STATUS: Record<string, string> = {
+  unsupported: "Voice calls need Chrome or Edge",
+  idle: "Ready to call",
   connecting: "Connecting…",
   ringing: "Calling…",
-  active: "Listening",
+  active: "Call in progress",
   ended: "Call ended",
   error: "Something went wrong",
 };
+
+// Bar heights from the reference, kept as data so the wave stays one line of CSS.
+const WAVE = [5, 10, 17, 11, 20, 13, 8, 17, 11, 6, 10];
 
 export default function VoiceView({ cfg, voice }: { cfg: DemoConfig; voice: CognigyVoice }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -30,67 +40,80 @@ export default function VoiceView({ cfg, voice }: { cfg: DemoConfig; voice: Cogn
   }, [voice.transcript]);
 
   const inCall = voice.state === "active" || voice.state === "ringing" || voice.state === "connecting";
-  const status = voice.state === "active" && voice.aiSpeaking ? cfg.agentName + " is speaking" : STATUS_TEXT[voice.state] || "";
+  const live = voice.state === "active";
+  const status = voice.muted && live ? "Microphone muted" : (STATUS[voice.state] || "");
 
   return (
     <div className="cds-voice">
-      <header className="cds-vheader">
-        {cfg.theme.logo ? <img className="cds-logo" src={cfg.theme.logo} alt="" /> : <div className="cds-logo-dot" />}
-        <div>
-          <div className="cds-agent">{cfg.agentName}</div>
-          <div className="cds-vstatus">{voice.simulated && voice.state === "idle" ? "Simulated demo" : status}</div>
+      <div className="cds-strip">
+        <span className={"cds-dot" + (live ? " on" : "")} />
+        <span role="status">{status}</span>
+        {live && <span className="cds-clock">· {fmt(voice.seconds)}</span>}
+        <div className={"cds-wave" + (live && voice.aiSpeaking ? " on" : "")} aria-hidden="true">
+          {WAVE.map((h, i) => (
+            <i key={i} style={{ ["--h" as string]: h + "px", ["--delay" as string]: -(i * 0.13) + "s" }} />
+          ))}
         </div>
-        {voice.simulated && <span className="cds-sim-badge" title="Scripted call — no Cognigy connection">SIM</span>}
-        {voice.state === "active" && <div className="cds-timer">{fmt(voice.seconds)}</div>}
-      </header>
+      </div>
 
-      <div className="cds-vstage">
-        <div className={"cds-orb cds-orb-" + voice.state + (voice.aiSpeaking ? " cds-orb-speaking" : "")}>
-          <div className="cds-orb-core" />
-          <div className="cds-wave">
-            {[0, 1, 2, 3, 4].map((i) => <span key={i} style={{ animationDelay: i * 0.12 + "s" }} />)}
+      <h2 className="cds-tt">Live transcript</h2>
+
+      <div className="cds-scroll" ref={scrollRef} role="log" aria-label="Voice transcript" aria-live="polite">
+        {voice.transcript.length === 0 ? (
+          <div className="cds-empty">
+            <Icon name="mic" size={30} />
+            <strong>{voice.state === "ended" ? "Call ended" : "Ready when you are."}</strong>
+            <p>
+              {voice.state === "unsupported"
+                ? "Voice calls need WebRTC (" + (voice.supportMissing.join(", ") || "unsupported browser") + ")."
+                : voice.state === "error"
+                ? voice.error
+                : "Start a call and the conversation appears here as " + cfg.agentName + " transcribes it."}
+            </p>
           </div>
-        </div>
-
-        {voice.state === "unsupported" && (
-          <div className="cds-verror">Voice calls need WebRTC ({voice.supportMissing.join(", ") || "unsupported browser"}). Try Chrome or Edge.</div>
-        )}
-        {voice.error && voice.state === "error" && <div className="cds-verror">{voice.error}</div>}
-
-        <div className="cds-vcontrols">
-          {!inCall ? (
-            <button className="cds-call" onClick={voice.start} disabled={voice.state === "unsupported"}>
-              <span className="cds-call-icon">✆</span>
-              {voice.state === "ended" || voice.state === "error" ? "Call again" : "Talk to " + cfg.agentName}
-            </button>
-          ) : (
-            <>
-              <button
-                className={"cds-mute" + (voice.muted ? " cds-muted" : "")}
-                onClick={voice.toggleMute}
-                title={voice.muted ? "Unmute microphone" : "Mute microphone"}
-              >
-                {voice.muted ? "🔇" : "🎙️"}
-              </button>
-              <button className="cds-hangup" onClick={voice.end} title="End call">✕</button>
-            </>
-          )}
-        </div>
-        {voice.state === "active" && (
-          <div className="cds-micnote">{voice.muted ? "Microphone muted" : "Microphone live"}</div>
+        ) : (
+          voice.transcript.map((l) => (
+            <div key={l.id} className={"cds-utt cds-utt-" + (l.role === "user" ? "user" : l.role === "info" ? "info" : "ai")}>
+              {l.role !== "info" && (
+                <div className="cds-utt-icon">{l.role === "user" ? "You" : "AI"}</div>
+              )}
+              <div className="cds-utt-body">
+                {l.role !== "info" && (
+                  <p className="cds-utt-who">
+                    {l.role === "user" ? "You" : cfg.agentName}
+                    <time>· {fmt(Math.max(0, Math.round((l.at - voice.startedAt) / 1000)))}</time>
+                  </p>
+                )}
+                <p className="cds-utt-text">{l.text}</p>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {voice.transcript.length > 0 && (
-        <div className="cds-transcript" ref={scrollRef}>
-          {voice.transcript.map((l) => (
-            <div key={l.id} className={"cds-tline cds-tline-" + l.role}>
-              {l.role !== "info" && <b>{l.role === "ai" ? cfg.agentName : "You"}: </b>}
-              {l.text}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="cds-vfoot">
+        <button
+          className="cds-mute"
+          aria-pressed={voice.muted}
+          onClick={voice.toggleMute}
+          disabled={!live}
+        >
+          <Icon name={voice.muted ? "mic_off" : "mic"} size={19} />
+          <span>{voice.muted ? "Unmute" : "Mute"}</span>
+        </button>
+        <button
+          className={"cds-call" + (inCall ? " end" : "")}
+          onClick={inCall ? voice.end : voice.start}
+          disabled={voice.state === "unsupported"}
+        >
+          <Icon name={inCall ? "call_end" : "call"} size={19} />
+          <span>
+            {inCall ? "End call"
+              : voice.state === "ended" || voice.state === "error" ? "Call again"
+              : "Start a call"}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

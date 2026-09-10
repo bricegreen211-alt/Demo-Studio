@@ -5,29 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cognigy Demo Studio</title>
   <link rel="icon" href="favicon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="brand/fonts.css" />
   <link rel="stylesheet" href="style.css" />
+  <script>
+    /*
+     * Paint-time only. settings.json is the source of truth; app.js reconciles
+     * on boot and rewrites this mirror. It has to be inline and synchronous:
+     * the settings API round-trip lands long after first paint, so reading the
+     * preference from there alone means a white flash on every launch, and a
+     * visible 232 -> 68px jump when the rail is collapsed.
+     */
+    try {
+      var t = localStorage.getItem("cdsTheme");
+      if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      if (localStorage.getItem("cdsRail") === "mini") document.documentElement.dataset.rail = "mini";
+    } catch (e) { /* private mode / storage disabled — fall back to system */ }
+  </script>
 </head>
 <body>
   <!-- ── Left sidebar ─────────────────────────────────────────── -->
   <aside id="sidebar">
     <div class="side-brand">
-      <img src="favicon.png" alt="" class="side-mark" />
-      <div class="side-word"><b>NiCE</b> <span>Cognigy</span><small>DEMO STUDIO</small></div>
+      <!-- Official lockup, referenced (not inlined) so its internal .cls-* rules
+           stay scoped to the SVG. See brand/README.txt. -->
+      <span class="side-logo" role="img" aria-label="NiCE Cognigy"></span>
+      <span class="side-logo-sub">Demo Studio</span>
     </div>
-    <nav class="side-nav">
-      <a href="#demos" id="nav-demos" class="side-item">
-        <span class="side-ico">▣</span> Demo Experiences
-      </a>
-      <a href="#remote" id="nav-remote" class="side-item">
-        <span class="side-ico">☏</span> Remote Control
-      </a>
-      <a href="#settings" id="nav-settings" class="side-item">
-        <span class="side-ico">⚙</span> Settings
-      </a>
-    </nav>
+    <!-- Rendered from the NAV array in app.js — add a section there, not here. -->
+    <nav class="side-nav" id="sideNav"></nav>
     <div class="side-foot">
+      <div class="side-tools">
+        <button id="themeBtn" class="rail-btn" type="button" title="Appearance"
+                aria-label="Appearance"></button>
+        <button id="railBtn" class="rail-btn" type="button" title="Collapse sidebar"
+                aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar"></button>
+      </div>
       <div class="side-version">Cognigy Demo Studio</div>
     </div>
   </aside>
@@ -54,86 +66,182 @@
   <main id="editView" hidden>
     <div class="edit-cols">
       <section class="form-col">
-        <button class="ghost back" id="backBtn">← All demos</button>
+        <button class="ghost back" id="backBtn"><span data-ico="arrow_back"></span> All demos</button>
         <h2 id="formTitle">New Demo Experience</h2>
 
-        <label>Customer <input id="f-name" placeholder="ABC Airlines" /></label>
-        <label>Customer Website <input id="f-website" placeholder="https://www.abcairlines.com" /></label>
-        <label>Folder <input id="f-folder" list="folderOptions" placeholder="Optional — e.g. Banking" /></label>
-        <datalist id="folderOptions"></datalist>
-
-        <fieldset id="f-template-set">
-          <legend>Template</legend>
-          <label class="radio"><input type="radio" name="template" value="webchat" /> Webchat Only</label>
-          <label class="radio"><input type="radio" name="template" value="webrtc" /> WebRTC Only</label>
-          <label class="radio"><input type="radio" name="template" value="webchat-webrtc" checked /> Webchat + WebRTC</label>
-        </fieldset>
-
-        <label id="l-chat">Cognigy Chat Endpoint <input id="f-chat" placeholder="Paste your Webchat endpoint or hosted URL" /></label>
-        <label id="l-voice">Cognigy Voice Endpoint <input id="f-voice" placeholder="Paste your Click-to-Call link or endpoint" /></label>
-
-        <fieldset>
-          <legend>Launcher</legend>
-          <label class="radio"><input type="radio" name="launcher" value="ai-orb" checked /> AI Orb</label>
-          <label class="radio"><input type="radio" name="launcher" value="ai-spark" /> AI Spark</label>
-          <label class="radio"><input type="radio" name="launcher" value="voice-wave" /> Voice Wave</label>
-          <label class="radio"><input type="radio" name="launcher" value="chat" /> Chat Bubble</label>
-        </fieldset>
-
-        <div class="grid2">
-          <fieldset>
-            <legend>Panel Side</legend>
-            <label class="radio"><input type="radio" name="side" value="left" /> Left</label>
-            <label class="radio"><input type="radio" name="side" value="right" checked /> Right</label>
-          </fieldset>
-          <label>Panel Width
-            <select id="f-width">
-              <option value="0">Template default</option>
-              <option value="360">Compact — 360px</option>
-              <option value="420">Standard — 420px</option>
-              <option value="520">Wide — 520px</option>
-              <option value="650">Extra Wide — 650px</option>
-            </select>
-          </label>
-        </div>
-
-        <fieldset id="f-panelstyle-set">
-          <legend>Panel Style</legend>
-          <label class="radio"><input type="radio" name="panelStyle" value="solid" checked /> Solid</label>
-          <label class="radio"><input type="radio" name="panelStyle" value="clear" /> Clear</label>
-          <label class="radio"><input type="radio" name="panelStyle" value="phone" /> Phone</label>
-          <label class="radio"><input type="radio" name="panelStyle" value="overlay" /> Overlay</label>
-          <span class="soft" id="panelStyleHint"></span>
-        </fieldset>
-
-        <div class="grid2">
-          <label>AI Agent Name <input id="f-agent" placeholder="Ava" /></label>
-          <label>Launcher Label <input id="f-label" placeholder="Ask Ava" /></label>
-        </div>
-        <label class="check"><input type="checkbox" id="f-showlabel" checked /> Show launcher label</label>
-        <label>Welcome Message <input id="f-welcome" placeholder="Hi! I'm Ava. How can I help?" /></label>
-
-        <div class="grid2">
-          <label>Primary Color <input type="color" id="f-primary" value="#3694fc" /></label>
-          <label>Secondary Color <input type="color" id="f-secondary" value="#f1f5f9" /></label>
-        </div>
-        <label>Logo URL <input id="f-logo" placeholder="https://…/logo.png (optional)" /></label>
-
-        <div class="advanced-block">
-          <div class="advanced-title">Advanced</div>
-          <label>Follow <input id="f-userid" placeholder="followme" /></label>
-          <span class="soft">The user ID this demo connects with — keep <b>followme</b> to track the
-            conversation in Cognigy Live Follow / the Interaction Panel.</span>
-          <div class="advanced-title vc-title">Vibe-code customization</div>
-          <div id="vibecodeRow" class="folder-row">
-            <button class="ghost" id="openFolderBtn" hidden>Open project folder</button>
-            <button class="ghost" id="copyPathBtn" hidden>Copy folder path</button>
-            <span class="soft" id="vibecodeHint">Save the demo first to get its project folder.</span>
+        <!-- ── Customer ───────────────────────────────────────────────── -->
+        <section class="card">
+          <div class="card-head"><div>
+            <h3>Customer</h3>
+            <p class="card-sub">Who this demo is for. The website is what the browser extension
+              matches on, so the launcher only appears there.</p>
+          </div></div>
+          <div class="stack">
+            <label class="setting-field">Customer
+              <input id="f-name" placeholder="ABC Airlines" />
+            </label>
+            <label class="setting-field">Customer website
+              <input id="f-website" placeholder="https://www.abcairlines.com" />
+            </label>
+            <label class="setting-field">Folder
+              <input id="f-folder" list="folderOptions" placeholder="Optional — e.g. Banking" />
+            </label>
+            <datalist id="folderOptions"></datalist>
           </div>
-          <div class="folder-row"><code id="demoPath" class="soft"></code></div>
-          <span class="soft">Point Claude Code / Cursor / any AI tool at this folder and edit — the demo
-            rebuilds automatically on save, no terminal needed.</span>
-        </div>
+        </section>
+
+        <!-- ── Endpoint ───────────────────────────────────────────────── -->
+        <section class="card">
+          <div class="card-head"><div>
+            <h3>Endpoint</h3>
+            <p class="card-sub">Which Cognigy channels this demo uses. Paste whatever Cognigy gave
+              you — a hosted webchat link, a click-to-call link, or a bare token.</p>
+          </div></div>
+          <div class="stack">
+            <label class="setting-field">Channel
+              <select id="f-endpoint">
+                <option value="webchat">Webchat</option>
+                <option value="webrtc">WebRTC</option>
+                <option value="webchat-webrtc">Webchat + WebRTC</option>
+              </select>
+            </label>
+            <label class="setting-field" id="l-chat">Cognigy Chat Endpoint
+              <input id="f-chat" placeholder="Paste your Webchat endpoint or hosted URL" />
+            </label>
+            <label class="setting-field" id="l-voice">Cognigy Voice Endpoint
+              <input id="f-voice" placeholder="Paste your Click-to-Call link or endpoint" />
+            </label>
+          </div>
+        </section>
+
+        <!-- ── Theme ──────────────────────────────────────────────────── -->
+        <section class="card">
+          <div class="card-head"><div>
+            <h3>Theme</h3>
+            <p class="card-sub" id="themeSub"></p>
+          </div></div>
+          <div class="theme-list" id="themeList" role="radiogroup" aria-label="Theme"></div>
+        </section>
+
+        <!-- ── Appearance — only for non-default themes ───────────────── -->
+        <section class="card" id="appearanceCard" hidden>
+          <div class="card-head"><div>
+            <h3>Appearance</h3>
+            <p class="card-sub">How the assistant introduces itself. Cognigy Default takes all of
+              this from the Endpoint instead, which is why it only appears here.</p>
+          </div></div>
+          <div class="stack">
+            <div class="grid2">
+              <label class="setting-field">AI agent name
+                <input id="f-agent" placeholder="Ava" />
+              </label>
+              <label class="setting-field">Launcher label
+                <input id="f-label" placeholder="Ask Ava" />
+              </label>
+            </div>
+            <label class="check"><input type="checkbox" id="f-showlabel" checked /> Show the launcher label</label>
+
+            <div class="field-group">
+              <span class="field-legend">Launcher</span>
+              <div class="launcher-list" id="launcherList" role="radiogroup" aria-label="Launcher"></div>
+              <input type="file" id="launcherFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden />
+            </div>
+
+            <label class="check" id="transcriptRow">
+              <input type="checkbox" id="f-transcript" /> Show the live transcript during a call
+            </label>
+
+            <label class="setting-field">Welcome message
+              <input id="f-welcome" placeholder="Hi! I'm Ava. How can I help?" />
+            </label>
+            <div class="field-group">
+              <span class="field-legend">Conversation starters</span>
+              <p class="soft">Up to three prompts that help someone begin. Cognigy calls these
+                Conversation Starters and shows them on the home screen.</p>
+              <div class="stack starters">
+                <input id="f-starter-0" placeholder="Where is my order?" />
+                <input id="f-starter-1" placeholder="I need to change a booking" />
+                <input id="f-starter-2" placeholder="Talk to a person" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Automations — only for non-default themes ──────────────── -->
+        <section class="card" id="automationsCard" hidden>
+          <div class="card-head"><div>
+            <h3>Automations</h3>
+            <p class="card-sub">What happens on its own, using Cognigy's own options so nothing has
+              to be re-learned.</p>
+          </div></div>
+          <div class="stack">
+            <div class="field-group">
+              <span class="field-legend">Starting behavior</span>
+              <div class="seg" id="startSeg" role="radiogroup" aria-label="Starting behavior">
+                <button type="button" class="seg-btn" data-start="greeting" role="radio">Greeting</button>
+                <button type="button" class="seg-btn" data-start="button" role="radio">Start button</button>
+              </div>
+              <p class="soft" id="startHint"></p>
+            </div>
+            <label class="setting-field">Teaser message
+              <input id="f-teaser" placeholder="Optional — shows beside the launcher" />
+            </label>
+          </div>
+        </section>
+
+        <!-- ── Panel ──────────────────────────────────────────────────── -->
+        <section class="card">
+          <div class="card-head"><div>
+            <h3>Panel</h3>
+            <p class="card-sub">How the demo sits on the customer's page.</p>
+          </div></div>
+          <div class="stack">
+            <div class="grid2">
+              <div class="field-group">
+                <span class="field-legend">Side</span>
+                <div class="seg" id="sideSeg" role="radiogroup" aria-label="Panel side">
+                  <button type="button" class="seg-btn" data-side="left" role="radio">Left</button>
+                  <button type="button" class="seg-btn" data-side="right" role="radio">Right</button>
+                </div>
+              </div>
+              <label class="setting-field">Width
+                <select id="f-width">
+                  <option value="0">Endpoint default</option>
+                  <option value="360">Compact — 360px</option>
+                  <option value="420">Standard — 420px</option>
+                  <option value="520">Wide — 520px</option>
+                  <option value="650">Extra wide — 650px</option>
+                  <option value="800">Large — 800px</option>
+                  <option value="1000">Extra large — 1000px</option>
+                  <option value="1200">Full — 1200px</option>
+                </select>
+              </label>
+            </div>
+            <div class="field-group">
+              <span class="field-legend">Style</span>
+              <div class="seg" id="styleSeg" role="radiogroup" aria-label="Panel style">
+                <button type="button" class="seg-btn" data-style="overlay" role="radio" id="ps-overlay">Overlay</button>
+                <button type="button" class="seg-btn" data-style="solid" role="radio">Panel</button>
+              </div>
+              <p class="soft" id="panelStyleHint"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Advanced — collapsed ───────────────────────────────────── -->
+        <details class="drawer">
+          <summary>Advanced</summary>
+          <div class="stack">
+            <p class="soft">Point Claude Code, Cursor or any AI tool at this folder and edit — the
+              demo rebuilds automatically on save, no terminal needed.</p>
+            <div id="vibecodeRow" class="btn-row">
+              <button class="ghost" id="openFolderBtn" hidden>Open project folder</button>
+              <button class="ghost" id="copyPathBtn" hidden>Copy folder path</button>
+              <span class="soft" id="vibecodeHint">Save the demo first to get its project folder.</span>
+            </div>
+            <code id="demoPath" class="soft"></code>
+          </div>
+        </details>
 
         <div class="form-actions">
           <button class="primary" id="saveBtn">Create Demo</button>
@@ -253,19 +361,19 @@
     <section id="rcPopout" hidden>
       <div id="rc-widget-shell">
         <div id="rc-error" class="rc-error" hidden></div>
-        <div id="rc-sid" class="rc-sid" hidden title="Click to copy session ID">
-          <span class="rc-sid-id" id="rcSidText"></span>
-          <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard">⧉</button>
-        </div>
         <div id="rc-widget-wrap"></div>
         <div id="rc-device-bar">
           <div class="rc-dev-group">
-            <span class="rc-dev-ico">🎙</span>
+            <span class="rc-dev-ico" data-ico="mic" data-size="15"></span>
             <select id="rcMicSelect"><option value="">Default microphone</option></select>
           </div>
           <div class="rc-dev-group">
-            <span class="rc-dev-ico">🔊</span>
+            <span class="rc-dev-ico" data-ico="volume_up" data-size="15"></span>
             <select id="rcSpeakerSelect"><option value="">Default speaker</option></select>
+          </div>
+          <div id="rc-sid" class="rc-sid" hidden title="Click to copy the Live Follow user ID">
+            <span class="rc-sid-id" id="rcSidText"></span>
+            <button class="rc-sid-copy" id="rcSidCopy" title="Copy to clipboard" aria-label="Copy to clipboard"><span data-ico="content_copy" data-size="15"></span></button>
           </div>
           <div id="rc-call-state" hidden>
             <span id="rc-call-dot"></span>
@@ -279,6 +387,118 @@
   <!-- ── Settings ─────────────────────────────────────────────── -->
   <main id="settingsView" hidden>
     <div class="list-head"><h2>Settings</h2></div>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Appearance</h3>
+          <p class="card-sub">How Demo Studio itself looks. This is your workspace only — it never
+            changes what a customer sees in a demo.</p>
+        </div>
+      </div>
+      <div class="seg" id="themeSeg" role="radiogroup" aria-label="Appearance">
+        <button type="button" class="seg-btn" data-theme-choice="system" role="radio">System</button>
+        <button type="button" class="seg-btn" data-theme-choice="light"  role="radio">Light</button>
+        <button type="button" class="seg-btn" data-theme-choice="dark"   role="radio">Dark</button>
+      </div>
+      <p class="soft" id="themeStatus"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Live Follow</h3>
+          <p class="card-sub">The Cognigy user ID every demo connects with — webchat, WebRTC and
+            Remote Control alike. Keep <b>followme</b> so you can watch the conversation in Cognigy
+            Live Follow and the Interaction Panel.</p>
+        </div>
+      </div>
+      <label class="setting-field">Follow me user ID
+        <input id="f-followme" placeholder="followme" spellcheck="false" autocomplete="off" />
+      </label>
+      <p class="soft" id="followMeStatus"></p>
+    </section>
+
+    <!-- Only rendered in the Electron app; a browser tab has no launcher. -->
+    <section class="card" id="startupCard" hidden>
+      <div class="card-head">
+        <div>
+          <h3>Starting up</h3>
+          <p class="card-sub">Demo Studio has to be running for your demos to appear on customer
+            sites. Closing the window keeps it running in the background — quit from the menu bar or
+            system tray icon to stop it.</p>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-login-item" /> Start Demo Studio when I log in</label>
+      <p class="soft" id="startupStatus"></p>
+      <p class="soft" id="startupStale" hidden>
+        The launcher points at a different folder — the project has moved.
+        <button class="btn-link" id="rebuildLauncher">Recreate the shortcuts</button>
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Microphone</h3>
+          <p class="card-sub">Cleans up the mic on every voice call — every demo, every theme, and
+            Remote Control. Cognigy's SDK asks for the microphone with no processing at all, so
+            these are the settings nothing else is applying. Set them here before a demo; adjust
+            mid-demo from the gear on the widget.</p>
+        </div>
+      </div>
+
+      <label class="setting-field">Noise suppression
+        <select id="f-audio-engine">
+          <option value="none">Off — browser cancellation only</option>
+          <option value="rnnoise">RNNoise — proven, light, good on steady noise</option>
+          <option value="gtcrn">GTCRN — stronger on keyboards and chatter</option>
+          <option value="speex">Speex — cheapest, for older machines</option>
+        </select>
+      </label>
+
+      <label class="check"><input type="checkbox" id="f-audio-gate" /> Noise gate — mute the mic below a threshold</label>
+
+      <div id="audioGateRows" hidden>
+        <label class="setting-field">Opens above <span class="soft" id="f-audio-openVal"></span>
+          <input type="range" id="f-audio-open" min="-90" max="-10" step="1" />
+        </label>
+        <label class="setting-field">Closes below <span class="soft" id="f-audio-closeVal"></span>
+          <input type="range" id="f-audio-close" min="-100" max="-10" step="1" />
+        </label>
+        <label class="setting-field">Hold <span class="soft" id="f-audio-holdVal"></span>
+          <input type="range" id="f-audio-hold" min="0" max="500" step="10" />
+        </label>
+      </div>
+
+      <!-- Live level, so the threshold is set against the actual room rather
+           than guessed at. Runs only while this view is open. -->
+      <div class="audio-meter"><div class="audio-meter-fill" id="audioMeterFill"></div><div class="audio-meter-mark" id="audioMeterMark"></div></div>
+      <p class="soft"><span class="audio-dot" id="audioMeterDot"></span><span id="audioMeterText">Open Settings to hear the room…</span></p>
+
+      <details>
+        <summary class="soft">Browser processing</summary>
+        <label class="check"><input type="checkbox" id="f-audio-ec" /> Echo cancellation</label>
+        <label class="check"><input type="checkbox" id="f-audio-ns" /> Browser noise suppression</label>
+        <label class="check"><input type="checkbox" id="f-audio-agc" /> Automatic gain control</label>
+        <p class="soft" id="audioStackHint"></p>
+      </details>
+
+      <p class="soft" id="audioStatus"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Demo diagnostics</h3>
+          <p class="card-sub">Shows a small state badge on the demo and logs verbosely to the browser
+            console, and shows the microphone gear on the widget. Handy when a demo doesn't look right —
+            turn it off before demoing to a customer.</p>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-diagnostics" /> Show demo diagnostics</label>
+      <p class="soft" id="diagnosticsStatus"></p>
+    </section>
 
     <!-- Extension: the one thing people actually need help with -->
     <section class="card">
@@ -393,7 +613,7 @@
     </div>
 
     <section class="card about">
-      <div class="about-mark"><img src="favicon.png" alt="" /></div>
+      <div class="about-mark" role="img" aria-label="NiCE Cognigy"></div>
       <div class="about-body">
         <h3 id="aboutName">Cognigy Demo Studio</h3>
         <p class="muted">
@@ -414,9 +634,27 @@
     </div>
   </div>
 
+  <script src="icons.js"></script>
+  <script src="themes.js"></script>
   <script src="/shared/normalize.js"></script>
-  <script src="vendor/webRTCWidget.js"></script>
+  <!-- Same reader the demo templates use, so Remote Control and a demo can
+       never disagree about what Cognigy just said. -->
+  <script src="/shared/voice-transcript.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>
+  <!-- Microphone cleanup. Served by the service rather than sat next to the
+       other vendor bundles so the dashboard, the demo pages and Remote
+       Control's pop-out all run the exact same build. -->
+  <script src="/_cds/audio-clean.js"></script>
+  <!-- The gear UI for the cleanup above — noise suppression engine, the noise
+       gate and its thresholds, echo cancellation, auto gain, the level meter.
+       Demo pages get this floating next to the widget; Remote Control's
+       pop-out is the one other voice surface in the app and had no way to
+       reach any of it short of the Settings page in the OTHER window, so
+       remote.js shows this one explicitly rather than relying on the
+       diagnostics-gated auto-open those pages use (see CDSAudioPanel.show()
+       in remote.js — this window is never customer-facing, so there is
+       nothing to gate). -->
+  <script src="/_cds/audio-panel.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
 </body>

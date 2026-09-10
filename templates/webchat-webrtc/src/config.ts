@@ -8,12 +8,18 @@ export interface DemoConfig {
   name: string;
   template: string;
   panelStyle: string;
+  /** 0 = use the theme's own width. Set by the demo form's Width control. */
+  panelWidth: number;
   launcher: string;
   launcherText: string;
   showLauncherText: boolean;
   launcherSize: string;
+  /** Uploaded launcher art, relative to the demo folder. "" = use the picker. */
+  launcherImage: string;
   agentName: string;
   welcomeMessage: string;
+  /** Up to 3 "help me get started" chips from the demo form. */
+  starters: string[];
   userId: string;
   cognigy: { chatEndpoint: string; voiceEndpoint: string };
   theme: { primaryColor: string; secondaryColor: string; logo: string };
@@ -23,13 +29,16 @@ const FALLBACK: DemoConfig = {
   id: "",
   name: "Demo",
   template: "webchat-webrtc",
-  panelStyle: "solid",
+  panelStyle: "overlay",
+  panelWidth: 0,
   launcher: "ai-orb",
   launcherText: "",
   showLauncherText: true,
   launcherSize: "medium",
+  launcherImage: "",
   agentName: "AI Assistant",
   welcomeMessage: "",
+  starters: [],
   userId: "",
   cognigy: { chatEndpoint: "", voiceEndpoint: "" },
   theme: { primaryColor: "#3694fc", secondaryColor: "#f1f5f9", logo: "" },
@@ -42,6 +51,7 @@ export async function loadConfig(): Promise<DemoConfig> {
     return {
       ...FALLBACK,
       ...raw,
+      starters: Array.isArray(raw.starters) ? raw.starters.filter(Boolean).slice(0, 3) : [],
       cognigy: { ...FALLBACK.cognigy, ...(raw.cognigy || {}) },
       theme: { ...FALLBACK.theme, ...(raw.theme || {}) },
     };

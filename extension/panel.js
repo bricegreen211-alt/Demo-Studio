@@ -14,14 +14,21 @@
   var name = params.get("name") || "Demo Experience";
   var agent = params.get("agent") || "";
   var panelStyle = params.get("style") || "solid";
+  var chatUi = params.get("chatui") || "studio";
 
   document.getElementById("title").textContent = agent ? name + " — " + agent : name;
 
-  // Clear/phone panels paint no chrome of their own — see panel.html.
+  // Which panel styles get the opaque title bar. Inverted into an allow-list on
+  // purpose: a style added later then defaults to chromeless, so its failure
+  // mode is a floating controls pill rather than a solid dark bar stranded over
+  // a transparent panel.
+  // Cognigy Webchat v3 draws its own header with its own close button, so the
+  // panel adds no chrome at all in that mode — a second title bar above it is
+  // exactly the "boxed inside Demo Studio" look this mode exists to avoid.
+  var CHROMED = { solid: 1 };
   document.body.classList.add("style-" + panelStyle);
-  if (panelStyle === "clear" || panelStyle === "phone" || panelStyle === "overlay") {
-    document.body.classList.add("chromeless");
-  }
+  if (chatUi === "webchat3" || !CHROMED[panelStyle]) document.body.classList.add("chromeless");
+  if (chatUi === "webchat3") document.body.classList.add("chat-webchat3");
 
   var frame = document.getElementById("demo");
   var err = document.getElementById("err");
@@ -41,6 +48,26 @@
   document.getElementById("min").addEventListener("click", function () { tell("CDS_PANEL_MIN"); });
   document.getElementById("full").addEventListener("click", function () { tell("CDS_PANEL_FULL"); });
 
+  /*
+   * The one message that travels DOWN: the customer page's viewport, from the
+   * content script to the Demo Experience. Without this hop the demo has no
+   * way to know how much room it has — its own window is the panel — and its
+   * resize grip can only shrink.
+   *
+   * The source here is the customer's page, so nothing is trusted: only this
+   * one type is forwarded, and only as two coerced numbers.
+   */
+  window.addEventListener("message", function (ev) {
+    if (ev.source !== parent) return;
+    var d = ev.data || {};
+    if (d.type !== "CDS_VIEWPORT" || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({
+      type: "CDS_VIEWPORT",
+      width: Math.max(0, parseInt(d.width, 10) || 0),
+      height: Math.max(0, parseInt(d.height, 10) || 0)
+    }, API);
+  });
+
   // Relay voice state from the Demo Experience up to the launcher (Voice Wave).
   window.addEventListener("message", function (ev) {
     if (ev.origin !== API || !frame.contentWindow || ev.source !== frame.contentWindow) return;
@@ -49,6 +76,18 @@
     // Overlay mode: the demo owns its own size and open/closed state, so relay
     // those up to the content script that sizes the outer iframe.
     else if (d.type === "CDS_SIZE") parent.postMessage({ type: "CDS_SIZE", width: d.width, height: d.height }, "*");
-    else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open }, "*");
+    // Forward the size too: content.js reads d.width/d.height here, and
+    // dropping them silently pinned every overlay demo to the fallback size
+    // instead of the openSize its own Shell.tsx asked for.
+    // `live` has to survive this hop or the drag-resize transition fix never
+    // reaches content.js — the demo posts it, this is the only relay.
+    else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open, width: d.width, height: d.height, live: !!d.live }, "*");
+    // Webchat v3 mode: the host page reports where Cognigy's widget actually
+    // is, as clip-path insets, so the content script can clip its full-size
+    // transparent frame down to that and leave the rest of the page clickable.
+    else if (d.type === "CDS_WC3_CLIP") parent.postMessage({
+      type: "CDS_WC3_CLIP", open: !!d.open,
+      top: d.top, right: d.right, bottom: d.bottom, left: d.left
+    }, "*");
   });
 })();

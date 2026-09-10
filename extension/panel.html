@@ -3,60 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <style>
+    /* Extension pages are their own documents and cannot read the dashboard's
+       style.css, so the palette is duplicated here. Keep it in step with the
+       tier-1 block in apps/studio/renderer/style.css. Plain rgba only: MV3's
+       floor is Chrome 88 and color-mix() needs 111+.
+
+       Deliberately NOT theme-aware, unlike popup.html. This document is the
+       drawer the demo renders inside, on the CUSTOMER's website — its body is
+       the demo's own surface. Darkening it because the SE's laptop is in dark
+       mode would change what the customer sees. The chrome (header, buttons)
+       is already NiCE ink in every theme, which is the only part that is
+       ours to style. */
+    :root {
+      --nice-ink: #21212b;
+      --nice-ink-rgb: 33,33,43;
+      --surface: #fff;
+      --soft: #64748b;
+      --on-dark: #fff;
+      --btn: rgba(255,255,255,.12);
+      --btn-hover: rgba(255,255,255,.25);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
     body {
       display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      background: #fff;
+      background: var(--surface);
     }
     header {
       flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; background: #0f172a; color: #fff;
+      padding: 8px 10px; background: var(--nice-ink); color: var(--on-dark);
     }
     #title { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     button {
-      border: 0; background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
-      width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1;
+      border: 0; background: var(--btn); color: var(--on-dark); cursor: pointer;
+      width: 26px; height: 26px; border-radius: 6px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    button:hover { background: rgba(255,255,255,.25); }
+    button:hover { background: var(--btn-hover); }
     /* min-height:0 — a replaced element won't shrink below its intrinsic
        150px height without it, which overflows a launcher-sized overlay. */
     iframe { flex: 1; border: 0; width: 100%; height: 100%; min-height: 0; background: transparent; }
     #err {
-      display: none; padding: 24px; color: #64748b; font-size: 13px; line-height: 1.6;
+      display: none; padding: 24px; color: var(--soft); font-size: 13px; line-height: 1.6;
     }
 
-    /* Clear + phone: the wrapper itself paints nothing, so the customer's site
-       (clear) or the device screen (phone) shows through. The window controls
-       float over the content in their own translucent pill instead of a bar. */
+    /* Clear: the wrapper itself paints nothing, so the customer's site shows
+       through. The window controls float over the content in their own
+       translucent pill instead of a bar. */
     body.chromeless { background: transparent; }
     body.chromeless header {
       position: absolute; top: 10px; right: 10px; z-index: 5;
-      padding: 4px; gap: 4px; background: rgba(15,23,42,.55);
+      padding: 4px; gap: 4px; background: rgba(var(--nice-ink-rgb),.55);
       border-radius: 10px; backdrop-filter: blur(8px);
       opacity: 0; transition: opacity .18s ease;
     }
     body.chromeless:hover header, body.chromeless header:focus-within { opacity: 1; }
     body.chromeless #title { display: none; }
     body.chromeless button { width: 24px; height: 24px; font-size: 12px; }
-    /* Phone: the frame already insets us below the island, so the controls
-       sit at the top of the screen area like any other chromeless panel. */
     /* Overlay: the demo draws everything, including its own close button —
        we contribute no chrome at all. */
     body.style-overlay header { display: none; }
+    /* Cognigy Webchat v3: same deal. The widget has its own header, close
+       button and launcher, and the iframe is sized to hug whatever it renders,
+       so any chrome of ours would both duplicate its controls and sit inside
+       its footprint. */
+    body.chat-webchat3 header { display: none; }
+    body.chat-webchat3 { background: transparent; }
     body.chromeless #err {
       background: rgba(255,255,255,.94); border-radius: 14px; margin: 16px;
-      box-shadow: 0 8px 30px rgba(15,23,42,.2);
+      box-shadow: 0 8px 30px rgba(var(--nice-ink-rgb),.2);
     }
   </style>
 </head>
 <body>
   <header>
     <div id="title">Demo Experience</div>
-    <button id="min" title="Minimize">–</button>
-    <button id="full" title="Full screen">⛶</button>
-    <button id="close" title="Close">✕</button>
+    <button id="min" title="Minimize" aria-label="Minimize"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M240-440q-17 0-28.5-11.5T200-480q0-17 11.5-28.5T240-520h480q17 0 28.5 11.5T760-480q0 17-11.5 28.5T720-440H240Z"/></svg></button>
+    <button id="full" title="Full screen" aria-label="Full screen"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M200-200h80q17 0 28.5 11.5T320-160q0 17-11.5 28.5T280-120H160q-17 0-28.5-11.5T120-160v-120q0-17 11.5-28.5T160-320q17 0 28.5 11.5T200-280v80Zm560 0v-80q0-17 11.5-28.5T800-320q17 0 28.5 11.5T840-280v120q0 17-11.5 28.5T800-120H680q-17 0-28.5-11.5T640-160q0-17 11.5-28.5T680-200h80ZM200-760v80q0 17-11.5 28.5T160-640q-17 0-28.5-11.5T120-680v-120q0-17 11.5-28.5T160-840h120q17 0 28.5 11.5T320-800q0 17-11.5 28.5T280-760h-80Zm560 0h-80q-17 0-28.5-11.5T640-800q0-17 11.5-28.5T680-840h120q17 0 28.5 11.5T840-800v120q0 17-11.5 28.5T800-640q-17 0-28.5-11.5T760-680v-80Z"/></svg></button>
+    <button id="close" title="Close" aria-label="Close"><svg viewBox="0 -960 960 960" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false"><path d="M480-424 284-228q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536-480l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480-424Z"/></svg></button>
   </header>
   <iframe id="demo" allow="microphone; autoplay; clipboard-write"></iframe>
   <div id="err"><b>Cognigy Demo Studio isn't running.</b><br />Start the Demo Studio app, then close and reopen this panel.</div>

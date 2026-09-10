@@ -3,9 +3,15 @@
  *   - extension/icons/icon{16,32,48,64,128}.png
  *   - apps/studio/renderer/favicon.png (32)
  *   - assets/icon.iconset/* + assets/icon.icns (macOS, via iconutil)
+ *   - assets/icon.ico (Windows launcher shortcut)
  * Run: node assets/make-icons.js
+ *
+ * Outputs are COMMITTED. An SE's machine should never have to generate icons —
+ * sharp is a devDependency with platform-specific binaries, and iconutil only
+ * exists on macOS, so .icns can only be produced here.
  */
 const sharp = require("sharp");
+const pngToIco = require("png-to-ico");
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
@@ -50,4 +56,20 @@ async function png(size, dest) {
 
   // 512 png for Electron BrowserWindow icon on win/linux
   await png(512, path.join(__dirname, "icon-512.png"));
+
+  /*
+   * Windows .ico for the generated launcher shortcut. sharp cannot write ICO,
+   * hence png-to-ico. The sizes are the ones Explorer actually picks between:
+   * 16 in the taskbar, 32 in the Start menu list, 48/256 in larger views.
+   */
+  const icoSizes = [16, 32, 48, 64, 128, 256];
+  const tmp = [];
+  for (const s of icoSizes) {
+    const f = path.join(__dirname, `.ico-${s}.png`);
+    await png(s, f);
+    tmp.push(f);
+  }
+  fs.writeFileSync(path.join(__dirname, "icon.ico"), await pngToIco(tmp));
+  tmp.forEach((f) => fs.rmSync(f, { force: true }));
+  console.log("wrote assets/icon.ico");
 })();

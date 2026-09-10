@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo Experience</title>
+  <!--
+    Studio-owned host page for the real Cognigy click-to-call widget. Served by
+    the service (see server.js sendVoiceWidgetHost) instead of the demo's own
+    build whenever demo.json says template: "webrtc".
+
+    The exact counterpart of webchat3.html, one channel over, and for the same
+    reason: a demo folder holds its own copy of the template source, so a
+    built-in version would only ever reach demos created after the change. This
+    way every WebRTC demo — old, new, or vibe-coded — gets Cognigy's own widget
+    with no rebuild and no template Sync.
+
+    Absolute /_cds/ paths are deliberate: this page is served at /<slug>/ on the
+    same origin (unlike the demo builds, which use a relative base).
+  -->
+  <link rel="stylesheet" href="/_cds/webrtc.css" />
+</head>
+<!--
+  class="cognigy-webrtc-embed" is load-bearing, not decoration. Cognigy's own
+  hosted demo page carries it, and the widget gates its ENTIRE demo-page
+  behaviour on document.body.classList.contains("cognigy-webrtc-embed"):
+  without it, the Endpoint's webrtcWidgetConfig.demoPage is ignored and the
+  widget silently falls back to its bottom-right corner default —
+
+    .css-ilu6hu .webrtc_widget_outer_wrapper { position:fixed; bottom:40px; right:16px }
+    .webrtc-position-centered .webrtc_widget_outer_wrapper {
+        top:50%!important; left:50%!important; transform:translate(-50%,-50%) }
+
+  so a demo looked nothing like the same Endpoint opened on Cognigy's page.
+  With the class, the widget adds webrtc-position-centered / -bottomRight
+  itself and paints the configured demo-page background, exactly as it does
+  there.
+-->
+<body class="cognigy-webrtc-embed">
+  <!-- Shown only if the widget can't start; a silent blank panel would break
+       the "a wrong endpoint still fails loudly" rule. -->
+  <div id="cds-fallback" hidden>
+    <div class="cds-fallback-card">
+      <h1>Demo Experience</h1>
+      <p id="cds-fallback-msg"></p>
+      <p class="cds-fallback-hint">Fix this in Cognigy Demo Studio, then reload.</p>
+    </div>
+  </div>
+  <!--CDS_CONFIG-->
+  <script src="/_cds/webrtc-widget.js"></script>
+  <script src="/_cds/webrtc.js"></script>
+</body>
+</html>

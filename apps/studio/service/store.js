@@ -8,6 +8,23 @@ const fs = require("fs");
 const path = require("path");
 const { DEMOS_ROOT, TEMPLATES_ROOT, ensureDirs, demoDir } = require("./paths");
 const schema = require("../../../packages/shared/demo-schema");
+const themes = require("./themes");
+
+/*
+ * sanitize() falls back silently when a theme preset isn't registered for the
+ * demo's endpoint — it has to, being pure and running on every read and every
+ * write. Silent is the wrong answer for a theme, though: the SE dropped a file
+ * in, picked it, saved, and got something else back with nothing to read. So
+ * every place the store hands a config to sanitize also compares what went in
+ * with what came out, and themes.warnDropped explains the difference once.
+ */
+function checkTheme(input, out, slug) {
+  const asked = input && input.theme && input.theme.preset;
+  if (asked && out.theme.preset !== asked) {
+    themes.warnDropped(asked, out.template, out.theme.preset, slug || out.id || "(new)");
+  }
+  return out;
+}
 
 function slugify(name) {
   const base = String(name || "demo").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "demo";
@@ -18,7 +35,11 @@ function slugify(name) {
 
 function readDemo(slug) {
   const file = path.join(demoDir(slug), "demo.json");
-  const demo = schema.sanitize(JSON.parse(fs.readFileSync(file, "utf8")));
+  const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+  // On the read path too, deliberately: the rewrite happens on the next save of
+  // any kind — including the drag-resize handler — so the warning has to be
+  // available before that, not only once the value is already gone.
+  const demo = checkTheme(raw, schema.sanitize(raw), slug);
   demo.id = slug;
   demo.built = fs.existsSync(path.join(demoDir(slug), "dist", "index.html"));
   demo.path = demoDir(slug); // shown in the dashboard's vibe-coding row
@@ -57,7 +78,7 @@ function copyTemplateSrc(templateName, destDir) {
 
 function create(input) {
   ensureDirs();
-  const demo = schema.sanitize(input);
+  const demo = checkTheme(input, schema.sanitize(input));
   if (!demo.name) throw new Error("Name is required");
   const slug = slugify(demo.name);
   const dir = path.join(DEMOS_ROOT, slug);
@@ -70,12 +91,30 @@ function create(input) {
 
 function update(slug, input) {
   const current = readDemo(slug);
-  const demo = schema.sanitize(Object.assign({}, current, input, {
+  const merged = Object.assign({}, current, input, {
     id: slug,
-    // template changes are not supported in-place (would need re-copying source)
-    template: current.template,
     createdAt: current.createdAt
-  }));
+  });
+  const demo = checkTheme(merged, schema.sanitize(merged), slug);
+
+  /*
+   * A demo folder holds its own copy of one template's source, so changing the
+   * template means the folder now holds the wrong code. Swap it, backing up
+   * whatever was there exactly as Sync does.
+   *
+   * This used to be pinned to the current template with a note that in-place
+   * changes "are not supported" — but the form's Template radios were never
+   * disabled, so picking a different one looked like it worked, saved, and was
+   * silently discarded. Either the radios had to be disabled or this had to
+   * work; doing the copy is the useful half.
+   *
+   * The chokidar watcher sees the new source and rebuilds within ~350ms, so
+   * there is nothing to trigger here.
+   */
+  if (demo.template !== current.template) {
+    replaceSrc(demoDir(slug), demo.template);
+  }
+
   demo.updatedAt = new Date().toISOString();
   writeDemoJson(slug, demo);
   return readDemo(slug);
@@ -87,7 +126,8 @@ function duplicate(slug, newName) {
   const newSlug = slugify(name);
   const dir = path.join(DEMOS_ROOT, newSlug);
   fs.cpSync(demoDir(slug), dir, { recursive: true });
-  const demo = schema.sanitize(Object.assign({}, src, { id: newSlug, name }));
+  const dup = Object.assign({}, src, { id: newSlug, name });
+  const demo = checkTheme(dup, schema.sanitize(dup), newSlug);
   demo.createdAt = demo.updatedAt = new Date().toISOString();
   writeDemoJson(newSlug, demo);
   return readDemo(newSlug);
@@ -106,9 +146,15 @@ function remove(slug) {
  * demo, keeping demo.json — and snapshots the previous source first, so a
  * vibe-coded demo can always be recovered from the backup folder.
  */
-function syncTemplate(slug) {
-  const dir = demoDir(slug);
-  const demo = readDemo(slug);
+/*
+ * Back up a demo's source and lay down a fresh copy of `templateName`.
+ *
+ * Two callers want exactly this: Sync (re-copy the SAME template to pick up
+ * template updates) and a template change on save (copy a DIFFERENT one).
+ * Both must snapshot first, because the demo folder is where vibe-coded
+ * customisation lives and it is about to be replaced.
+ */
+function replaceSrc(dir, templateName) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupDir = path.join(dir, "_backup-" + stamp);
 
@@ -126,9 +172,15 @@ function syncTemplate(slug) {
         entry === ".vite-cache" || entry === "demo.json") continue;
     fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
-  copyTemplateSrc(demo.template, dir);
+  copyTemplateSrc(templateName, dir);
+  return backupDir;
+}
 
-  return { demo: readDemo(slug), backup: backupDir };
+function syncTemplate(slug) {
+  const dir = demoDir(slug);
+  const demo = readDemo(slug);
+  const backup = replaceSrc(dir, demo.template);
+  return { demo: readDemo(slug), backup };
 }
 
 module.exports = { list, readDemo, create, update, duplicate, remove, syncTemplate, slugify };

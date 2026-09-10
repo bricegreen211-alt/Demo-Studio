@@ -82,6 +82,13 @@ for (const [label, dir] of [["templates/", paths.TEMPLATES_ROOT], ["extension/",
 if (fs.existsSync(path.join(paths.REPO_ROOT, "node_modules"))) ok("node_modules", "dependencies installed");
 else bad("node_modules missing", "run:  npm install");
 
+// Demos with Chat UI "Cognigy Webchat v3" are served this bundle by the
+// service; without it they render a blank panel, which is hard to trace back
+// to a missing dependency.
+const webchatBundle = path.join(paths.REPO_ROOT, "node_modules", "@cognigy", "webchat", "dist", "webchat.js");
+if (fs.existsSync(webchatBundle)) ok("Cognigy Webchat v3", "widget bundle present");
+else bad("Cognigy Webchat v3 bundle missing", "run:  npm install");
+
 const iconDir = path.join(paths.EXTENSION_ROOT, "icons");
 if (fs.existsSync(path.join(iconDir, "icon128.png"))) ok("Extension icons");
 else warn("Extension icons missing", "run:  node assets/make-icons.js");
@@ -106,7 +113,7 @@ srv.once("error", (err) => {
       .then((r) => r.json())
       .then((j) => {
         if (j && j.app === "cognigy-demo-studio") ok("Demo Studio is already running", "v" + j.version);
-        else bad("Port " + PORT + " is used by another program", "close it, or set CDS_PORT support is not available yet");
+        else bad("Port " + PORT + " is used by another program", "close that program, then start Demo Studio again");
         finish();
       })
       .catch(() => { bad("Port " + PORT + " is used by another program", "quit it and try again"); finish(); });
@@ -128,7 +135,7 @@ function finish() {
   } else if (warnings) {
     line("✓ Ready to go — with " + warnings + " note" + (warnings === 1 ? "" : "s") + " above.");
   } else {
-    line("✓ Everything looks good. Start the app with:  npm start");
+    line("✓ Everything looks good. Double-click the Cognigy Demo Studio icon to start.");
   }
   line("");
 }

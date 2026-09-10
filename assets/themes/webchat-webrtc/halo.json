@@ -1,0 +1,59 @@
+{
+  "id": "halo",
+  "name": "Halo",
+  "for": ["webchat-webrtc"],
+  "note": "White and vertical. Identity up top, Chat and Voice in one panel, live transcript.",
+  "_comment": [
+    "These are the same values templates/webchat-webrtc/src/styles.css declares",
+    "on :root. The duplication is deliberate and is what makes the design",
+    "editable: a demo folder holds its own COPY of the template source, so a CSS",
+    "edit only reaches demos created afterwards, while this block is injected by",
+    "the service at request time and reaches every demo on the next refresh.",
+    "Custom starts as a copy of this, which is why it has to be complete.",
+    "No --webrtc-* block: the combination renders the demo's own shell, so",
+    "Cognigy's click-to-call container is not on this page to style."
+  ],
+  "tokens": {
+    "--cds-panel-w": "920px",
+    "--cds-panel-h": "1800px",
+    "--cds-panel-min-h": "470px",
+
+    "--surface": "#ffffff",
+    "--surface-raised": "linear-gradient(145deg, #ffffff, #fcfdff)",
+    "--surface-sunk": "#eef4fc",
+    "--surface-inset": "#eff6fd",
+    "--footer-bg": "#fcfdff",
+
+    "--ink": "#10223b",
+    "--ink-strong": "#0d2139",
+    "--ink-soft": "#637e9b",
+    "--ink-faint": "#738aa5",
+    "--ink-tab": "#193c69",
+
+    "--line": "#e3edf8",
+    "--line-soft": "#e0ebf6",
+    "--line-field": "#d4e1f0",
+    "--line-panel": "#bddbff",
+    "--line-tabs": "#bfd9fa",
+
+    "--accent": "#087aff",
+    "--accent-2": "#268dff",
+    "--accent-grad": "linear-gradient(110deg, #087cff, #268dff)",
+    "--bubble-user": "linear-gradient(125deg, #087aff, #0870f5)",
+    "--on-accent": "#ffffff",
+    "--accent-quiet": "#086bdb",
+    "--accent-line": "#1782f7",
+
+    "--live": "#28d999",
+    "--dot-idle": "#98b1c9",
+    "--danger-grad": "linear-gradient(120deg, #ff646e, #ff5666)",
+    "--wave-grad": "linear-gradient(#70b6ff, #087aff)",
+
+    "--r-panel": "27px",
+    "--r-bubble": "18px",
+    "--r-md": "15px",
+    "--r-sm": "14px",
+    "--pad-x": "23px",
+    "--shadow-panel": "0 0 0 2px #c4ddff66, 0 22px 54px #304d6c1c"
+  }
+}

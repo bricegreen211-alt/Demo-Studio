@@ -1,0 +1,100 @@
+/*
+ * Webchat v3 host page styling — see webchat3.html.
+ *
+ * Deliberately almost empty. Everything about how the widget looks is
+ * configured on the Cognigy Endpoint; this page's only job is to be an
+ * invisible sheet of glass the widget sits on. If you find yourself adding
+ * layout or colour rules here, check whether it belongs on the Endpoint
+ * instead — overriding the Endpoint is what made this mode confusing before.
+ *
+ * The extension sizes its iframe to exactly what webchat3.js measures, so the
+ * page must not add margins, padding or scrollbars of its own.
+ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/*
+ * In "solid" the extension paints a full-height white drawer behind this page
+ * and the widget should fill it, so the widget's own card shape would show as a
+ * smaller box floating inside the drawer. Those rules live here (not in the
+ * extension) because only this page can reach the widget's DOM.
+ *
+ * Applied by webchat3.js as html.cds-drawer once the widget is open in solid
+ * mode. In "clear" nothing is applied at all and the widget keeps its own shape,
+ * which is the look in the Cognigy screenshots.
+ */
+/* Load-bearing, not cosmetic. The root is a zero-height positioned flex box by
+   default; leave it that way and the window's inset:0 below resolves against a
+   0px-tall containing block, collapsing the chat to nothing. Making the root
+   static takes it out of the containing-block chain so inset:0 resolves against
+   the viewport — i.e. the iframe — which is what we want it to fill. */
+html.cds-drawer [data-cognigy-webchat-root],
+html.cds-drawer [data-cognigy-webchat-root].webchat-root {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+html.cds-drawer [data-cognigy-webchat-root] [data-cognigy-webchat].webchat {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  height: auto !important;
+  width: var(--cds-drawer-w, 420px) !important;
+  max-width: 100vw !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* Which edge the drawer is flush against. */
+html.cds-drawer.cds-side-right [data-cognigy-webchat-root] [data-cognigy-webchat].webchat {
+  right: 0 !important; left: auto !important;
+}
+html.cds-drawer.cds-side-left [data-cognigy-webchat-root] [data-cognigy-webchat].webchat {
+  left: 0 !important; right: auto !important;
+}
+
+/* ---------- failure card ---------- */
+
+#cds-fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #fff;
+  color: #0f172a;
+}
+#cds-fallback[hidden] { display: none; }
+.cds-fallback-card { max-width: 320px; text-align: center; }
+.cds-fallback-card h1 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+#cds-fallback-msg { font-size: 13px; line-height: 1.5; margin: 0 0 10px; color: #b42318; }
+.cds-fallback-hint { font-size: 12px; color: #64748b; margin: 0; }
+
+/* ---------- debug badge (Settings -> "Show demo diagnostics") ---------- */
+
+#cds-debug {
+  position: fixed;
+  left: 6px;
+  bottom: 6px;
+  z-index: 2147483647;
+  max-width: calc(100% - 12px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .82);
+  color: #fff;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}

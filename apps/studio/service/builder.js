@@ -92,7 +92,7 @@ function startWatcher() {
   const chokidar = require("chokidar");
   const timers = new Map();
   const watcher = chokidar.watch(DEMOS_ROOT, {
-    ignored: (p) => /(^|[\/\\])(dist|locked|node_modules|\.vite-cache|\.git)([\/\\]|$)/.test(p) || /demo\.json$/.test(p),
+    ignored: (p) => /(^|[\/\\])(dist|locked|node_modules|\.vite-cache|\.git|_backup-[^\/\\]*)([\/\\]|$)/.test(p) || /demo\.json$/.test(p),
     ignoreInitial: true,
     depth: 8
   });

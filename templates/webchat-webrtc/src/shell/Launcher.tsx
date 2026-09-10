@@ -1,12 +1,16 @@
 /*
- * The launcher icon the customer clicks to open this demo.
+ * The collapsed launcher — a circular icon button.
  *
  * ── VIBE-CODE ME ──────────────────────────────────────────────────────────
  * In "overlay" panel style this lives in the demo (not the browser extension),
- * so you can change it freely: swap the SVG, restyle the pill, animate it,
- * use the customer's own brand mark — the extension just sizes its transparent
- * iframe to whatever this renders.
+ * so you can change it freely: swap the mark, restyle the button, animate it,
+ * use the customer's own brand — the extension just sizes its transparent
+ * iframe to whatever this renders, so a bigger button gets a bigger frame.
  * ──────────────────────────────────────────────────────────────────────────
+ *
+ * Which mark shows comes from the demo form's launcher picker; the size comes
+ * from its Launcher size control, so both are set in the dashboard rather than
+ * here.
  */
 import { DemoConfig } from "../config";
 
@@ -63,18 +67,23 @@ function iconFor(launcher: string) {
 
 export default function Launcher({ cfg, onClick }: { cfg: DemoConfig; onClick: () => void }) {
   const size = SIZE_PX[cfg.launcherSize] || SIZE_PX.medium;
-  const showLabel = cfg.showLauncherText && !!cfg.launcherText;
+  const label = cfg.showLauncherText && cfg.launcherText ? cfg.launcherText : "";
+  const name = cfg.launcherText || cfg.agentName || "assistant";
 
   return (
     <div className="cds-launcher-row">
-      {showLabel && <span className="cds-launcher-label">{cfg.launcherText}</span>}
+      {label && <span className="cds-launcher-label">{label}</span>}
       <button
         className={"cds-launcher cds-launcher-" + cfg.launcher}
         style={{ width: size, height: size }}
         onClick={onClick}
-        aria-label={"Open " + (cfg.agentName || "assistant")}
+        aria-label={"Open " + name}
       >
-        {iconFor(cfg.launcher)}
+        {/* An uploaded mark wins over the picker, so a customer's own logo can
+            stand in for the built-in icons without touching this file. */}
+        {cfg.launcherImage
+          ? <img className="cds-launcher-img" src={cfg.launcherImage} alt="" />
+          : iconFor(cfg.launcher)}
       </button>
     </div>
   );

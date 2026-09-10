@@ -1,0 +1,118 @@
+/*
+ * Click-to-call host page styling — see webrtc.html.
+ *
+ * Deliberately almost empty, for the same reason webchat3.css is: everything
+ * about how the widget looks belongs either on the Cognigy Endpoint or in the
+ * selected theme (assets/themes/webrtc/*.json, injected by the service). This
+ * page's only job is to be an invisible sheet of glass the widget sits on.
+ *
+ * The extension clips its iframe to exactly what webrtc.js measures, so the
+ * page must not add margins, padding or scrollbars of its own.
+ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/*
+ * ---------- the demo-page position ----------
+ *
+ * Cognigy's own hosted page reads webrtcWidgetConfig.demoPage.position off the
+ * Endpoint and shows either a centered widget or its built-in bottom-RIGHT
+ * corner — bottomRight is the only corner Cognigy's schema knows, there is no
+ * bottomLeft, and most SEs never touch that Endpoint field at all. Demo
+ * Studio already has an authoritative left/right control that every other
+ * panel style in the app honors — Panel Side — so Cognigy Default uses that
+ * instead of the Endpoint's own setting, for the same reason: one control
+ * that always works rather than a per-Endpoint field nobody sets.
+ *
+ * So this page does NOT define a rule for "webrtc-position-centered" the way
+ * it once did — that made every demo whose Endpoint happened to be
+ * configured "centered" render centered regardless of Panel Side, which is
+ * the bug this replaces. The widget bundle itself carries no CSS for either
+ * position class (verified in the dist — KV is just a name lookup); Cognigy's
+ * OWN hosted page is what gives "centered" meaning, in its own inline
+ * <style>. Define no rule here and the class is inert, leaving only the
+ * widget's built-in bottom-right default and the override below.
+ *
+ * That override needs !important on left/right/transform/align-items only:
+ * they are the properties the LEFT case has to flip away from the widget's
+ * non-!important bottom-right default, and !important makes that certain
+ * regardless of the order its emotion-injected stylesheet happens to load
+ * in. top/bottom/right on the right-side rule merely restate that default —
+ * they need none, and stay plain so they read as documentation, not a fight.
+ *
+ * cds-side-left / cds-side-right come from cfg.panelSide, set on <html> in
+ * webrtc.js — the identical mechanism the overlay launcher and Halo's panel
+ * already use for corner placement, so a demo's Side setting means the same
+ * thing everywhere.
+ */
+html.cds-side-right .webrtc_widget_outer_wrapper {
+  top: auto;
+  bottom: 40px;
+  right: 16px;
+}
+html.cds-side-left .webrtc_widget_outer_wrapper {
+  top: auto;
+  bottom: 40px;
+  left: 16px;
+  right: auto !important;
+  transform: none !important;
+  align-items: flex-start !important;
+}
+
+/*
+ * Embedded over a customer's website, drop the Endpoint's demo-page ground.
+ *
+ * The widget writes demoPage.background onto <body> as an INLINE style, so
+ * !important here is required rather than lazy — a stylesheet !important is
+ * the one thing that beats a non-important inline declaration. Nothing else
+ * about the demo page is touched: position, theme and the transcript panel
+ * all still come from the Endpoint.
+ *
+ * webrtc.js adds .cds-embedded only when this page is in a frame, so opening
+ * the demo on its own still renders Cognigy's demo page exactly.
+ */
+html.cds-embedded body {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* ---------- failure card ---------- */
+
+#cds-fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #fff;
+  color: #0f172a;
+}
+#cds-fallback[hidden] { display: none; }
+.cds-fallback-card { max-width: 320px; text-align: center; }
+.cds-fallback-card h1 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+#cds-fallback-msg { font-size: 13px; line-height: 1.5; margin: 0 0 10px; color: #b42318; }
+.cds-fallback-hint { font-size: 12px; color: #64748b; margin: 0; }
+
+/* ---------- debug badge (Settings -> "Show demo diagnostics") ---------- */
+
+#cds-debug {
+  position: fixed;
+  left: 6px;
+  bottom: 6px;
+  z-index: 2147483647;
+  max-width: calc(100% - 12px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .82);
+  color: #fff;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}

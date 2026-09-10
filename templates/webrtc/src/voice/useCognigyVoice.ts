@@ -11,6 +11,9 @@ import {
 } from "@cognigy/click-to-call-sdk";
 // @ts-ignore - shared plain-JS module aliased by the Demo Studio build
 import normalize from "@cds/shared/normalize.js";
+// Shared with Remote Control: this is the one piece of the voice path that
+// guesses at a payload shape Cognigy does not document, so it lives in one file.
+import voiceTranscript from "@cds/shared/voice-transcript.js";
 import { DemoConfig, randomId, isMock } from "../config";
 
 export type CallState = "unsupported" | "idle" | "connecting" | "ringing" | "active" | "ended" | "error";
@@ -27,6 +30,14 @@ export interface CognigyVoice {
   error: string;
   muted: boolean;
   seconds: number;
+  /**
+   * Wall-clock ms when the current call started, so a transcript line's
+   * absolute `at` can be shown as an offset into the call. 0 before the first
+   * call. Kept here rather than derived from the first line in the UI: the
+   * first thing said is rarely at 00:00, and showing it as such misreports
+   * how long the caller waited.
+   */
+  startedAt: number;
   aiSpeaking: boolean;
   transcript: TranscriptLine[];
   supportMissing: string[];
@@ -53,6 +64,17 @@ function reportState(state: string) {
   try { window.parent.postMessage({ type: "CDS_VOICE_STATE", state }, "*"); } catch { /* not embedded */ }
 }
 
+
+/*
+ * Verbose by default, like the extension's content script. A voice call is
+ * unfalsifiable from the outside — "the transcript is empty" could be Cognigy
+ * sending nothing, the endpoint having transcription switched off, or us
+ * misreading the payload — and this is the only place that can tell them apart.
+ */
+function vlog(...args: unknown[]) {
+  try { console.log("[cds-voice]", ...args); } catch { /* ignore */ }
+}
+
 let lineCounter = 0;
 const lineId = () => "t" + ++lineCounter + "-" + Date.now().toString(36);
 
@@ -61,6 +83,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [startedAt, setStartedAt] = useState(0);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [supportMissing, setSupportMissing] = useState<string[]>([]);
@@ -101,7 +124,18 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
 
   const pushLine = (role: TranscriptLine["role"], text: string) => {
     if (!text) return;
-    setTranscript((t) => [...t, { id: lineId(), role, text, at: Date.now() }]);
+    setTranscript((t) => {
+      /*
+       * Cognigy re-sends transcript lines — its own widget de-duplicates by
+       * text + originator within a second, which is only worth doing if
+       * repeats actually arrive. Dropping an immediate repeat is enough: a
+       * caller who genuinely says the same thing twice in a row says it with
+       * something in between.
+       */
+      const last = t[t.length - 1];
+      if (last && last.role === role && last.text === text) return t;
+      return [...t, { id: lineId(), role, text, at: Date.now() }];
+    });
   };
 
   const markAiSpeaking = useCallback(() => {
@@ -123,6 +157,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     setError("");
     setTranscript([]);
     setSeconds(0);
+    setStartedAt(Date.now());
     setMuted(false);
     setStateReported("connecting");
     clearMockTimers();
@@ -163,6 +198,7 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     setError("");
     setTranscript([]);
     setSeconds(0);
+    setStartedAt(Date.now());
     setMuted(false);
     setStateReported("connecting");
     try {
@@ -172,8 +208,9 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
       });
       clientRef.current = client;
 
-      client.on("ringing", () => setStateReported("ringing"));
+      client.on("ringing", () => { vlog("ringing"); setStateReported("ringing"); });
       client.on("answered", () => {
+        vlog("answered — transcription will appear here if the endpoint sends it");
         setStateReported("active");
         stopTimer();
         timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -198,14 +235,34 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
         setError(String((err && err.message) || err));
         setStateReported("error");
       });
-      // Transcription where the endpoint supports it. Payload shape varies by
-      // release; handle the common fields defensively.
+      /*
+       * Transcription. Still cast: "transcription" is missing from the event
+       * union in the installed 0.0.7 typings even though the SDK emits it —
+       * sessionManager forwards it to the public client, verified in the dist.
+       */
       (client as any).on("transcription", (payload: any) => {
-        const text = payload && (payload.text || payload.transcript || (typeof payload === "string" ? payload : ""));
-        const who = payload && (payload.role || payload.participant || payload.originator || "");
-        const role: TranscriptLine["role"] = /agent|ai|bot|remote/i.test(String(who)) ? "ai" : "user";
-        if (role === "ai") markAiSpeaking();
-        pushLine(role, String(text || ""));
+        vlog("transcription", payload);
+        const lines = voiceTranscript.readTranscription(payload);
+        if (!lines.length) {
+          vlog("transcription payload had no readable text — shape not recognised", payload);
+          return;
+        }
+        // One event can carry several messages, each its own line.
+        lines.forEach((line: { role: "user" | "ai"; text: string }) => {
+          if (line.role === "ai") markAiSpeaking();
+          pushLine(line.role, line.text);
+        });
+      });
+
+      /*
+       * Everything else Cognigy sends over SIP INFO lands here: the SDK routes
+       * a body with "_transcription" to the event above and emits infoReceived
+       * for the rest. That makes this the channel an agent uses to push a card
+       * or open an xApp mid-call, so it is logged now and will be routed to the
+       * stage once the built-in chat can render those.
+       */
+      client.on("infoReceived", (payload: any) => {
+        vlog("infoReceived", payload);
       });
 
       await client.connectAndCall();
@@ -244,5 +301,5 @@ export function useCognigyVoice(cfg: DemoConfig): CognigyVoice {
     c.sendInfo(text, data).catch(() => {});
   }, []);
 
-  return { state, error, muted, seconds, aiSpeaking, transcript, supportMissing, start, end, toggleMute, sendInfo, simulated };
+  return { state, error, muted, seconds, startedAt, aiSpeaking, transcript, supportMissing, start, end, toggleMute, sendInfo, simulated };
 }

@@ -8,10 +8,14 @@ export interface DemoConfig {
   name: string;
   template: string;
   panelStyle: string;
+  /** 0 = use the theme's own width. Set by the demo form's Width control. */
+  panelWidth: number;
   launcher: string;
   launcherText: string;
   showLauncherText: boolean;
   launcherSize: string;
+  /** Uploaded launcher art, relative to the demo folder. "" = use the picker. */
+  launcherImage: string;
   agentName: string;
   welcomeMessage: string;
   userId: string;
@@ -23,11 +27,13 @@ const FALLBACK: DemoConfig = {
   id: "",
   name: "Demo",
   template: "webrtc",
-  panelStyle: "solid",
+  panelStyle: "overlay",
+  panelWidth: 0,
   launcher: "ai-orb",
   launcherText: "",
   showLauncherText: true,
   launcherSize: "medium",
+  launcherImage: "",
   agentName: "AI Assistant",
   welcomeMessage: "",
   userId: "",
