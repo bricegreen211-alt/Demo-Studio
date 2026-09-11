@@ -380,7 +380,7 @@ function createApp() {
       extensionLastSeen: lastSeen,
       // Fast, file-only checks (see register-mcp.js) — no CLI spawned, so this
       // never slows down a Settings page load the way `claude mcp get` would.
-      mcp: { code: mcpRegister.codeStatus(), desktop: mcpRegister.desktopStatus() }
+      mcp: { code: mcpRegister.codeStatus(), desktop: mcpRegister.desktopStatus(), skillPath: mcpRegister.SKILL_DEST }
     });
   });
 

@@ -1058,7 +1058,9 @@
       $("mcpManualCmd").textContent =
         'claude mcp add --scope user demo-studio -- node "' + a.repoRoot + '/mcp-server/index.js"';
 
-      var mcp = a.mcp || { code: "unknown", desktop: "unknown" };
+      var mcp = a.mcp || { code: "unknown", desktop: "unknown", skillPath: "" };
+      $("mcpSkillPath").textContent = mcp.skillPath || "";
+      $("mcpSkillPathDrawer").textContent = mcp.skillPath || "";
       var mcpPill = $("mcpPill");
       var mcpBanner = $("mcpBanner");
       var mcpSteps = $("mcpSteps");
@@ -1089,15 +1091,49 @@
     }).catch(function (err) { alertErr(err); });
   }
 
+  /*
+   * Copy-to-clipboard. In the Electron app this goes through window.cds's
+   * native bridge (see preload.js) \u2014 the in-app permission handler only ever
+   * grants microphone access, so a scripted navigator.clipboard.writeText()
+   * from the page is silently DENIED there. It used to be tried anyway
+   * inside a try/catch, which can't catch a rejected Promise, so the button
+   * claimed "Copied" regardless of whether anything actually landed on the
+   * clipboard. Every path below only reports success once a write has
+   * actually gone through.
+   */
+  function copyToClipboard(text) {
+    if (window.cds && window.cds.copyText) return Promise.resolve(window.cds.copyText(text));
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    // Last resort for a plain browser tab with no Clipboard API (very old
+    // browsers, or a non-secure context) \u2014 a hidden textarea + execCommand.
+    return new Promise(function (resolve, reject) {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (ok) resolve(); else reject(new Error("execCommand(copy) returned false"));
+      } catch (err) { reject(err); }
+    });
+  }
+
   // Copy buttons: data-copy points at the element holding the value.
   Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
     btn.addEventListener("click", function () {
       var el = $(btn.getAttribute("data-copy"));
       if (!el || !el.textContent) return;
-      try { navigator.clipboard.writeText(el.textContent); } catch (e) {}
       var was = btn.textContent;
-      btn.textContent = "Copied \u2713";
-      setTimeout(function () { btn.textContent = was; }, 1600);
+      copyToClipboard(el.textContent).then(function () {
+        btn.textContent = "Copied \u2713";
+        setTimeout(function () { btn.textContent = was; }, 1600);
+      }).catch(function () {
+        btn.textContent = "Couldn't copy \u2014 select it manually";
+        setTimeout(function () { btn.textContent = was; }, 2400);
+      });
     });
   });
 

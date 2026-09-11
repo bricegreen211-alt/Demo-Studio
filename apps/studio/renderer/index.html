@@ -587,7 +587,7 @@
     <section class="card">
       <div class="card-head">
         <div>
-          <h3>Claude tools</h3>
+          <h3>Claude Plug-in</h3>
           <p class="card-sub">Once you have a real Agent, Flow, or Endpoint, Claude can create or
             update a demo and a Remote Control gateway for you — in Claude Code or the Claude
             desktop app, from any project.</p>
@@ -601,9 +601,13 @@
         <div class="step">
           <span class="step-n">1</span>
           <div class="step-body">
-            <h4>Already set up</h4>
-            <p><code>npm install</code> connected this project to both Claude Code and the Claude
-              desktop app — nothing to install or configure.</p>
+            <h4>Already set up, in two pieces</h4>
+            <p><code>npm install</code> connects this project to both Claude Code and the Claude
+              desktop app — that's the light above. It also installs a <b>skill</b>, a set of
+              instructions at <code id="mcpSkillPath"></code> that's what
+              actually teaches Claude when and how to use the connection — without it, Claude has
+              the tools available but no reason to reach for them. Both happen together; neither
+              needs anything from you.</p>
           </div>
         </div>
 
@@ -620,8 +624,9 @@
           <span class="step-n">3</span>
           <div class="step-body">
             <h4>If the light above isn't green</h4>
-            <p>Paste this into a terminal from this project's folder — it reconnects both apps, and
-              is safe to run any time (after moving this folder, for instance):</p>
+            <p>Paste this into a terminal from this project's folder — it reconnects Claude Code,
+              the Claude desktop app, and the skill, all together, and is safe to run any time
+              (after moving this folder, for instance):</p>
             <div class="copy-row">
               <code class="copy-val" id="mcpRegisterCmd">npm run mcp:register</code>
               <button class="ghost sm" data-copy="mcpRegisterCmd">Copy</button>
@@ -642,6 +647,9 @@
           </div>
           <p class="muted">Claude Desktop has no equivalent command — add the same path under
             <code>mcpServers</code> in its config file, or just use the button above.</p>
+          <p class="muted">The skill has no install command either — it's one file, copied to
+            <code id="mcpSkillPathDrawer"></code>. Copy it there yourself if
+            you ever need to, from <code>mcp-server/SKILL.md</code> in this project.</p>
         </div>
       </details>
     </section>
