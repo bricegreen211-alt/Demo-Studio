@@ -103,6 +103,42 @@ try {
   warn("git not found", "fine to skip; About falls back to file dates and you'll update by re-downloading");
 }
 
+/* ── MCP bridge ────────────────────────────────────────────── */
+head("MCP bridge (mcp-server/)");
+try {
+  const mcp = require("./register-mcp.js");
+
+  const claudeBin = mcp.claudeCliPath();
+  if (!claudeBin) {
+    warn("Claude Code CLI not found", "install it, then run:  npm run mcp:register");
+  } else {
+    const registered = mcp.getRegisteredCode(claudeBin);
+    if (registered && registered.indexOf(mcp.SERVER_ENTRY) >= 0) ok("Claude Code", "registered, path is current");
+    else if (registered) warn("Claude Code", "registered but points at a different checkout — run:  npm run mcp:register");
+    else warn("Claude Code", "not registered — run:  npm run mcp:register");
+  }
+
+  const desktopConfig = mcp.desktopConfigPath();
+  if (!desktopConfig || !fs.existsSync(path.dirname(desktopConfig))) {
+    ok("Claude Desktop", "not installed on this machine — nothing to check");
+  } else if (!fs.existsSync(desktopConfig)) {
+    warn("Claude Desktop", "installed but no config file yet — run:  npm run mcp:register");
+  } else {
+    let entry = null;
+    try { entry = JSON.parse(fs.readFileSync(desktopConfig, "utf8")).mcpServers || {}; } catch (e) { entry = null; }
+    const server = entry && entry[mcp.MCP_NAME];
+    if (server && Array.isArray(server.args) && server.args[0] === mcp.SERVER_ENTRY) ok("Claude Desktop", "registered, path is current");
+    else if (server) warn("Claude Desktop", "registered but points at a different checkout — run:  npm run mcp:register");
+    else warn("Claude Desktop", "not registered — run:  npm run mcp:register");
+  }
+
+  const skillFile = path.join(os.homedir(), ".claude", "skills", "demo-studio", "SKILL.md");
+  if (fs.existsSync(skillFile)) ok("Skill installed", skillFile);
+  else warn("Skill not installed", "run:  npm run mcp:register");
+} catch (err) {
+  warn("Could not check MCP bridge status", String(err.message || err));
+}
+
 /* ── port ──────────────────────────────────────────────────── */
 head("Local service (port " + PORT + ")");
 const srv = net.createServer();
