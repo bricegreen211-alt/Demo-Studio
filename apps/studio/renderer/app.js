@@ -1051,6 +1051,41 @@
         banner.hidden = true;
         steps.hidden = false;
       }
+
+      // The literal command `npm run mcp:register` runs for Claude Code, for
+      // anyone who wants to see or run it themselves — built from the real
+      // path rather than typed out, so it's never wrong for this machine.
+      $("mcpManualCmd").textContent =
+        'claude mcp add --scope user demo-studio -- node "' + a.repoRoot + '/mcp-server/index.js"';
+
+      var mcp = a.mcp || { code: "unknown", desktop: "unknown" };
+      var mcpPill = $("mcpPill");
+      var mcpBanner = $("mcpBanner");
+      var mcpSteps = $("mcpSteps");
+      var codeOk = mcp.code === "connected";
+      // Desktop simply not being installed on this machine isn't a problem —
+      // only report a gap when it IS installed and isn't hooked up.
+      var desktopOk = mcp.desktop === "connected" || mcp.desktop === "not_installed";
+      if (codeOk && desktopOk) {
+        mcpPill.className = "pill ok";
+        mcpPill.textContent = "Connected";
+        mcpBanner.hidden = false;
+        mcpBanner.innerHTML = "Connected in Claude Code" +
+          (mcp.desktop === "connected" ? " and the Claude desktop app." : ".") +
+          ' <a href="#" id="showMcpSteps">Show the details</a> if you need them.';
+        mcpSteps.hidden = true;
+        var mcpShowLink = $("showMcpSteps");
+        if (mcpShowLink) mcpShowLink.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          mcpSteps.hidden = false;
+          mcpBanner.hidden = true;
+        });
+      } else {
+        mcpPill.className = "pill warn";
+        mcpPill.textContent = (mcp.code === "stale" || mcp.desktop === "stale") ? "Needs reconnecting" : "Not connected yet";
+        mcpBanner.hidden = true;
+        mcpSteps.hidden = false;
+      }
     }).catch(function (err) { alertErr(err); });
   }
 

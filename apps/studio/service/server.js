@@ -16,6 +16,7 @@ const outbound = require("./outbound");
 const { demoDir } = require("./paths");
 const normalize = require("../../../packages/shared/normalize");
 const schema = require("../../../packages/shared/demo-schema");
+const mcpRegister = require("../../../assets/register-mcp.js");
 
 const PORT = 41700;
 const VERSION = require("../../../package.json").version;
@@ -376,7 +377,10 @@ function createApp() {
       // A stale extension is invisible otherwise: it keeps heartbeating
       // happily while serving an old content script.
       extensionStale: !!(st.extensionVersion && st.extensionVersion !== VERSION),
-      extensionLastSeen: lastSeen
+      extensionLastSeen: lastSeen,
+      // Fast, file-only checks (see register-mcp.js) — no CLI spawned, so this
+      // never slows down a Settings page load the way `claude mcp get` would.
+      mcp: { code: mcpRegister.codeStatus(), desktop: mcpRegister.desktopStatus() }
     });
   });
 
