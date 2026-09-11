@@ -229,8 +229,8 @@ project you're already working in, not just this one. Ask it to wire an endpoint
 one, and it checks first for a demo that already matches, creates or updates one, adds a matching
 voice gateway if there's a voice endpoint, confirms the build, and reports back what's ready.
 
-It's set up automatically the first time you run `npm install` — nothing to configure. **Settings →
-Claude tools** has a one-line command to confirm it's connected, and another to reconnect it if
+It's set up automatically the first time you run `npm install` — nothing to configure. **Settings
+→ Claude tools** shows whether it's currently connected, and has a command to reconnect it if
 you've moved this project folder.
 
 ## Under the hood

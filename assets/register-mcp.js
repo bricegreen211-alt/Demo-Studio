@@ -203,13 +203,67 @@ function run() {
   installSkill();
 }
 
+/* ------------------------------------------------------------------ *
+ * Live status, for the Settings page's connection light.
+ *
+ * Deliberately NOT `claude mcp get` — that spawns the MCP server itself to
+ * health-check it (confirmed: it reports "Failed to connect" for a bogus
+ * path, meaning it genuinely launches the process), which is exactly right
+ * for a one-off `npm run doctor` but far too slow to run on every Settings
+ * page load. A plain read of the registration file is instant and tells us
+ * what actually matters here: is the entry present, and does it point at
+ * THIS checkout. Whether the stdio process would currently launch cleanly
+ * isn't a separate question worth the wait — it has no dependencies of its
+ * own beyond this same service already being up, which is guaranteed by the
+ * fact that something is asking this route the question at all.
+ * ------------------------------------------------------------------ */
+
+function codeConfigPath() {
+  return path.join(os.homedir(), ".claude.json");
+}
+
+/**
+ * @returns {"connected"|"stale"|"missing"|"unknown"}
+ *   connected — registered and pointed at this checkout
+ *   stale     — registered, but pointed at a different one (moved project)
+ *   missing   — no entry at all
+ *   unknown   — couldn't read the config (unreadable/unparseable) — reported
+ *               as neutral rather than guessed at either way
+ */
+function codeStatus() {
+  try {
+    const raw = fs.readFileSync(codeConfigPath(), "utf8");
+    const config = JSON.parse(raw);
+    const entry = config.mcpServers && config.mcpServers[MCP_NAME];
+    if (!entry) return "missing";
+    return Array.isArray(entry.args) && entry.args[0] === SERVER_ENTRY ? "connected" : "stale";
+  } catch (err) {
+    return "unknown";
+  }
+}
+
+/** @returns {"connected"|"stale"|"missing"|"not_installed"|"unknown"} */
+function desktopStatus() {
+  const configPath = desktopConfigPath();
+  if (!configPath || !fs.existsSync(path.dirname(configPath))) return "not_installed";
+  try {
+    const raw = fs.readFileSync(configPath, "utf8");
+    const config = JSON.parse(raw);
+    const entry = config.mcpServers && config.mcpServers[MCP_NAME];
+    if (!entry) return "missing";
+    return Array.isArray(entry.args) && entry.args[0] === SERVER_ENTRY ? "connected" : "stale";
+  } catch (err) {
+    return fs.existsSync(configPath) ? "unknown" : "missing";
+  }
+}
+
 module.exports = {
   run,
-  // Read-only, so `npm run doctor` can report status without re-registering
-  // anything — the single place that knows how to detect either app's
-  // registration state, reused rather than duplicated.
   SERVER_ENTRY, MCP_NAME,
-  claudeCliPath, getRegisteredCode, desktopConfigPath
+  // The slower, CLI-based checks `npm run mcp:register`/`npm run doctor` use.
+  claudeCliPath, getRegisteredCode, desktopConfigPath,
+  // The fast, file-read checks the Settings page's status light uses.
+  codeConfigPath, codeStatus, desktopStatus
 };
 
 // Runnable directly (`npm run mcp:register`) as well as required from
