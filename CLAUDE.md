@@ -152,6 +152,18 @@ launcher, window, teaser and close button, and everything about how it looks is 
 Webchat v3 Endpoint. This is the whole point of the mode: the demo should be indistinguishable from the
 customer's own deployment. Resist adding options here; they belong on the Endpoint.
 
+**The panel can be dragged.** A customer site can park its own furniture in the corner Cognigy pins
+to (forthepeople.com has a "TEXT US" tab against the right edge, over the panel) and no stacking
+trick reliably beats a widget in the browser's top layer — so `webchat3.js` lets the SE move it
+instead. Drag the open window by its top 52px, or drag the collapsed launcher; movement under 4px is
+still delivered as a normal click, so the chat stays usable and the launcher still opens. Double-click
+the same strip resets it. The offset is `--cds-drag-x/y` on `<html>`, **not** an inline style, because
+the widget rebuilds its subtree on every open/close; it's a `transform`, so Cognigy's own anchoring is
+untouched and `getBoundingClientRect()` still reports the moved box, which is what keeps the clip
+tracking it. Saved per demo in `localStorage`, keyed by path, the same way Halo's resize is. Overlay
+only — in `solid` the extension paints a drawer behind the widget and a moved widget would just look
+detached from it.
+
 **One exception — the `custom` theme.** `demo.json`'s `theme.custom.colors` / `theme.custom.customColors`
 map 1:1 onto Cognigy's own `settings.colors` / `settings.customColors` and are merged into `initWebchat`
 by `webchat3.js`. That is an SE hand-authoring one demo's own escape hatch — the same one WebRTC's Custom

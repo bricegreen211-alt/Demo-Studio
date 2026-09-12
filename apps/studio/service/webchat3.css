@@ -108,6 +108,31 @@ html.cds-side-left [data-cognigy-webchat-root] button[data-cognigy-webchat-toggl
   }
 }
 
+/* ---------- dragged position ---------- */
+
+/*
+ * Set by webchat3.js when the SE drags the panel, so it can be moved out from
+ * under a customer site's own furniture — see "Drag to reposition" there for
+ * why that beats fighting over z-index.
+ *
+ * A transform rather than left/top: it composites, so a drag stays smooth, and
+ * it leaves Cognigy's own anchoring completely intact — remove the variables
+ * and the widget is exactly where it always was. Both pieces move together, or
+ * closing a moved window would drop the launcher back under whatever the panel
+ * was moved away from.
+ *
+ * Lives on <html> because the widget rebuilds its subtree on every open and
+ * close; an inline transform would not survive the first toggle. Default 0,
+ * so this rule is inert until something is actually dragged.
+ *
+ * getBoundingClientRect() reports the transformed box, so webchat3.js's clip
+ * measurement follows the widget with no extra bookkeeping.
+ */
+html [data-cognigy-webchat-root] [data-cognigy-webchat],
+html [data-cognigy-webchat-root] button[data-cognigy-webchat-toggle] {
+  transform: translate(var(--cds-drag-x, 0px), var(--cds-drag-y, 0px));
+}
+
 /* ---------- failure card ---------- */
 
 #cds-fallback {
