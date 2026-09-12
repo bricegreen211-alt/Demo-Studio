@@ -142,13 +142,15 @@ html.cds-overlay body { overflow: hidden; }
 
 .cds-shell { position: fixed; inset: 0; }
 
-/* collapsed launcher, pinned bottom-right of the (launcher-sized) iframe */
+/* collapsed launcher, pinned bottom-right of the (launcher-sized) iframe —
+   or bottom-left when the demo form's Panel Side is set to "Left". */
 .cds-shell-launcher {
   position: absolute; right: 2px; bottom: 2px;
   /* max-content: the launcher must never shrink to fit the iframe, or
      measuring it would feed back into the size we ask the iframe to be. */
   width: max-content; height: max-content;
 }
+.cds-shell.from-left .cds-shell-launcher { left: 2px; right: auto; }
 .cds-launcher-row { display: flex; align-items: center; gap: 10px; }
 .cds-launcher-label {
   background: #fff; color: var(--ink); font-size: 13px; font-weight: 600;
