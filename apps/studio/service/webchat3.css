@@ -115,11 +115,15 @@ html.cds-side-left [data-cognigy-webchat-root] button[data-cognigy-webchat-toggl
  * under a customer site's own furniture — see "Drag to reposition" there for
  * why that beats fighting over z-index.
  *
- * A transform rather than left/top: it composites, so a drag stays smooth, and
+ * `translate` rather than left/top: it composites, so a drag stays smooth, and
  * it leaves Cognigy's own anchoring completely intact — remove the variables
- * and the widget is exactly where it always was. Both pieces move together, or
- * closing a moved window would drop the launcher back under whatever the panel
- * was moved away from.
+ * and the widget is exactly where it always was. Deliberately NOT `transform`,
+ * even though nothing contends for it here today: webrtc.css's own left-side
+ * rule pins that property to none !important on its widget, and a drag written
+ * as a transform silently lost to it. Same property in both files, so the next
+ * person only has to learn this once. Both pieces move together, or closing a
+ * moved window would drop the launcher back under whatever the panel was moved
+ * away from.
  *
  * Lives on <html> because the widget rebuilds its subtree on every open and
  * close; an inline transform would not survive the first toggle. Default 0,
@@ -130,7 +134,7 @@ html.cds-side-left [data-cognigy-webchat-root] button[data-cognigy-webchat-toggl
  */
 html [data-cognigy-webchat-root] [data-cognigy-webchat],
 html [data-cognigy-webchat-root] button[data-cognigy-webchat-toggle] {
-  transform: translate(var(--cds-drag-x, 0px), var(--cds-drag-y, 0px));
+  translate: var(--cds-drag-x, 0px) var(--cds-drag-y, 0px);
 }
 
 /* ---------- failure card ---------- */

@@ -442,6 +442,7 @@ function createApp() {
     "webchat3.js": "application/javascript; charset=utf-8",
     "webrtc.css": "text/css; charset=utf-8",
     "webrtc.js": "application/javascript; charset=utf-8",
+    "drag-widget.js": "application/javascript; charset=utf-8",
     "audio-panel.js": "application/javascript; charset=utf-8"
   };
 

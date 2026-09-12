@@ -116,3 +116,30 @@ html.cds-embedded body {
   white-space: pre-wrap;
   pointer-events: none;
 }
+
+/* ---------- dragged position ---------- */
+
+/*
+ * Set by drag-widget.js when the SE drags the widget clear of something the
+ * customer's own site parks in the same corner. See drag-widget.js for why
+ * that exists; what matters here is WHICH property carries it.
+ *
+ * `translate`, not `transform`, and that is not a style preference: the
+ * left-side rule above already owns this element's `transform` and pins it to
+ * none !important, to cancel the centering the widget's own emotion CSS does.
+ * A drag written as a transform loses that fight outright on the left and
+ * silently does nothing (measured: the wrapper stayed put while the inner
+ * container slid, so the clip covered both and left a dead region on the
+ * page). `translate` is a separate property that composes with whatever
+ * `transform` ends up being, so the two never collide.
+ *
+ * The outer wrapper only. Everything the widget paints is inside it — the pill
+ * and the "Powered by Cognigy.AI" line that widgetRect() unions in — so they
+ * travel together, and transforming a descendant as well would move it twice.
+ * The fallback covers a container mounted without the wrapper, matching
+ * webrtc.js's own root(): closest(WRAPPER) || container.
+ */
+.webrtc_widget_outer_wrapper,
+.webrtc_widget_container:not(.webrtc_widget_outer_wrapper *) {
+  translate: var(--cds-drag-x, 0px) var(--cds-drag-y, 0px);
+}
