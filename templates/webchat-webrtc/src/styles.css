@@ -89,6 +89,17 @@ html, body, #root {
 /* Overlay draws its own card over a transparent page, so the page itself must
    paint nothing — the customer's website is what shows through. */
 html.cds-overlay, html.cds-overlay body { background: transparent; }
+/*
+ * The closed card is still in the layout — it stays mounted so a call and the
+ * conversation survive a minimize — and its parked transform (translateY(12px)
+ * on a scaled card) sits below the launcher the frame is sized to. Invisible at
+ * opacity 0, but it still counts toward scroll extent, so without this the
+ * collapsed frame scrolls: the browser puts a scrollbar in a 72px-tall iframe,
+ * that scrollbar takes 15px of the width the launcher was measured for, and the
+ * launcher gets visibly cut off on the customer's page. Nothing here is ever
+ * meant to scroll — the extension sizes the frame to fit.
+ */
+html.cds-overlay body { overflow: hidden; }
 button, input { font: inherit; }
 button { cursor: pointer; border: 0; color: inherit; }
 button:disabled { cursor: default; }

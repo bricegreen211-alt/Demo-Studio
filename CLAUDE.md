@@ -129,6 +129,13 @@ posts: `CDS_SIZE` (collapsed launcher size), `CDS_OPEN` (open state + desired si
 (a drag offset), relayed up through `panel.js`. The collapsed iframe must hug the launcher, or an
 invisible rectangle swallows clicks meant for the customer's page.
 
+That hug is also why **every overlay template needs `html.cds-overlay body { overflow: hidden }`**.
+The closed card stays mounted (so a call and the conversation survive a minimize) and its parked
+transform sits below the launcher the frame was measured for — invisible at `opacity: 0`, but still
+counted in scroll extent. Without the rule the collapsed frame scrolls, and a scrollbar in a 72px
+iframe eats 15px of the width the launcher needs: the launcher renders visibly cut off on the
+customer's page. Halo shipped without it on both voice templates and did exactly that.
+
 **Halo can be dragged**, for a customer page with its own furniture in the corner it wants — the same
 problem the Cognigy widgets have, solved the same way. The panel can't move itself (the extension
 owns the frame), so `Shell.tsx` posts `CDS_MOVE` and `content.js` applies it to the frame as
