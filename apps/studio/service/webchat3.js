@@ -6,6 +6,13 @@
  * layout. All of that is configured on the Cognigy Endpoint, which is the whole
  * point — the demo should look exactly like the customer's own deployment.
  *
+ * One deliberate exception: the "Custom" theme. Its demo.json colours are
+ * merged into initWebchat's own settings.colors / settings.customColors below.
+ * That is still the SE hand-authoring one demo's look — the same escape hatch
+ * WebRTC's Custom already has through tokens/css — not Demo Studio imposing an
+ * appearance on Webchat demos generally, which is what the rule above forbids.
+ * Every other theme sends nothing and boots exactly as it did before.
+ *
  * The one job this file does beyond booting the widget is MEASURING it. The
  * extension gives us a transparent iframe and sizes it to whatever we report,
  * so the customer's page stays clickable everywhere the widget isn't:
@@ -65,6 +72,29 @@
       }
     }
   };
+
+  /*
+   * Custom theme colours (see the exception in this file's header). server.js
+   * only fills these in for theme.preset === "custom"; everything else arrives
+   * as {} and nothing below runs, so opts stays byte-identical to what every
+   * demo sent before this existed.
+   *
+   * Verified against @cognigy/webchat 3.49.0 — re-check on upgrade. The nine
+   * field names that actually do something are listed in CLAUDE.md, under
+   * "Things the public Webchat v3 docs get wrong". Anything else passes through
+   * and is ignored by the widget (it reads them as settings?.colors?.x), which
+   * is why a typo shows up as "nothing changed" rather than an error — the
+   * debug badge below is what distinguishes that from the wiring not firing.
+   */
+  var colorsApplied = false;
+  if (cfg.themeColors && Object.keys(cfg.themeColors).length) {
+    opts.settings.colors = cfg.themeColors;
+    colorsApplied = true;
+  }
+  if (cfg.themeCustomColors && Object.keys(cfg.themeCustomColors).length) {
+    opts.settings.customColors = cfg.themeCustomColors;
+    colorsApplied = true;
+  }
 
   var rendered = false;
   var webchatRef = null;
@@ -248,6 +278,9 @@
     el.textContent =
       "style " + (cfg.panelStyle || "?") + " " + (cfg.panelSide || "right") +
       " · webchat3 · " + state +
+      // Present means the colours reached initWebchat. If this shows and the
+      // widget still looks stock, the field NAMES are wrong, not the wiring.
+      (colorsApplied ? " · custom colors" : "") +
       " · widget " + Math.round(r.right - r.left) + "x" + Math.round(r.bottom - r.top) +
       " · clip " + [clip.top, clip.right, clip.bottom, clip.left].join("/") +
       " · vp " + window.innerWidth + "x" + window.innerHeight +

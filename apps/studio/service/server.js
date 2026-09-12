@@ -484,6 +484,21 @@ function createApp() {
    * helper the templates use.
    */
   function sendWebchat3Host(res, cfg) {
+    /*
+     * The Custom slot is the ONLY theme that contributes anything to this
+     * widget. The nine named Webchat presets are CognigyWindowThemeBuilder
+     * names applied on the Endpoint (see CLAUDE.md §Themes) — composing options
+     * for one here would be Demo Studio overriding the very thing the SE
+     * configured in Cognigy.
+     *
+     * Load-bearing, do not "simplify" away: sanitize() does NOT clear
+     * theme.custom for other presets — it passes it through, exactly like
+     * tokens/css — because it is pure and runs on every read, so zeroing it
+     * would delete an SE's hand-edited colours the moment they previewed a
+     * different theme. That makes this gate the only thing standing between
+     * leftover custom colours and a demo the SE has since switched to Bloom.
+     */
+    const custom = (cfg.theme && cfg.theme.preset) === "custom" && cfg.theme.custom;
     const data = {
       name: cfg.name || "",
       endpoint: normalize.chatEndpoint((cfg.cognigy || {}).chatEndpoint),
@@ -493,6 +508,11 @@ function createApp() {
       panelStyle: cfg.panelStyle || "solid",
       panelSide: cfg.panelSide === "left" ? "left" : "right",
       panelWidth: cfg.panelWidth || 0,
+      // Cognigy's own settings.colors / settings.customColors, forwarded
+      // verbatim by webchat3.js. Empty for every other theme, which is what
+      // keeps those byte-identical to before this existed.
+      themeColors: (custom && custom.colors) || {},
+      themeCustomColors: (custom && custom.customColors) || {},
       debug: settingsStore.read().showDiagnostics !== false
     };
     // Escaping "<" makes a </script> breakout impossible.

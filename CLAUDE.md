@@ -148,6 +148,18 @@ launcher, window, teaser and close button, and everything about how it looks is 
 Webchat v3 Endpoint. This is the whole point of the mode: the demo should be indistinguishable from the
 customer's own deployment. Resist adding options here; they belong on the Endpoint.
 
+**One exception — the `custom` theme.** `demo.json`'s `theme.custom.colors` / `theme.custom.customColors`
+map 1:1 onto Cognigy's own `settings.colors` / `settings.customColors` and are merged into `initWebchat`
+by `webchat3.js`. That is an SE hand-authoring one demo's own escape hatch — the same one WebRTC's Custom
+has through tokens/css — not Demo Studio choosing a look for Webchat demos generally, so the rule above
+still holds for the other ten themes. The gate lives in `server.js`'s `sendWebchat3Host()`, **not** in
+`sanitize()`: sanitize is pure and runs on every read, so clearing these for a non-Custom preset would
+delete an SE's hand-edit the moment they previewed a different theme. Every other theme sends `{}` and
+boots byte-identically to before this existed. There is no dashboard UI for it — like every other Custom
+slot in this app, it is hand-edited in `demo.json` or vibe-coded through the demo's project folder. And
+because `store.update()` shallow-merges, edit the file directly or Save the whole form: a partial
+`PUT /api/demos/:id` carrying only `theme.preset` wipes `theme.custom` (already true of tokens/css).
+
 ### Why the frame is full-viewport and clipped
 
 `mountWebchat3()` in `extension/content.js` creates a **full-viewport, transparent iframe that is never
@@ -197,6 +209,14 @@ All verified against 3.49.0 — re-check on upgrade:
   overrides the `followme` we pass, silently breaking Cognigy Live Follow.
 - The widget uses **no shadow DOM**, so the host page's own stylesheet can reach it.
 - `disableToggleButton` lives at `settings.widgetSettings` — we deliberately leave it off.
+- **`settings.colors` takes exactly six fields** — `primaryColor`, `secondaryColor`, `chatInterfaceColor`,
+  `botMessageColor`, `userMessageColor`, `textLinkColor` — and **`settings.customColors` exactly three**:
+  `deleteButtonColor`, `cancelButtonColor`, `deleteAllConversationIconColor`. This is the authoritative
+  copy of that list (the `custom` theme above feeds it; `demo-schema.js` points here rather than keeping
+  a second copy to drift). Nothing else is read: the widget takes every one as `settings?.colors?.x`, so
+  a misspelled key is silently ignored rather than erroring. Both lists came out of the pinned bundle's
+  own defaults object and its live render sites, not the public docs — re-derive them on upgrade with
+  `grep -oE 'colors\?\.[A-Za-z0-9_]+' node_modules/@cognigy/webchat/dist/webchat.js | sort -u`.
 
 ## Simulated mode
 

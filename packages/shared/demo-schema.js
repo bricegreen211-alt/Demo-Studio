@@ -259,8 +259,12 @@
          * replaceSrc keeps it explicitly) — anything in src/ is backed up and
          * replaced. tokens override the template's :root; css is a free block
          * appended after it.
+         *
+         * colors/customColors are the Webchat v3 equivalent, and are not CSS at
+         * all — they are Cognigy's own initWebchat options. See the comment in
+         * sanitize() below for why they're kept separate from tokens.
          */
-        custom: { tokens: {}, css: "" }
+        custom: { tokens: {}, css: "", colors: {}, customColors: {} }
       },
       createdAt: "",
       updatedAt: ""
@@ -398,7 +402,36 @@
         custom: {
           tokens: (input.theme && input.theme.custom && typeof input.theme.custom.tokens === "object" &&
                    input.theme.custom.tokens) || {},
-          css: String((input.theme && input.theme.custom && input.theme.custom.css) || "")
+          css: String((input.theme && input.theme.custom && input.theme.custom.css) || ""),
+          /*
+           * Webchat v3's own colour options, passed straight through to
+           * initWebchat by webchat3.js — NOT CSS. The field names are Cognigy's
+           * (settings.colors / settings.customColors); CLAUDE.md's "Things the
+           * public Webchat v3 docs get wrong" carries the verified list of which
+           * nine actually do anything, so it lives in one place rather than
+           * being duplicated here to drift.
+           *
+           * Deliberately unvalidated, like tokens above, but for a different
+           * reason: tokens get concatenated into a stylesheet, so themes.js has
+           * to escape them. These never become text — they are option VALUES
+           * handed to a function, so a typo'd key is inert (Cognigy reads them
+           * as settings?.colors?.x and gets undefined). Restricting the key list
+           * here would put a copy of Cognigy's schema in a file shared with the
+           * extension and the templates, needing a hand-sync on every SDK bump,
+           * and buy no safety for it. webchat3.js's debug badge is what tells an
+           * SE whether anything was actually applied.
+           *
+           * Only the "custom" preset ever reaches the widget with these — the
+           * gate is in server.js's sendWebchat3Host(), not here, because
+           * sanitize() is pure and runs on every read: zeroing them for other
+           * presets would delete an SE's hand-edit the moment they previewed a
+           * different theme.
+           */
+          colors: (input.theme && input.theme.custom && typeof input.theme.custom.colors === "object" &&
+                   input.theme.custom.colors) || {},
+          customColors: (input.theme && input.theme.custom &&
+                         typeof input.theme.custom.customColors === "object" &&
+                         input.theme.custom.customColors) || {}
         }
       },
       createdAt: String(input.createdAt || ""),
