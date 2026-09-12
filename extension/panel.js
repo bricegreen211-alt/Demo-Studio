@@ -120,6 +120,10 @@
     // `live` has to survive this hop or the drag-resize transition fix never
     // reaches content.js — the demo posts it, this is the only relay.
     else if (d.type === "CDS_OPEN") parent.postMessage({ type: "CDS_OPEN", open: !!d.open, width: d.width, height: d.height, live: !!d.live }, "*");
+    // Overlay: the SE has dragged the panel off the corner the extension
+    // anchors it to. Only the demo can know this — the drag happens inside its
+    // own document — so the offset travels up and content.js moves the frame.
+    else if (d.type === "CDS_MOVE") parent.postMessage({ type: "CDS_MOVE", x: d.x, y: d.y }, "*");
     // Webchat v3 mode: the host page reports where Cognigy's widget actually
     // is, as clip-path insets, so the content script can clip its full-size
     // transparent frame down to that and leave the rest of the page clickable.

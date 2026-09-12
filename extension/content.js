@@ -336,6 +336,19 @@
           h: Math.max(48, Math.min(400, Math.ceil(d.height) || 120))
         };
         if (!isOpen) applySize();
+      } else if (d.type === "CDS_MOVE") {
+        /*
+         * Halo drags itself off the corner this frame is anchored to, for a
+         * customer page with its own furniture there.
+         *
+         * `translate`, not `transform`, and not part of the frame's transition
+         * list: the offset must land on the same frame as the cursor rather
+         * than easing toward it, while width/height keep their open/close
+         * animation. Same property the two Cognigy host pages use for the same
+         * job, so there is one answer to "how does a widget get moved".
+         */
+        frame.style.translate = (Math.round(Number(d.x)) || 0) + "px " +
+                                (Math.round(Number(d.y)) || 0) + "px";
       } else if (d.type === "CDS_OPEN") {
         isOpen = !!d.open;
         if (d.width) opened.w = Math.max(MIN_W, Math.min(MAX_W, Math.ceil(d.width)));

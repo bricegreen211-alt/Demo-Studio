@@ -118,6 +118,32 @@ function loadStored(cfg: DemoConfig): Size | null {
   } catch { return null; }
 }
 
+/*
+ * Where the SE has dragged the panel, as an offset from wherever the extension
+ * would otherwise anchor it.
+ *
+ * Separate from the size key on purpose: size is a preference about the panel,
+ * position is a workaround for one customer's page — resetting one should not
+ * throw away the other.
+ */
+type Pos = { x: number; y: number };
+
+const MOVE_ZONE_H = 52;   // the card's top strip, which acts as its title bar
+const MOVE_SLOP = 4;      // under this it is a click, not a drag
+
+function posKey(cfg: DemoConfig) { return "cds:panelpos:v1:" + (cfg.id || "demo"); }
+
+function loadPos(cfg: DemoConfig): Pos {
+  try {
+    const raw = localStorage.getItem(posKey(cfg));
+    if (raw) {
+      const v = JSON.parse(raw);
+      if (v && isFinite(v.x) && isFinite(v.y)) return { x: v.x, y: v.y };
+    }
+  } catch { /* private mode, or someone else's key */ }
+  return { x: 0, y: 0 };
+}
+
 function clamp(s: Size): Size {
   const room = space();
   const maxH = Math.min(LIMITS.maxH, room.height - ROOM);
@@ -136,6 +162,10 @@ export default function Shell({
   const [dragging, setDragging] = useState(false);
   const launcherRef = useRef<HTMLDivElement>(null);
   const custom = useRef<Size | null>(null);
+  const [pos, setPos] = useState<Pos>({ x: 0, y: 0 });
+  // A ref as well as state: a drag reads the position it started from on every
+  // pointermove, and state would still be the value from the previous frame.
+  const posRef = useRef<Pos>({ x: 0, y: 0 });
 
   // A stored size only applies once the page knows its own viewport, so this
   // runs after mount rather than in the useState initialiser.
@@ -144,6 +174,21 @@ export default function Shell({
     custom.current = stored;
     setSize(stored || clamp(configuredSize(cfg)));
   }, [cfg.id, cfg.panelWidth]);
+
+  useEffect(() => {
+    const stored = loadPos(cfg);
+    posRef.current = stored;
+    setPos(stored);
+  }, [cfg.id]);
+
+  /*
+   * The panel cannot move itself: the extension owns the iframe this renders
+   * in, and anchors it to a corner. So the offset goes UP, and content.js
+   * translates the frame by it.
+   */
+  useEffect(() => {
+    post({ type: "CDS_MOVE", x: pos.x, y: pos.y });
+  }, [pos.x, pos.y]);
 
   // Both the proportional height and every clamp depend on the available room,
   // which arrives from the extension rather than from our own window.
@@ -244,6 +289,72 @@ export default function Shell({
     window.addEventListener("pointercancel", up);
   }, [cfg.panelSide, cfg.id, size.width, size.height]);
 
+  /*
+   * Drag to move — for a customer page that parks its own furniture in the
+   * corner Halo wants. The same problem the Cognigy widgets have, but Halo is
+   * ours, so it can be grabbed by a real header rather than an invisible strip
+   * over somebody else's markup.
+   *
+   * Grabbed by the card's top 52px, or anywhere on the collapsed launcher.
+   * Below the strip is the transcript and the call controls, which must keep
+   * behaving normally — and the grip's own corner is excluded outright, or
+   * resizing would move the panel at the same time.
+   */
+  const onMoveDown = useCallback((ev: React.PointerEvent<HTMLDivElement>) => {
+    if (ev.button !== 0) return;
+    const target = ev.target as HTMLElement;
+    if (target.closest(".cds-grip")) return;   // that corner resizes instead
+    const card = target.closest(".cds-shell-card") as HTMLElement | null;
+    if (card && ev.clientY - card.getBoundingClientRect().top > MOVE_ZONE_H) return;
+
+    // screenX/screenY for the same reason the resize grip uses them: the box
+    // being measured is moving under the cursor.
+    const start = { x: ev.screenX, y: ev.screenY };
+    const from = { ...posRef.current };
+    let moved = false;
+
+    const move = (e: PointerEvent) => {
+      const dx = e.screenX - start.x;
+      const dy = e.screenY - start.y;
+      if (!moved && Math.abs(dx) < MOVE_SLOP && Math.abs(dy) < MOVE_SLOP) return;
+      moved = true;
+      const next = { x: from.x + dx, y: from.y + dy };
+      posRef.current = next;
+      setPos(next);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      if (!moved) return;   // a plain click: leave it entirely alone
+      try { localStorage.setItem(posKey(cfg), JSON.stringify(posRef.current)); } catch { /* won't survive a reload */ }
+      /*
+       * Swallow the click this drag ends with, or releasing over the launcher
+       * would open the panel as well as move it. On a timer too, because a
+       * drag does not always produce a trailing click and a listener left
+       * armed would eat the next real one — dragging the launcher once and
+       * then finding it dead is the worse bug.
+       */
+      const finish = () => { window.removeEventListener("click", swallow, true); clearTimeout(expire); };
+      const swallow = (e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); finish(); };
+      const expire = setTimeout(finish, 0);
+      window.addEventListener("click", swallow, true);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  }, [cfg.id]);
+
+  // Double-click the same strip to put the panel back in its corner. Separate
+  // from the grip's reset, which is about size.
+  const resetPos = useCallback((ev: React.MouseEvent<HTMLDivElement>) => {
+    if ((ev.target as HTMLElement).closest(".cds-grip")) return;
+    const next = { x: 0, y: 0 };
+    posRef.current = next;
+    setPos(next);
+    try { localStorage.removeItem(posKey(cfg)); } catch { /* nothing to clear */ }
+  }, [cfg.id]);
+
   // Double-click the grip to go back to the size set in the demo form.
   const resetSize = useCallback(() => {
     custom.current = null;
@@ -261,7 +372,8 @@ export default function Shell({
       {/* The card stays mounted while closed so the conversation, the chat
           socket and any call in progress all survive a minimize — and so the
           open/close can animate rather than cut. */}
-      <div className="cds-shell-card" aria-hidden={!open}>
+      <div className="cds-shell-card" aria-hidden={!open}
+           onPointerDown={onMoveDown} onDoubleClick={resetPos}>
         <div
           className="cds-grip"
           onPointerDown={onGripDown}
@@ -275,7 +387,8 @@ export default function Shell({
         </div>
       </div>
 
-      <div ref={launcherRef} className="cds-shell-launcher">
+      <div ref={launcherRef} className="cds-shell-launcher"
+           onPointerDown={onMoveDown} onDoubleClick={resetPos}>
         <Launcher cfg={cfg} onClick={() => setOpen(true)} />
       </div>
     </div>

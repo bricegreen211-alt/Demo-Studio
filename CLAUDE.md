@@ -125,9 +125,20 @@ write and `pick()` silently falls back to `solid`, so a dropped value would get 
 drag-resize handler, which no SE would think of as a config change. Add or alias; never delete.
 
 In `overlay`, the extension supplies only a transparent iframe and sizes it from messages the demo
-posts: `CDS_SIZE` (collapsed launcher size) and `CDS_OPEN` (open state + desired size), relayed up
-through `panel.js`. The collapsed iframe must hug the launcher, or an invisible rectangle swallows
-clicks meant for the customer's page.
+posts: `CDS_SIZE` (collapsed launcher size), `CDS_OPEN` (open state + desired size) and `CDS_MOVE`
+(a drag offset), relayed up through `panel.js`. The collapsed iframe must hug the launcher, or an
+invisible rectangle swallows clicks meant for the customer's page.
+
+**Halo can be dragged**, for a customer page with its own furniture in the corner it wants — the same
+problem the Cognigy widgets have, solved the same way. The panel can't move itself (the extension
+owns the frame), so `Shell.tsx` posts `CDS_MOVE` and `content.js` applies it to the frame as
+`translate` — the same property the two Cognigy host pages use, and deliberately not in the frame's
+transition list, so the offset lands on the same frame as the cursor while width/height keep their
+open/close animation. Grab the card's top 52px or the collapsed launcher; the `.cds-grip` corner is
+excluded, or resizing would move the panel too. Position is stored under its own key
+(`cds:panelpos:v1:`) separate from size (`cds:panel:v2:`) — resetting one shouldn't discard the
+other, and each has its own double-click reset. **Both templates carry this**, and they are byte-
+identical, so edit one and copy it over; existing demos need **Sync** before they see it.
 
 ## Chat UI — Cognigy Webchat v3 (default) or the built-in chat
 
