@@ -65,6 +65,49 @@ html.cds-drawer.cds-side-left [data-cognigy-webchat-root] [data-cognigy-webchat]
   left: 0 !important; right: auto !important;
 }
 
+/* ---------- Panel Side: left ---------- */
+
+/*
+ * Cognigy anchors both of its pieces to the right edge: the toggle button at
+ * right: 20px, and (from 576px up, where the window stops being full-screen)
+ * the window at right: 20px. Nothing in initWebchat's options moves them —
+ * layout is not part of the settings surface, only colours and labels are.
+ *
+ * But the widget already ships the mirrored pair itself, for right-to-left
+ * locales:
+ *
+ *   button[data-cognigy-webchat-toggle]:dir(rtl) { left: 20px; right: unset; }
+ *   [data-cognigy-webchat]:dir(rtl)              { right: auto; left: 20px; }
+ *
+ * So these two properties are the ones Cognigy itself flips to put the widget
+ * on the left, which makes them the safe pair to drive from the demo form's
+ * Side setting. Setting dir="rtl" to get the same effect would be the wrong
+ * tool — it would also reverse the message layout and right-align every line
+ * of an English demo.
+ *
+ * Layout only, on the two documented attribute selectors, exactly like the
+ * drawer rules above — no colours, no internal class names. Specificity beats
+ * the widget's own rules without !important, so the drawer block above (which
+ * does use !important) still wins in "solid", where the panel is flush to the
+ * edge rather than inset by 20px.
+ *
+ * Nothing on the extension side needs to change: webchat3.js measures wherever
+ * Cognigy actually painted, so the clip follows the widget to the left on its
+ * own. Below 576px the window is full-screen and has no edge to flip, which is
+ * why only the toggle is moved outside the media query.
+ */
+html.cds-side-left [data-cognigy-webchat-root] button[data-cognigy-webchat-toggle] {
+  left: 20px;
+  right: auto;
+}
+
+@media screen and (min-width: 576px) {
+  html.cds-side-left [data-cognigy-webchat-root] [data-cognigy-webchat] {
+    left: 20px;
+    right: auto;
+  }
+}
+
 /* ---------- failure card ---------- */
 
 #cds-fallback {
