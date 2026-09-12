@@ -33,6 +33,26 @@
   var frame = document.getElementById("demo");
   var err = document.getElementById("err");
 
+  /*
+   * Until the health check comes back and src is assigned, the iframe sits on
+   * about:blank — which inherits THIS page's origin, chrome-extension://…, not
+   * the API's. Anything posted to it with the API as targetOrigin in that gap
+   * throws "target origin does not match the recipient window's origin", and
+   * the content script starts sending the viewport the moment panel.html
+   * loads, which is well before that fetch resolves. So the relay below waits
+   * for this flag rather than for contentWindow, which exists the whole time.
+   */
+  var demoReady = false;
+  var pendingViewport = null;
+
+  frame.addEventListener("load", function () {
+    // Also fires for about:blank on some paths, so the flag is only trusted
+    // once there is a src to have loaded.
+    if (!frame.src) return;
+    demoReady = true;
+    if (pendingViewport) { sendViewport(pendingViewport); pendingViewport = null; }
+  });
+
   // Confirm the studio is up before pointing the iframe at it, so the SE gets
   // a clear message instead of a browser error page.
   fetch(API + "/api/health").then(function (r) {
@@ -57,15 +77,33 @@
    * The source here is the customer's page, so nothing is trusted: only this
    * one type is forwarded, and only as two coerced numbers.
    */
+  function sendViewport(size) {
+    if (!frame.contentWindow) return;
+    // Origin-locked on purpose — the demo is the only intended recipient, and
+    // "*" would hand the customer's page dimensions to whatever the frame
+    // happens to be showing. try/catch because the frame can navigate (or be
+    // torn down) between the check above and the post.
+    try {
+      frame.contentWindow.postMessage({ type: "CDS_VIEWPORT", width: size.width, height: size.height }, API);
+    } catch (e) { /* frame moved off the API origin; the next report will land */ }
+  }
+
   window.addEventListener("message", function (ev) {
     if (ev.source !== parent) return;
     var d = ev.data || {};
-    if (d.type !== "CDS_VIEWPORT" || !frame.contentWindow) return;
-    frame.contentWindow.postMessage({
-      type: "CDS_VIEWPORT",
+    if (d.type !== "CDS_VIEWPORT") return;
+    var size = {
       width: Math.max(0, parseInt(d.width, 10) || 0),
       height: Math.max(0, parseInt(d.height, 10) || 0)
-    }, API);
+    };
+    /*
+     * Held rather than dropped: the content script sends this on panel load
+     * and on resize, so a demo that starts up between those two would sit
+     * with no idea how much room it has — and a demo that cannot see past its
+     * own iframe can only ever shrink itself with the resize grip.
+     */
+    if (!demoReady) { pendingViewport = size; return; }
+    sendViewport(size);
   });
 
   // Relay voice state from the Demo Experience up to the launcher (Voice Wave).
