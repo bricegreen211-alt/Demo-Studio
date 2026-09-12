@@ -243,8 +243,18 @@ migration from the older `~/CognigyDemoStudio` location.
   its window 2147483646). Anything lower paints *underneath* the customer's own bot. The z-indexes
   inside the shadow root are 1/2/3 and only order siblings there. `keepInFront()` re-asserts this and
   re-attaches a detached host, but **never moves a still-attached one** — that would re-attach the
-  panel iframe and reload the demo mid-conversation. Nothing beats Chrome's top layer
-  (`dialog.showModal()`, popover); the occlusion probe logs a warning when that happens.
+  panel iframe and reload the demo mid-conversation.
+- **The host is also promoted into the top layer**, as a `popover="manual"`, because the maximum
+  z-index is not actually a win: a page parking its own widget at the same 2147483647 (OneTrust does)
+  beats us on **DOM order**, since equal z-index is resolved by who comes last. `showPopover()` fixes
+  that without the thing `keepInFront()` may never do — it changes paint order *without moving the
+  element*, so the iframe is not re-attached (measured: promotion leaves the demo's load count at 1,
+  a re-append takes it to 2). `manual`, not `auto`, or an outside click would light-dismiss the panel.
+  Entirely best-effort: `all:initial` on the host already neutralises the UA popover styling,
+  including the `display:none` a closed popover would otherwise get, so any failure lands back on the
+  plain max-z-index behaviour. It is not absolute — a page that shows its own top-layer element after
+  us takes the layer back until `keepInFront()` re-asserts, and that only runs on a DOM mutation it
+  observes. The occlusion probe still logs a warning when something covers us.
 - **`requestAnimationFrame` never fires in a hidden tab**, so anything that must survive the SE
   switching tabs needs a timer fallback. Both `content.js` (`keepInFront`) and
   `apps/studio/service/webchat3.js` (measuring) have their own `soon()` for this; both were caught

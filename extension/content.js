@@ -73,7 +73,54 @@
     host.style.cssText = "all:initial;position:fixed;z-index:" + TOP_Z + ";";
     host.style.setProperty("position", "fixed", "important");
     host.style.setProperty("z-index", TOP_Z, "important");
+    /*
+     * Manual popover, so the host can be promoted into the browser's TOP
+     * LAYER — see topLayer() for why that is worth having and why it is safe
+     * here. "manual" and not "auto": auto popovers light-dismiss on an outside
+     * click and close each other, and the whole point of this panel is that
+     * the customer's page stays clickable underneath it.
+     *
+     * The attribute alone changes nothing about how we paint. It only makes
+     * showPopover() legal; the promotion happens there.
+     */
+    try { host.setAttribute("popover", "manual"); } catch (e) { /* pre-popover browser */ }
     return host;
+  }
+
+  /*
+   * Put the host in the top layer, the one place nothing can paint over by
+   * out-numbering us.
+   *
+   * z-index alone cannot win this. We already sit at 2147483647 — the CSS
+   * maximum, there is no higher number — so a page that parks its own widget
+   * at the same value (forthepeople.com does exactly this with OneTrust) beats
+   * us on DOM ORDER, because equal z-index is resolved by who comes last. The
+   * obvious fix, re-appending ourselves, is the one thing keepInFront() must
+   * never do: moving the host re-attaches the panel iframe and reloads the
+   * demo mid-conversation.
+   *
+   * The top layer sidesteps that trade entirely. showPopover() changes paint
+   * order WITHOUT moving the element in the DOM, so the iframe is never
+   * re-attached and the conversation survives — and top-layer elements render
+   * above every z-index on the page, including a page's own dialog or popover
+   * until it shows one of its own.
+   *
+   * Entirely best-effort. Every failure path leaves us exactly where we were
+   * before this existed: inline z-index at the CSS maximum, which is what
+   * carried this extension until now. Note the host's own `all:initial`
+   * already neutralises the UA popover styling (inset, border, padding, and
+   * the display:none a closed popover would otherwise get), so a browser that
+   * takes the attribute but refuses the promotion still shows the panel.
+   */
+  function topLayer(host) {
+    if (typeof host.showPopover !== "function") return false;
+    try {
+      if (!host.matches(":popover-open")) host.showPopover();
+      return true;
+    } catch (e) {
+      // Not connected yet, attribute rejected, or already-open raced with us.
+      return false;
+    }
   }
 
   /*
@@ -100,6 +147,13 @@
         host.style.setProperty("position", "fixed", "important");
         host.style.setProperty("z-index", TOP_Z, "important");
       }
+      /*
+       * Re-assert the top layer for the same reason the z-index is re-asserted:
+       * a re-attach drops us out of it, and a page that shows its own modal
+       * dialog takes the layer above us until we ask again. Cheap when already
+       * open — topLayer() checks :popover-open and does nothing.
+       */
+      topLayer(host);
       observe(); // records queued while disconnected are dropped
     }
     // rAF coalesces to a paint, which is what we want while visible — but it
