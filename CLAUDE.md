@@ -84,13 +84,17 @@ cost is a readdir per endpoint.
 
 Things worth knowing before changing this:
 
-- **`THEMES` in `demo-schema.js` is still there, and is still the source of truth for the nine
-  Webchat presets.** Disk discovery *merges into* it; it does not replace it. `demo-schema.js` is
-  shared with the extension and the templates, which run in a browser with no `fs`, so the array is
-  their only list — and the Webchat presets have **no files at all** (they are
-  CognigyWindowThemeBuilder names styled on the Endpoint, so Demo Studio composes no CSS for them).
-  Enumerating the directory *instead* would drop all nine and rewrite every Webchat demo to
-  `cognigy-default` on its next save.
+- **`THEMES` in `demo-schema.js` is still there, and disk discovery *merges into* it** rather than
+  replacing it. `demo-schema.js` is shared with the extension and the templates, which run in a
+  browser with no `fs`, so that array is their only list.
+- **Webchat offers exactly Cognigy Default and Custom.** Aurora, Tech, Bloom, Hibiscus, Trailhead,
+  Minimal, Nebula, Sunset and Ivory were retired: they were CognigyWindowThemeBuilder preset *names*
+  whose styling lives on the Endpoint, so Demo Studio composed nothing for any of them and all nine
+  rendered identically to Cognigy Default. Their ids are kept in `RETIRED_THEMES` purely so
+  `themes.warnDropped()` can explain the fallback to an SE whose demo still names one — the fallback
+  changes nothing on screen, only the record of which Endpoint theme they'd configured. A real
+  Webchat theme mechanism is the next version's job; when it lands, a file in
+  `assets/themes/webchat/` registers itself with no edit to either list.
 - **Discovered ids are appended, never prepended,** because `pickTheme()` falls back to the FIRST
   entry — position is what makes a theme the endpoint's default (see §Panel styles for the same
   rule on `panelStyle`). A dropped-in file must not silently become what every unset demo gets.

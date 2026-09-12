@@ -403,7 +403,7 @@
   };
 
   var THEME_SUB = {
-    "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. The rest are CSS themes applied to that same widget.",
+    "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. Custom overrides its colours from demo.json.",
     "webrtc": "Cognigy Default is Cognigy's own click-to-call widget. Halo is the voice shell Demo Studio draws."
   };
 

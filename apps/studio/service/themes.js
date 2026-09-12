@@ -272,8 +272,17 @@ function warnDropped(asked, template, fallback, slug) {
   if (!id) return;
 
   const elsewhere = templatesWith(id).filter((t) => t !== template);
+  const retired = (schema.RETIRED_THEMES || {})[template] || [];
   let why;
-  if (elsewhere.length) {
+  if (retired.indexOf(id) >= 0) {
+    // Retired on purpose, so "drop a file in" would be the wrong advice: the
+    // name referred to a CognigyWindowThemeBuilder preset applied on the
+    // Endpoint, which Demo Studio never composed anything for. Nothing about
+    // the demo LOOKS different for having been moved off it.
+    why = '"' + id + '" was a CognigyWindowThemeBuilder preset name, styled on the Endpoint — ' +
+      "Demo Studio never applied it, so the demo renders exactly as it did. " +
+      "Set that theme on the Webchat Endpoint in Cognigy instead.";
+  } else if (elsewhere.length) {
     why = "its file is under assets/themes/" + elsewhere.join("/ and assets/themes/") +
       "/, not assets/themes/" + template + "/ — themes are per endpoint.";
   } else if (schema.RESERVED_THEMES.indexOf(id) >= 0) {

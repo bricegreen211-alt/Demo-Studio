@@ -93,6 +93,24 @@
   var RESERVED_THEMES = [COGNIGY_DEFAULT, "custom"];
 
   /*
+   * Retired Webchat presets, kept only so a demo.json still carrying one can be
+   * explained rather than silently rewritten (themes.js warnDropped).
+   *
+   * NOT aliased the way retired panel styles are, and the difference matters:
+   * a retired panel style named a frame that still exists, so it can point at
+   * its nearest survivor. These named a LOOK that Demo Studio never applied —
+   * the styling lives on the Cognigy Endpoint — so every one of them already
+   * rendered exactly as Cognigy Default does. Falling back is therefore a
+   * no-op on screen; the only thing lost is the SE's note of which Window
+   * Theme Builder preset they configured over in Cognigy, which is why the log
+   * names the theme it dropped instead of staying quiet.
+   */
+  var RETIRED_THEMES = {
+    "webchat": ["aurora", "tech", "bloom", "hibiscus", "trailhead",
+                "minimal", "nebula", "sunset", "ivory"]
+  };
+
+  /*
    * The BUILT-IN list. Not the whole list: the service walks
    * assets/themes/<endpoint>/ at request time and appends whatever it finds
    * (registerThemes below), so dropping a JSON file in registers the theme with
@@ -100,15 +118,26 @@
    *
    * This array stays because it is the only list the non-Node consumers have —
    * demo-schema.js is shared with the extension and the templates, which run in
-   * a browser with no fs — and because the Webchat presets below have no files
-   * at all: they are CognigyWindowThemeBuilder names applied on the Endpoint,
-   * so nothing composes CSS for them and only this array knows they are valid.
-   * Enumerating the directory INSTEAD of merging with this would drop all nine
-   * and rewrite every Webchat demo to cognigy-default on its next save.
+   * a browser with no fs.
    */
   var THEMES = {
-    "webchat": [COGNIGY_DEFAULT, "aurora", "tech", "bloom", "hibiscus", "trailhead",
-                "minimal", "nebula", "sunset", "ivory", "custom"],
+    /*
+     * Cognigy Default and Custom, and nothing else.
+     *
+     * Aurora, Tech, Bloom, Hibiscus, Trailhead, Minimal, Nebula, Sunset and
+     * Ivory were removed for the same reason Bar, Pill and Card were below:
+     * they named looks nothing produced. They were CognigyWindowThemeBuilder
+     * preset NAMES, and the styling they refer to lives on the Endpoint — so
+     * picking one in this picker changed nothing at all, while reading like a
+     * theme the SE had just applied. Nine tiles that render identically to
+     * Cognigy Default is worse than not offering them.
+     *
+     * They come back when there is a theme mechanism behind the names. The
+     * groundwork for that is the next version's job; RETIRED_THEMES below
+     * keeps the ids recognised in the meantime so a demo still carrying one
+     * gets an explanation rather than a shrug.
+     */
+    "webchat": [COGNIGY_DEFAULT, "custom"],
     /*
      * Bar, Pill and Card are gone for the same reason Nebula, Horizon and
      * Prism were: they named layouts that did not exist. Once WebRTC demos
@@ -501,6 +530,7 @@
     CHAT_UIS: CHAT_UIS,
     THEMES: THEMES,
     RESERVED_THEMES: RESERVED_THEMES,
+    RETIRED_THEMES: RETIRED_THEMES,
     COGNIGY_DEFAULT: COGNIGY_DEFAULT,
     START_BEHAVIORS: START_BEHAVIORS,
     DEFAULT_PANEL_WIDTH: DEFAULT_PANEL_WIDTH,
