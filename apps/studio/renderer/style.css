@@ -708,6 +708,25 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 }
 .ob-toast.ok { border-left: 4px solid var(--teal); }
 .ob-toast.err { border-left: 4px solid var(--pink); }
+/* A trigger result is read next to the flow in another window, so it stays up
+   until dismissed and carries the request/response with it. */
+.ob-toast { padding-right: 34px; }
+.ob-toast-x {
+  position: absolute; top: 8px; right: 10px; border: 0; background: transparent;
+  color: inherit; opacity: .6; font-size: 17px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.ob-toast-x:hover { opacity: 1; }
+.ob-hint { opacity: .75; }
+.ob-toast code { background: rgba(255,255,255,.12); border-radius: 4px; padding: 1px 4px; }
+.ob-debug { margin-top: 9px; }
+.ob-debug > summary { cursor: pointer; opacity: .8; font-size: 12.5px; }
+.ob-debug-head { margin: 7px 0 2px; opacity: .8; font-size: 12px; }
+.ob-debug-label { margin-top: 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.ob-debug pre {
+  margin-top: 3px; max-height: 190px; overflow: auto; background: rgba(0,0,0,.28);
+  border-radius: 8px; padding: 8px 10px; font: 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap; word-break: break-word;
+}
 
 /* ── modal ───────────────────────────────────────────────── */
 .modal { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 50; }

@@ -89,6 +89,26 @@ async function trigger(settings, id, channel) {
   const headers = { "Content-Type": "application/json" };
   if (cfg.endpointKey) headers["x-cognigy-endpoint-key"] = cfg.endpointKey;
 
+  /*
+   * Everything the SE needs to see when the flow answers but no call happens —
+   * which is the usual way this goes wrong, because Demo Studio only TRIGGERS
+   * the flow and the flow is what places the call. Without this the only
+   * evidence is the flow's first line of text, which cannot distinguish "my
+   * branch never matched" from "my branch matched and the dial step failed".
+   *
+   * Never the key itself, only whether one was sent. It is a credential, and
+   * this is rendered into the page.
+   */
+  const debug = {
+    endpoint,
+    keySent: !!cfg.endpointKey,
+    request: body,
+    status: null,
+    ms: 0,
+    response: ""
+  };
+
+  const started = Date.now();
   let res;
   try {
     res = await fetch(endpoint, {
@@ -98,23 +118,50 @@ async function trigger(settings, id, channel) {
       signal: AbortSignal.timeout(15000)
     });
   } catch (err) {
-    throw new Error("Could not reach " + endpoint + " — " + String((err.cause && err.cause.message) || err.message || err));
+    debug.ms = Date.now() - started;
+    return {
+      ok: false,
+      error: "Could not reach " + endpoint + " — " +
+             String((err.cause && err.cause.message) || err.message || err),
+      debug
+    };
   }
-  const text = await res.text();
-  if (!res.ok) throw new Error("Flow endpoint returned HTTP " + res.status + (text ? ": " + text.slice(0, 300) : ""));
+  debug.ms = Date.now() - started;
+  debug.status = res.status;
 
-  // Surface the flow's first text output (if any) so the SE sees confirmation.
+  const text = await res.text();
+  debug.response = text.slice(0, 4000);
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: "Flow endpoint returned HTTP " + res.status +
+             (res.status === 401 || res.status === 403
+               ? " — the Endpoint Key is wrong, or this endpoint requires one and none was sent."
+               : ""),
+      debug
+    };
+  }
+
+  /*
+   * The flow's first text output, shown as confirmation. Also the first
+   * diagnosis: a conversational greeting here means the flow took its normal
+   * path, so data.trigger never matched and nothing was ever asked to dial.
+   */
   let flowReply = "";
+  let outputs = 0;
   try {
     const parsed = JSON.parse(text);
     const stack = parsed.outputStack || [];
+    outputs = stack.length;
     for (const out of stack) {
       if (out && out.text) { flowReply = String(out.text).slice(0, 300); break; }
     }
     if (!flowReply && parsed.text) flowReply = String(parsed.text).slice(0, 300);
   } catch (e) { /* non-JSON response is fine */ }
+  debug.outputs = outputs;
 
-  return { ok: true, sessionId, channel, contact: contact.name, flowReply };
+  return { ok: true, sessionId, channel, contact: contact.name, flowReply, debug };
 }
 
 module.exports = { list, create, update, remove, trigger };

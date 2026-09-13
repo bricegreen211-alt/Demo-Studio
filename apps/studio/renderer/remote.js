@@ -909,24 +909,70 @@
     rcToast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
     api("/api/contacts/" + c.id + "/trigger", postJson({ channel: channel }))
       .then(function (res) {
-        rcToast(CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
-          (res.flowReply ? "<br>Flow says: " + esc(res.flowReply) : ""), true);
+        if (res.ok === false) {
+          rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(res.error || "")) +
+            obDebug(res.debug), false, true);
+          return;
+        }
+        /*
+         * The flow answering is NOT the same as the call being placed — Demo
+         * Studio only triggers the flow, the flow dials. So when the reply
+         * looks like ordinary conversation, say so here rather than letting a
+         * green tick imply a call went out.
+         */
+        var body = CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" +
+          esc(res.sessionId) + "</code>";
+        if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
+        body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
+          " is the flow's job — if none arrived, check that it branches on " +
+          "<code>data.trigger == \"outboundDemo\"</code>.</span>";
+        rcToast(body + obDebug(res.debug), true, true);
       })
       .catch(function (err) {
         rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
-          "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false);
+          "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false, true);
       });
   }
 
+  /* What went out and what came back, collapsed until asked for. */
+  function obDebug(d) {
+    if (!d) return "";
+    var head = "POST " + esc(d.endpoint) +
+      "<br>Endpoint Key: " + (d.keySent ? "sent" : "not sent") +
+      (d.status != null ? "<br>HTTP " + esc(d.status) : "<br>no response") +
+      " · " + esc(d.ms) + " ms" +
+      (d.outputs != null ? " · " + esc(d.outputs) + " output" + (d.outputs === 1 ? "" : "s") : "");
+    var sent = JSON.stringify(d.request, null, 2);
+    var got = d.response && d.response.trim() ? d.response : "(empty body)";
+    try { got = JSON.stringify(JSON.parse(d.response), null, 2); } catch (e) { /* leave raw */ }
+    return "<details class='ob-debug'><summary>What was sent and received</summary>" +
+      "<div class='ob-debug-head'>" + head + "</div>" +
+      "<div class='ob-debug-label'>Sent</div><pre>" + esc(sent) + "</pre>" +
+      "<div class='ob-debug-label'>Received</div><pre>" + esc(got) + "</pre>" +
+      "</details>";
+  }
+
   var toastTimer = null;
-  function rcToast(html, ok) {
+  /*
+   * `sticky` keeps a result up until it is dismissed. A trigger result is the
+   * thing being read and compared against the flow in another window, and a
+   * 7-second timer takes it away mid-sentence.
+   */
+  function rcToast(html, ok, sticky) {
     var el = $("obToast");
     el.className = "ob-toast " + (ok ? "ok" : "err");
-    el.innerHTML = html;
+    el.innerHTML = html +
+      (sticky ? '<button type="button" class="ob-toast-x" aria-label="Dismiss">&times;</button>' : "");
     el.hidden = false;
     clearTimeout(toastTimer);
+    if (sticky) {
+      var x = el.querySelector(".ob-toast-x");
+      if (x) x.addEventListener("click", function () { el.hidden = true; });
+      return;
+    }
     toastTimer = setTimeout(function () { el.hidden = true; }, 7000);
   }
+
 
   /* ── tabs ── */
 
