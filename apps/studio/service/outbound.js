@@ -77,10 +77,24 @@ function rand(prefix) {
 
 const CHANNELS = ["voice", "sms", "email"];
 
-async function trigger(settings, id, channel) {
+/*
+ * `who` is either a saved contact's id or a bare number typed into Quick call.
+ * Mid-demo the number is the whole of what an SE has, and making them file a
+ * contact record first is ceremony in front of a customer — so an ad-hoc
+ * contact is built on the spot and never saved.
+ */
+async function trigger(settings, who, channel) {
   if (CHANNELS.indexOf(channel) < 0) throw new Error("Unknown channel: " + channel);
-  const contact = readContacts().find((c) => c.id === id);
-  if (!contact) throw new Error("Contact not found");
+
+  let contact;
+  if (who && typeof who === "object" && who.number) {
+    const number = String(who.number).trim();
+    if (!number) throw new Error("Enter a telephone number to call.");
+    contact = { name: String(who.name || "").trim() || number, phone: number, sms: number, email: "" };
+  } else {
+    contact = readContacts().find((c) => c.id === who);
+    if (!contact) throw new Error("Contact not found");
+  }
 
   const cfg = settings.outbound || {};
   if (cfg.mode === "vg") return callViaVoiceGateway(cfg, contact, channel);

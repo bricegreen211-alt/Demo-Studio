@@ -944,45 +944,63 @@
     var label = channel === "voice" ? "call" : channel;
     rcToast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
     api("/api/contacts/" + c.id + "/trigger", postJson({ channel: channel }))
-      .then(function (res) {
-        if (res.ok === false) {
-          rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(res.error || "")) +
-            obDebug(res.debug), false, true);
-          return;
-        }
-        /*
-         * The flow answering is NOT the same as the call being placed — Demo
-         * Studio only triggers the flow, the flow dials. So when the reply
-         * looks like ordinary conversation, say so here rather than letting a
-         * green tick imply a call went out.
-         */
-        var body;
-        if (res.via === "vg") {
-          body = CDSIcons.svg("check", 15) + " Voice Gateway accepted the call to " + esc(res.contact) +
-            (res.callSid ? " — call <code>" + esc(res.callSid) + "</code>" : "") +
-            "<br><span class='ob-hint'>The phone should ring now. What the agent says once it is answered " +
-            "is up to the flow behind your Application SID.</span>";
-        } else {
-          body = CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" +
-            esc(res.sessionId) + "</code>";
-          if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
-          body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
-            " is the flow's job — a reply here means it ran, not that a phone rang. If none did, the flow " +
-            "needs to call the Voice Gateway Calls API, or switch to <b>Voice Gateway</b> above and let " +
-            "Demo Studio dial.</span>";
-        }
-        rcToast(body + obDebug(res.debug), true, true);
-      })
-      .catch(function (err) {
-        // Config errors never reach the network, so there is no debug block to
-        // show — just point at the half of the form that is actually in play.
-        rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
-          (obMode === "vg"
-            ? "<br>Check the Voice Gateway fields above."
-            : "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed."),
-          false, true);
-      });
+      .then(showTriggerResult(label))
+      .catch(showTriggerError);
   }
+
+  /* One renderer for both the saved-contact and the quick-call paths. */
+  function showTriggerResult(label) {
+    return function (res) {
+      if (res.ok === false) {
+        rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(res.error || "")) +
+          obDebug(res.debug), false, true);
+        return;
+      }
+      var body;
+      if (res.via === "vg") {
+        body = CDSIcons.svg("check", 15) + " Voice Gateway accepted the call to " + esc(res.contact) +
+          (res.callSid ? " — call <code>" + esc(res.callSid) + "</code>" : "") +
+          "<br><span class='ob-hint'>The phone should ring now. What the agent says once it is answered " +
+          "is up to the flow behind your Application SID.</span>";
+      } else {
+        body = CDSIcons.svg("check", 15) + " Outbound " + esc(label) + " triggered — session <code>" +
+          esc(res.sessionId) + "</code>";
+        if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
+        body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
+          " is the flow's job — a reply here means it ran, not that a phone rang. If none did, the flow " +
+          "needs to call the Voice Gateway Calls API, or switch to <b>Voice Gateway</b> above and let " +
+          "Demo Studio dial.</span>";
+      }
+      rcToast(body + obDebug(res.debug), true, true);
+    };
+  }
+
+  function showTriggerError(err) {
+    // Config errors never reach the network, so there is no debug block to
+    // show — just point at the half of the form that is actually in play.
+    rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
+      (obMode === "vg"
+        ? "<br>Check the Voice Gateway fields above."
+        : "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed."),
+      false, true);
+  }
+
+  function quickCall() {
+    var number = $("obQuickNumber").value.trim();
+    if (!number) { rcToast("Enter a telephone number to call.", false); $("obQuickNumber").focus(); return; }
+    var name = $("obQuickName").value.trim();
+    rcToast("Calling " + esc(name || number) + "…", true);
+    api("/api/outbound/quick", postJson({ number: number, name: name, channel: "voice" }))
+      .then(showTriggerResult("call"))
+      .catch(showTriggerError);
+  }
+  $("obQuickCall").addEventListener("click", quickCall);
+  // Enter in either field dials — this is the control used mid-demo.
+  ["obQuickNumber", "obQuickName"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); quickCall(); }
+    });
+  });
 
   /* What went out and what came back, collapsed until asked for. */
   function obDebug(d) {

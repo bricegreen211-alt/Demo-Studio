@@ -197,7 +197,8 @@ The sidebar's **Remote Control** page:
   WebRTC demos use, so what you see here is what the customer would see. **⧉ Pop Out** opens that
   same panel in a compact off-screen window, with live microphone/speaker device switching and the
   Follow user ID shown for copying to the platform side.
-- **Outbound Trigger tab** — a mini-CRM (name, phone, SMS, email), and two ways to place the call.
+- **Outbound Trigger tab** — **Call a number**: type one, press Enter, the phone rings. Nothing is
+  saved. Contacts below it are for numbers you dial often.
 
 ### Outbound Trigger — Voice Gateway, or your flow
 

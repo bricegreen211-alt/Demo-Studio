@@ -324,6 +324,19 @@ function createApp() {
   app.delete("/api/contacts/:id", (req, res) => {
     try { outbound.remove(req.params.id); ok(res, { ok: true }); } catch (err) { fail(res, err); }
   });
+  /*
+   * Quick call — dial a number without saving it as a contact. Same paths and
+   * the same debug block as a saved contact; only where the number came from
+   * differs.
+   */
+  app.post("/api/outbound/quick", async (req, res) => {
+    try {
+      const b = req.body || {};
+      ok(res, await outbound.trigger(settingsStore.read(),
+        { number: b.number, name: b.name }, b.channel || "voice"));
+    } catch (err) { fail(res, err); }
+  });
+
   app.post("/api/contacts/:id/trigger", async (req, res) => {
     try {
       ok(res, await outbound.trigger(settingsStore.read(), req.params.id, (req.body || {}).channel || "voice"));
