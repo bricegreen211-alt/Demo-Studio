@@ -1040,6 +1040,16 @@
     });
   });
 
+  var lastDebugText = "";
+
+  function copyToClipboard(text) {
+    // Electron denies a scripted navigator.clipboard write (its permission
+    // handler only grants microphone), so the native bridge comes first.
+    if (window.cds && window.cds.copyText) return Promise.resolve(window.cds.copyText(text));
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return Promise.reject(new Error("no clipboard"));
+  }
+
   /* What went out and what came back, collapsed until asked for. */
   function obDebug(d) {
     if (!d) return "";
@@ -1051,7 +1061,24 @@
     var sent = JSON.stringify(d.request, null, 2);
     var got = d.response && d.response.trim() ? d.response : "(empty body)";
     try { got = JSON.stringify(JSON.parse(d.response), null, 2); } catch (e) { /* leave raw */ }
-    return "<details class='ob-debug'><summary>What was sent and received</summary>" +
+    /*
+     * Stash the plain-text version for the Copy button. "Send me the trace" is
+     * otherwise a select-and-scroll through two JSON blocks in a toast, which
+     * is enough friction that the trace does not get sent and the same guessing
+     * continues. The API key never reaches here — debug carries keySent, not
+     * the key.
+     */
+    lastDebugText = [
+      "POST " + d.endpoint,
+      "Endpoint Key: " + (d.keySent ? "sent" : "not sent"),
+      (d.status != null ? "HTTP " + d.status : "no response") + " · " + d.ms + " ms" +
+        (d.outputs != null ? " · " + d.outputs + " outputs" : ""),
+      "", "--- sent ---", sent,
+      "", "--- received ---", got
+    ].join("\n");
+
+    return "<details class='ob-debug'><summary>What was sent and received" +
+      "<button type='button' class='ob-copy' id='obCopyDebug'>Copy</button></summary>" +
       "<div class='ob-debug-head'>" + head + "</div>" +
       "<div class='ob-debug-label'>Sent</div><pre>" + esc(sent) + "</pre>" +
       "<div class='ob-debug-label'>Received</div><pre>" + esc(got) + "</pre>" +
@@ -1074,6 +1101,17 @@
     if (sticky) {
       var x = el.querySelector(".ob-toast-x");
       if (x) x.addEventListener("click", function () { el.hidden = true; });
+      var copy = el.querySelector("#obCopyDebug");
+      if (copy) {
+        copy.addEventListener("click", function (ev) {
+          ev.preventDefault();   // inside <summary>, which would otherwise toggle
+          ev.stopPropagation();
+          copyToClipboard(lastDebugText).then(function () {
+            copy.textContent = "Copied";
+            setTimeout(function () { copy.textContent = "Copy"; }, 1600);
+          }).catch(function () { copy.textContent = "Select it manually"; });
+        });
+      }
       return;
     }
     toastTimer = setTimeout(function () { el.hidden = true; }, 7000);

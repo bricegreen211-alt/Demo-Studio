@@ -738,6 +738,11 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 .ob-toast code { background: rgba(255,255,255,.12); border-radius: 4px; padding: 1px 4px; }
 .ob-debug { margin-top: 9px; }
 .ob-debug > summary { cursor: pointer; opacity: .8; font-size: 12.5px; }
+.ob-copy {
+  margin-left: 10px; border: 1px solid currentColor; background: transparent; color: inherit;
+  border-radius: 6px; padding: 1px 7px; font-size: 11px; font-family: inherit; cursor: pointer; opacity: .85;
+}
+.ob-copy:hover { opacity: 1; }
 .ob-debug-head { margin: 7px 0 2px; opacity: .8; font-size: 12px; }
 .ob-debug-label { margin-top: 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
 .ob-debug pre {
