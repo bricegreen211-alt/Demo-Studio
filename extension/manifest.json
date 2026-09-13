@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NiCE Cognigy Demo Studio",
   "description": "Shows your Cognigy Demo Experience as an animated launcher and slide-out panel on the customer's website.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "permissions": [
     "storage",
     "alarms"
