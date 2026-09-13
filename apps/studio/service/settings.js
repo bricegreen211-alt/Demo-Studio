@@ -4,8 +4,11 @@
  *   extensionLastSeen  : heartbeat timestamp used by preflight's "extension connected"
  *   gateways/activeGateway : Remote Control voice gateways [{name, endpointUrl}]
  *   preferredMicId/preferredSpeakerId : Remote Control device preferences
- *   outbound           : { endpointUrl, endpointKey } — Agent flow REST endpoint
- *                        the Outbound Trigger posts contacts to
+ *   outbound           : how the Outbound Trigger places a call. `mode` picks
+ *                        the path: "flow" POSTs the contact to your Agent
+ *                        flow's REST endpoint and the flow does the dialling;
+ *                        "vg" POSTs straight to the Voice Gateway Calls API and
+ *                        the phone rings with no flow wiring at all
  *   followMeUserId     : the Cognigy user ID every demo and gateway connects
  *                        with. Global: Live Follow tracks one ID, and it is a
  *                        property of how this machine demos, not of a demo.
@@ -31,7 +34,15 @@ const DEFAULTS = {
   gatewayFolders: [],  // Voice Agent gateway folders
   preferredMicId: "",
   preferredSpeakerId: "",
-  outbound: { endpointUrl: "", endpointKey: "" },
+  outbound: {
+    mode: "flow",
+    endpointUrl: "", endpointKey: "",
+    // Voice Gateway, for mode "vg". Everything here comes out of the VG
+    // Self-Service Portal; vgApiKey is an ACCOUNT-level API key, which is a
+    // different credential from the flow's endpointKey above.
+    vgBaseUrl: "", vgAccountSid: "", vgApiKey: "",
+    vgApplicationSid: "", vgFrom: "", vgTrunk: ""
+  },
   // Draws a small state badge on the demo and logs verbosely. On by
   // default while Webchat v3 support settles — turn it off in Settings
   // before demoing to a customer.

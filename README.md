@@ -197,8 +197,27 @@ The sidebar's **Remote Control** page:
   WebRTC demos use, so what you see here is what the customer would see. **⧉ Pop Out** opens that
   same panel in a compact off-screen window, with live microphone/speaker device switching and the
   Follow user ID shown for copying to the platform side.
-- **Outbound Trigger tab** — a mini-CRM (name, phone, SMS, email). **Call** sends the contact to
-  your flow's REST endpoint, and the flow places the outbound call (SMS/Email are labeled beta).
+- **Outbound Trigger tab** — a mini-CRM (name, phone, SMS, email), and two ways to place the call.
+
+### Outbound Trigger — Voice Gateway, or your flow
+
+**Voice Gateway** (recommended) posts straight to the Voice Gateway Calls API, so the phone rings
+without anything wired in the flow. Fill in the six fields once, all from the VG Self-Service
+Portal: API Base URL (your region), Account SID, API Key, Application SID, the From number, and a
+carrier only if you have more than one. **Application SID** is what decides which flow runs once the
+call connects — that is where the agent's opening line belongs.
+
+The API Key here is an **account-level key from the VG portal**. It is not the flow's Endpoint Key,
+and the two are not interchangeable.
+
+**Agent flow** is the original path: the contact is POSTed to your flow's REST endpoint and the flow
+places the call itself. Worth knowing before you pick it — posting to a flow endpoint runs the flow
+as a **text** conversation. If it answers with your call script instead of ringing a phone, the flow
+matched its branch and produced its script correctly, and nothing ever asked Voice Gateway to dial;
+the flow needs its own HTTP Request node against the Calls API.
+
+Either way, every trigger shows **What was sent and received** — the exact URL, status, timing and
+both JSON bodies — which is usually enough to see what went wrong without leaving the app.
 
 ### Outbound Trigger — what your flow receives
 

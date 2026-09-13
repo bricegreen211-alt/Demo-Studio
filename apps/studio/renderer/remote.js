@@ -897,11 +897,47 @@
        .catch(function (err) { rcToast(String(err.message || err), false); });
   });
 
-  $("obSaveBtn").addEventListener("click", function () {
-    api("/api/settings", putJson({
-      outbound: { endpointUrl: $("obEndpoint").value.trim(), endpointKey: $("obKey").value.trim() }
-    })).then(function (s) { settings = s; rcToast("Agent flow connection saved.", true); })
+  /*
+   * One saved object for both paths, so switching modes never silently drops
+   * the other one's settings — an SE who tries Voice Gateway and goes back to
+   * the flow should find their endpoint still there.
+   */
+  function obSettingsBody() {
+    return {
+      outbound: {
+        mode: obMode,
+        endpointUrl: $("obEndpoint").value.trim(),
+        endpointKey: $("obKey").value.trim(),
+        vgBaseUrl: $("obVgBase").value.trim(),
+        vgAccountSid: $("obVgAccount").value.trim(),
+        vgApiKey: $("obVgKey").value.trim(),
+        vgApplicationSid: $("obVgApp").value.trim(),
+        vgFrom: $("obVgFrom").value.trim(),
+        vgTrunk: $("obVgTrunk").value.trim()
+      }
+    };
+  }
+  function saveOutbound() {
+    api("/api/settings", putJson(obSettingsBody()))
+      .then(function (s2) { settings = s2; rcToast("Outbound connection saved.", true); })
       .catch(function (err) { rcToast(String(err.message || err), false); });
+  }
+  $("obSaveBtn").addEventListener("click", saveOutbound);
+  $("obSaveBtnFlow").addEventListener("click", saveOutbound);
+
+  var obMode = "flow";
+  function paintObMode(mode) {
+    obMode = mode === "vg" ? "vg" : "flow";
+    $("obVgPane").hidden = obMode !== "vg";
+    $("obFlowPane").hidden = obMode !== "flow";
+    Array.prototype.forEach.call(document.querySelectorAll(".ob-mode button"), function (b) {
+      var on = b.getAttribute("data-mode") === obMode;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".ob-mode button"), function (b) {
+    b.addEventListener("click", function () { paintObMode(b.getAttribute("data-mode")); saveOutbound(); });
   });
 
   function trigger(c, channel) {
@@ -920,17 +956,31 @@
          * looks like ordinary conversation, say so here rather than letting a
          * green tick imply a call went out.
          */
-        var body = CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" +
-          esc(res.sessionId) + "</code>";
-        if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
-        body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
-          " is the flow's job — if none arrived, check that it branches on " +
-          "<code>data.trigger == \"outboundDemo\"</code>.</span>";
+        var body;
+        if (res.via === "vg") {
+          body = CDSIcons.svg("check", 15) + " Voice Gateway accepted the call to " + esc(res.contact) +
+            (res.callSid ? " — call <code>" + esc(res.callSid) + "</code>" : "") +
+            "<br><span class='ob-hint'>The phone should ring now. What the agent says once it is answered " +
+            "is up to the flow behind your Application SID.</span>";
+        } else {
+          body = CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" +
+            esc(res.sessionId) + "</code>";
+          if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
+          body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
+            " is the flow's job — a reply here means it ran, not that a phone rang. If none did, the flow " +
+            "needs to call the Voice Gateway Calls API, or switch to <b>Voice Gateway</b> above and let " +
+            "Demo Studio dial.</span>";
+        }
         rcToast(body + obDebug(res.debug), true, true);
       })
       .catch(function (err) {
+        // Config errors never reach the network, so there is no debug block to
+        // show — just point at the half of the form that is actually in play.
         rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
-          "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false, true);
+          (obMode === "vg"
+            ? "<br>Check the Voice Gateway fields above."
+            : "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed."),
+          false, true);
       });
   }
 
@@ -1029,6 +1079,14 @@
         }
         $("obEndpoint").value = (settings.outbound && settings.outbound.endpointUrl) || "";
         $("obKey").value = (settings.outbound && settings.outbound.endpointKey) || "";
+        var ob = settings.outbound || {};
+        $("obVgBase").value = ob.vgBaseUrl || "";
+        $("obVgAccount").value = ob.vgAccountSid || "";
+        $("obVgKey").value = ob.vgApiKey || "";
+        $("obVgApp").value = ob.vgApplicationSid || "";
+        $("obVgFrom").value = ob.vgFrom || "";
+        $("obVgTrunk").value = ob.vgTrunk || "";
+        paintObMode(ob.mode || "flow");
         renderGwList();
         renderGwOptions();
         loadContacts();

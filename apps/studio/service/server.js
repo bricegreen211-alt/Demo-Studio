@@ -236,9 +236,17 @@ function createApp() {
     if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
     if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
     if (body.outbound && typeof body.outbound === "object") {
+      const ob = body.outbound;
       patch.outbound = {
-        endpointUrl: String(body.outbound.endpointUrl || "").slice(0, 500),
-        endpointKey: String(body.outbound.endpointKey || "").slice(0, 300)
+        mode: ob.mode === "vg" ? "vg" : "flow",
+        endpointUrl: String(ob.endpointUrl || "").slice(0, 500),
+        endpointKey: String(ob.endpointKey || "").slice(0, 300),
+        vgBaseUrl: String(ob.vgBaseUrl || "").slice(0, 300),
+        vgAccountSid: String(ob.vgAccountSid || "").slice(0, 120),
+        vgApiKey: String(ob.vgApiKey || "").slice(0, 400),
+        vgApplicationSid: String(ob.vgApplicationSid || "").slice(0, 120),
+        vgFrom: String(ob.vgFrom || "").slice(0, 40),
+        vgTrunk: String(ob.vgTrunk || "").slice(0, 120)
       };
     }
     ok(res, settingsStore.write(patch));

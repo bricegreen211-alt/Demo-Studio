@@ -314,13 +314,51 @@
     <!-- Outbound Trigger -->
     <section id="rcOutbound" hidden>
       <div class="ob-settings">
-        <h3>Agent flow connection</h3>
-        <p class="soft">The Call button POSTs the contact to this Cognigy REST endpoint — your Agent flow places the outbound call
-          (see the README for the payload your flow receives).</p>
-        <div class="ob-settings-row">
-          <label>Flow REST Endpoint <input id="obEndpoint" placeholder="https://endpoint-….cognigy.ai/…  (REST endpoint of your Agent flow)" /></label>
-          <label>Endpoint Key <input id="obKey" placeholder="Optional — x-cognigy-endpoint-key" /></label>
-          <button class="ghost" id="obSaveBtn">Save</button>
+        <h3>How the call gets placed</h3>
+        <div class="seg ob-mode" role="radiogroup" aria-label="Outbound path">
+          <button type="button" class="seg-btn" data-mode="vg" role="radio" aria-checked="false">Voice Gateway</button>
+          <button type="button" class="seg-btn" data-mode="flow" role="radio" aria-checked="false">Agent flow</button>
+        </div>
+
+        <!-- Voice Gateway dials directly: nothing has to be wired in the flow. -->
+        <div id="obVgPane" hidden>
+          <p class="soft">Call posts straight to the Voice Gateway Calls API, so the phone rings without the
+            flow doing anything. Your flow only has to handle the call once it connects — that is what
+            <b>Application SID</b> selects. Every value here comes from the VG Self-Service Portal.</p>
+          <div class="ob-settings-row two">
+            <label>API Base URL
+              <input id="obVgBase" list="obVgRegions" placeholder="https://api-vg-trial-us.cognigy.ai" />
+            </label>
+            <label>Account SID <input id="obVgAccount" placeholder="From the portal" /></label>
+          </div>
+          <div class="ob-settings-row two">
+            <label>API Key <input id="obVgKey" type="password" placeholder="Account-level API key — not the flow's Endpoint Key" /></label>
+            <label>Application SID <input id="obVgApp" placeholder="Which application answers the call" /></label>
+          </div>
+          <div class="ob-settings-row">
+            <label>From (caller ID) <input id="obVgFrom" placeholder="Your assigned VG number" /></label>
+            <label>Carrier / trunk <input id="obVgTrunk" placeholder="Optional — only if you have more than one" /></label>
+            <button class="ghost" id="obSaveBtn">Save</button>
+          </div>
+          <datalist id="obVgRegions">
+            <option value="https://api-vg-trial-us.cognigy.ai">Trial US</option>
+            <option value="https://api-vg-trial.cognigy.ai">Trial EU</option>
+            <option value="https://api-vg-us.cognigy.ai">SaaS US</option>
+            <option value="https://voicegateway-app-vg.cognigy.ai">SaaS EU</option>
+          </datalist>
+        </div>
+
+        <!-- The original path: the flow is told to dial and does it itself. -->
+        <div id="obFlowPane" hidden>
+          <p class="soft">Call POSTs the contact to your Agent flow's REST endpoint and the flow places the call
+            itself (see the README for the payload it receives). Posting here runs the flow as a
+            <b>text</b> conversation — if it answers with your call script instead of ringing a phone, the
+            flow matched its branch but never asked Voice Gateway to dial.</p>
+          <div class="ob-settings-row">
+            <label>Flow REST Endpoint <input id="obEndpoint" placeholder="https://endpoint-….cognigy.ai/…  (REST endpoint of your Agent flow)" /></label>
+            <label>Endpoint Key <input id="obKey" placeholder="Optional — x-cognigy-endpoint-key" /></label>
+            <button class="ghost" id="obSaveBtnFlow">Save</button>
+          </div>
         </div>
       </div>
 

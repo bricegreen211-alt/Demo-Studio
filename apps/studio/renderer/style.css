@@ -676,6 +676,10 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
   border: 1px solid var(--line-strong); border-radius: 9px; font-size: 13px; font-family: inherit;
 }
 .ob-settings-row input:focus { outline: none; border-color: var(--primary); }
+/* Two fields, no Save — the button lives on the last row of the group. */
+.ob-settings-row.two { grid-template-columns: 1fr 1fr; }
+.ob-mode { margin: 2px 0 12px; }
+.ob-settings-row + .ob-settings-row { margin-top: 12px; }
 .ob-head { margin-bottom: 12px; }
 .ob-head h3 { font-size: 15px; font-weight: 600; }
 .ob-form { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
