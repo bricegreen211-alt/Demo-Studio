@@ -958,6 +958,20 @@
       b.classList.toggle("on", on);
       b.setAttribute("aria-checked", on ? "true" : "false");
     });
+    /*
+     * Say which path Call will actually take, next to the button that takes it.
+     * The two modes look identical from here and behave completely differently
+     * — one rings a phone, the other just runs the flow as text — and reading
+     * that off a segmented control further up the page is easy to skip.
+     */
+    var hint = $("obQuickHint");
+    if (hint) {
+      hint.innerHTML = obMode === "vg"
+        ? "Voice Gateway dials this number directly. Nothing is saved."
+        : "Posts to your Agent flow, which has to place the call itself — Demo Studio won't dial. " +
+          "Switch to <b>Voice Gateway</b> above to have it dial. Nothing is saved.";
+      hint.classList.toggle("warn-text", obMode !== "vg");
+    }
   }
   Array.prototype.forEach.call(document.querySelectorAll(".ob-mode button"), function (b) {
     b.addEventListener("click", function () { paintObMode(b.getAttribute("data-mode")); saveOutbound(); });

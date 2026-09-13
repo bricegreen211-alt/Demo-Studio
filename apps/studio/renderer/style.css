@@ -692,6 +692,8 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 }
 .ob-quick-row input:focus { outline: none; border-color: var(--primary); }
 .ob-quick > .soft { margin-top: 8px; font-size: 12px; }
+/* Flow mode cannot dial, so the hint saying so is not just informational. */
+.ob-quick > .soft.warn-text { color: var(--warn-text-2, #b45309); }
 .ob-head { margin-bottom: 12px; }
 .ob-head h3 { font-size: 15px; font-weight: 600; }
 .ob-form { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }

@@ -90,14 +90,22 @@ async function trigger(settings, who, channel) {
   if (who && typeof who === "object" && who.number) {
     const number = String(who.number).trim();
     if (!number) throw new Error("Enter a telephone number to call.");
-    contact = { name: String(who.name || "").trim() || number, phone: number, sms: number, email: "" };
+    /*
+     * An unnamed quick call carries NO name, rather than the number standing in
+     * for one. A flow that greets {{contact.name}} would otherwise open with
+     * "Hello, +17149324245" — and Voice Gateway would take the digits as the
+     * caller display name. The number is used as a label for the UI instead,
+     * where standing in for a name is exactly right.
+     */
+    contact = { name: String(who.name || "").trim(), phone: number, sms: number, email: "" };
   } else {
     contact = readContacts().find((c) => c.id === who);
     if (!contact) throw new Error("Contact not found");
   }
 
+  const label = contact.name || contact.phone;   // for the UI, never for the flow
   const cfg = settings.outbound || {};
-  if (cfg.mode === "vg") return callViaVoiceGateway(cfg, contact, channel);
+  if (cfg.mode === "vg") return callViaVoiceGateway(cfg, contact, channel, label);
 
   const endpoint = normalize.chatEndpoint(cfg.endpointUrl || "");
   if (!endpoint) throw new Error("No Flow REST Endpoint configured — paste your Agent flow's REST endpoint URL and Save.");
@@ -188,7 +196,7 @@ async function trigger(settings, who, channel) {
   } catch (e) { /* non-JSON response is fine */ }
   debug.outputs = outputs;
 
-  return { ok: true, sessionId, channel, contact: contact.name, flowReply, debug };
+  return { ok: true, sessionId, channel, contact: label, flowReply, debug };
 }
 
 /*
@@ -196,7 +204,7 @@ async function trigger(settings, who, channel) {
  * Self-Service Portal, and none of it is the flow's REST endpoint or its
  * endpoint key — mixing those two up is the whole reason this mode exists.
  */
-async function callViaVoiceGateway(cfg, contact, channel) {
+async function callViaVoiceGateway(cfg, contact, channel, label) {
   if (channel !== "voice") {
     throw new Error("Voice Gateway places calls only. Switch to the Agent flow path for " + channel + ".");
   }
@@ -207,7 +215,7 @@ async function callViaVoiceGateway(cfg, contact, channel) {
   if (!cfg.vgApplicationSid) missing.push("Application SID");
   if (!cfg.vgFrom) missing.push("From number");
   if (missing.length) throw new Error("Voice Gateway is missing: " + missing.join(", ") + ".");
-  if (!contact.phone) throw new Error(contact.name + " has no telephone number.");
+  if (!contact.phone) throw new Error((label || contact.name) + " has no telephone number.");
 
   const url = String(cfg.vgBaseUrl).replace(/\/+$/, "") +
     "/v1/Accounts/" + encodeURIComponent(cfg.vgAccountSid) + "/Calls";
@@ -259,7 +267,7 @@ async function callViaVoiceGateway(cfg, contact, channel) {
   // VG answers with the call it created; its sid is what to quote in support.
   let callSid = "";
   try { callSid = String(JSON.parse(text).sid || ""); } catch (e) { /* non-JSON is fine */ }
-  return { ok: true, via: "vg", callSid, channel, contact: contact.name, debug };
+  return { ok: true, via: "vg", callSid, channel, contact: label || contact.phone, debug };
 }
 
 module.exports = { list, create, update, remove, trigger };
