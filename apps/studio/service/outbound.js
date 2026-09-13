@@ -226,7 +226,22 @@ async function callViaVoiceGateway(cfg, contact, channel, label) {
     application_sid: cfg.vgApplicationSid,
     from: cfg.vgFrom,
     callerName: contact.name || undefined,
-    to
+    to,
+    /*
+     * Who is being called, carried on the call itself.
+     *
+     * Without this the application that answers knows only that A rang B. The
+     * flow greeting a customer by name — "may I confirm I'm speaking with Alex
+     * Morgan?" — has nowhere to read that from, because unlike the flow-trigger
+     * path there is no data payload: Voice Gateway is dialling, not Cognigy.
+     * `tag` is the documented place for exactly this, arbitrary metadata that
+     * rides along for the flow and for reporting.
+     */
+    tag: {
+      trigger: "outboundDemo",
+      contactPhone: contact.phone,
+      contactName: contact.name || undefined
+    }
   };
 
   // Same debug shape the flow path returns, so the UI renders one thing. The
@@ -264,10 +279,15 @@ async function callViaVoiceGateway(cfg, contact, channel, label) {
     };
   }
 
-  // VG answers with the call it created; its sid is what to quote in support.
-  let callSid = "";
-  try { callSid = String(JSON.parse(text).sid || ""); } catch (e) { /* non-JSON is fine */ }
-  return { ok: true, via: "vg", callSid, channel, contact: label || contact.phone, debug };
+  // VG answers 201 with { sid, callid }: sid is the session, callid the call.
+  // Both are what support asks for, so keep them.
+  let callSid = "", callId = "";
+  try {
+    const j = JSON.parse(text);
+    callSid = String(j.sid || "");
+    callId = String(j.callid || "");
+  } catch (e) { /* non-JSON is fine */ }
+  return { ok: true, via: "vg", callSid, callId, channel, contact: label || contact.phone, debug };
 }
 
 module.exports = { list, create, update, remove, trigger };

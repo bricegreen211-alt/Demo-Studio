@@ -996,7 +996,8 @@
       var body;
       if (res.via === "vg") {
         body = CDSIcons.svg("check", 15) + " Voice Gateway accepted the call to " + esc(res.contact) +
-          (res.callSid ? " — call <code>" + esc(res.callSid) + "</code>" : "") +
+          (res.callSid ? " — session <code>" + esc(res.callSid) + "</code>" : "") +
+          (res.callId ? " call <code>" + esc(res.callId) + "</code>" : "") +
           "<br><span class='ob-hint'>The phone should ring now. What the agent says once it is answered " +
           "is up to the flow behind your Application SID.</span>";
       } else {

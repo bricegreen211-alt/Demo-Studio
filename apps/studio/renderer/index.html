@@ -340,11 +340,18 @@
             <label>Carrier / trunk <input id="obVgTrunk" placeholder="Optional — only if you have more than one" /></label>
             <button class="ghost" id="obSaveBtn">Save</button>
           </div>
+          <!-- Every base URL the Voice Gateway docs list. A NiCE CXone or
+               dedicated-SaaS tenant has its own host, so those two are typed in
+               rather than picked. -->
           <datalist id="obVgRegions">
             <option value="https://api-vg-trial-us.cognigy.ai">Trial US</option>
             <option value="https://api-vg-trial.cognigy.ai">Trial EU</option>
             <option value="https://api-vg-us.cognigy.ai">SaaS US</option>
             <option value="https://voicegateway-app-vg.cognigy.ai">SaaS EU</option>
+            <option value="https://api-vg-uk.cognigy.ai">SaaS UK</option>
+            <option value="https://api-vg-au.cognigy.ai">SaaS AU</option>
+            <option value="https://cognigy-vg-api-REGION.nicecxone.com">NiCE CXone — replace REGION</option>
+            <option value="https://api-COMPANY-vg.cognigy.cloud">Dedicated SaaS — replace COMPANY</option>
           </datalist>
         </div>
 
