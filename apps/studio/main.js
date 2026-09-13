@@ -4,7 +4,7 @@
  * dashboard, which is the same web app the service serves at "/". SEs launch
  * the app like any other program — no terminal, ever (SOW §2).
  */
-const { app, BrowserWindow, Tray, Menu, dialog, shell, ipcMain, session, systemPreferences, nativeTheme } =
+const { app, BrowserWindow, Tray, Menu, dialog, shell, ipcMain, session, systemPreferences, nativeTheme, clipboard } =
   require("electron");
 const path = require("path");
 const http = require("http");
@@ -310,6 +310,22 @@ app.whenReady().then(async () => {
     const { REPO_ROOT, DATA_ROOT } = require("./service/paths");
     const target = path.resolve(String(dir || ""));
     if (target.startsWith(REPO_ROOT) || target.startsWith(DATA_ROOT)) shell.openPath(target);
+  });
+
+  /*
+   * Every copy-to-clipboard button in the dashboard (a command to paste into
+   * a terminal, a path, a URL) goes through here rather than the page's own
+   * navigator.clipboard.writeText(). That web API is a scripted permission
+   * request, and the handlers just above only ever grant "media" — so it was
+   * silently DENIED for everything else, and the button still claimed
+   * "Copied ✓" because the old code's try/catch couldn't catch a rejected
+   * Promise. Electron's own clipboard module has no such permission model —
+   * synchronous, always available to the main process — so route through it
+   * instead of trying to carve out an exception in the web permission layer.
+   */
+  ipcMain.handle("cds-copy-text", (ev, text) => {
+    clipboard.writeText(String(text || ""));
+    return true;
   });
 
   /*

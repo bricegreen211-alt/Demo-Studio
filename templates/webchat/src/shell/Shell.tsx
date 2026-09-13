@@ -65,7 +65,7 @@ export default function Shell({ cfg, children }: { cfg: DemoConfig; children: Re
   }, [open, openSize.width, openSize.height]);
 
   return (
-    <div className="cds-shell">
+    <div className={"cds-shell" + (cfg.panelSide === "left" ? " from-left" : "")}>
       {/* Card stays mounted while closed so the conversation isn't lost. */}
       <div className="cds-shell-card" style={{ display: open ? "flex" : "none" }}>
         <button className="cds-shell-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>

@@ -38,7 +38,7 @@ npm install
 
 That one install does everything: it pulls in the dependencies, creates a double-click launcher on
 your Desktop and in your Applications / Start Menu, and connects Claude to this project (see
-**Claude tools** below) — nothing further to set up there. Day to day, double-click the launcher
+**Claude Plug-in** below) — nothing further to set up there. Day to day, double-click the launcher
 that install created. To start it from a terminal instead:
 
 ```bash
@@ -123,9 +123,9 @@ no per-demo setup.
 
 **Settings** (sidebar) holds everything that applies across every demo: appearance (System / Light
 / Dark, also toggleable from the sidebar rail, which itself collapses to icons), the Follow user
-ID, diagnostics, microphone cleanup for calls, the browser extension install steps, Claude tools,
-and **Export / Import** to move demos between machines. Import also accepts an export from the
-older Injector tool.
+ID, diagnostics, microphone cleanup for calls, the browser extension install steps, the Claude
+Plug-in, and **Export / Import** to move demos between machines. Import also accepts an export from
+the older Injector tool.
 
 ### Try it without a live connection — sample demos
 
@@ -197,8 +197,28 @@ The sidebar's **Remote Control** page:
   WebRTC demos use, so what you see here is what the customer would see. **⧉ Pop Out** opens that
   same panel in a compact off-screen window, with live microphone/speaker device switching and the
   Follow user ID shown for copying to the platform side.
-- **Outbound Trigger tab** — a mini-CRM (name, phone, SMS, email). **Call** sends the contact to
-  your flow's REST endpoint, and the flow places the outbound call (SMS/Email are labeled beta).
+- **Outbound Trigger tab** — **Call a number**: type one, press Enter, the phone rings. Nothing is
+  saved. Contacts below it are for numbers you dial often.
+
+### Outbound Trigger — Voice Gateway, or your flow
+
+**Voice Gateway** (recommended) posts straight to the Voice Gateway Calls API, so the phone rings
+without anything wired in the flow. Fill in the six fields once, all from the VG Self-Service
+Portal: API Base URL (your region), Account SID, API Key, Application SID, the From number, and a
+carrier only if you have more than one. **Application SID** is what decides which flow runs once the
+call connects — that is where the agent's opening line belongs.
+
+The API Key here is an **account-level key from the VG portal**. It is not the flow's Endpoint Key,
+and the two are not interchangeable.
+
+**Agent flow** is the original path: the contact is POSTed to your flow's REST endpoint and the flow
+places the call itself. Worth knowing before you pick it — posting to a flow endpoint runs the flow
+as a **text** conversation. If it answers with your call script instead of ringing a phone, the flow
+matched its branch and produced its script correctly, and nothing ever asked Voice Gateway to dial;
+the flow needs its own HTTP Request node against the Calls API.
+
+Either way, every trigger shows **What was sent and received** — the exact URL, status, timing and
+both JSON bodies — which is usually enough to see what went wrong without leaving the app.
 
 ### Outbound Trigger — what your flow receives
 
@@ -221,7 +241,7 @@ this body:
 In your flow, branch on `data.trigger == "outboundDemo"` / `data.channel`, then place the call. The
 first text output your flow returns is shown back to you as confirmation.
 
-## Claude tools
+## Claude Plug-in
 
 Once you have a real Agent, Flow, or Endpoint, Claude can create or update a Demo Experience and a
 Remote Control gateway for it directly — in Claude Code or the Claude desktop app, from whatever
@@ -229,9 +249,9 @@ project you're already working in, not just this one. Ask it to wire an endpoint
 one, and it checks first for a demo that already matches, creates or updates one, adds a matching
 voice gateway if there's a voice endpoint, confirms the build, and reports back what's ready.
 
-It's set up automatically the first time you run `npm install` — nothing to configure. **Settings
-→ Claude tools** shows whether it's currently connected, and has a command to reconnect it if
-you've moved this project folder.
+It's set up automatically the first time you run `npm install` — nothing to configure, including a
+skill that teaches Claude when to reach for it. **Settings → Claude Plug-in** shows whether it's
+currently connected, and has a command to reconnect it if you've moved this project folder.
 
 ## Under the hood
 

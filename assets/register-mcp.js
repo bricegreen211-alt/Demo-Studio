@@ -25,6 +25,7 @@ const { execFileSync } = require("child_process");
 const REPO_ROOT = path.join(__dirname, "..");
 const SERVER_ENTRY = path.join(REPO_ROOT, "mcp-server", "index.js");
 const SKILL_SOURCE = path.join(REPO_ROOT, "mcp-server", "SKILL.md");
+const SKILL_DEST = path.join(os.homedir(), ".claude", "skills", "demo-studio", "SKILL.md");
 const MCP_NAME = "demo-studio";
 
 function log(msg) { console.log("[mcp] " + msg); }
@@ -180,20 +181,18 @@ function registerClaudeDesktop() {
  * ------------------------------------------------------------------ */
 
 function installSkill() {
-  const destDir = path.join(os.homedir(), ".claude", "skills", "demo-studio");
-  const destFile = path.join(destDir, "SKILL.md");
   try {
     const wanted = fs.readFileSync(SKILL_SOURCE, "utf8");
-    const have = fs.existsSync(destFile) ? fs.readFileSync(destFile, "utf8") : null;
+    const have = fs.existsSync(SKILL_DEST) ? fs.readFileSync(SKILL_DEST, "utf8") : null;
     if (have === wanted) {
-      log("Skill: already up to date at " + destFile);
+      log("Skill: already up to date at " + SKILL_DEST);
       return;
     }
-    fs.mkdirSync(destDir, { recursive: true });
-    fs.writeFileSync(destFile, wanted, "utf8");
-    log((have === null ? "Skill: installed -> " : "Skill: updated -> ") + destFile);
+    fs.mkdirSync(path.dirname(SKILL_DEST), { recursive: true });
+    fs.writeFileSync(SKILL_DEST, wanted, "utf8");
+    log((have === null ? "Skill: installed -> " : "Skill: updated -> ") + SKILL_DEST);
   } catch (err) {
-    warn("Skill: could not install (" + (err.message || err) + ") — copy mcp-server/SKILL.md to ~/.claude/skills/demo-studio/SKILL.md by hand.");
+    warn("Skill: could not install (" + (err.message || err) + ") — copy mcp-server/SKILL.md to " + SKILL_DEST + " by hand.");
   }
 }
 
@@ -259,7 +258,7 @@ function desktopStatus() {
 
 module.exports = {
   run,
-  SERVER_ENTRY, MCP_NAME,
+  SERVER_ENTRY, MCP_NAME, SKILL_DEST,
   // The slower, CLI-based checks `npm run mcp:register`/`npm run doctor` use.
   claudeCliPath, getRegisteredCode, desktopConfigPath,
   // The fast, file-read checks the Settings page's status light uses.

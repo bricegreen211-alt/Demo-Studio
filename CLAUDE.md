@@ -84,13 +84,17 @@ cost is a readdir per endpoint.
 
 Things worth knowing before changing this:
 
-- **`THEMES` in `demo-schema.js` is still there, and is still the source of truth for the nine
-  Webchat presets.** Disk discovery *merges into* it; it does not replace it. `demo-schema.js` is
-  shared with the extension and the templates, which run in a browser with no `fs`, so the array is
-  their only list — and the Webchat presets have **no files at all** (they are
-  CognigyWindowThemeBuilder names styled on the Endpoint, so Demo Studio composes no CSS for them).
-  Enumerating the directory *instead* would drop all nine and rewrite every Webchat demo to
-  `cognigy-default` on its next save.
+- **`THEMES` in `demo-schema.js` is still there, and disk discovery *merges into* it** rather than
+  replacing it. `demo-schema.js` is shared with the extension and the templates, which run in a
+  browser with no `fs`, so that array is their only list.
+- **Webchat offers exactly Cognigy Default and Custom.** Aurora, Tech, Bloom, Hibiscus, Trailhead,
+  Minimal, Nebula, Sunset and Ivory were retired: they were CognigyWindowThemeBuilder preset *names*
+  whose styling lives on the Endpoint, so Demo Studio composed nothing for any of them and all nine
+  rendered identically to Cognigy Default. Their ids are kept in `RETIRED_THEMES` purely so
+  `themes.warnDropped()` can explain the fallback to an SE whose demo still names one — the fallback
+  changes nothing on screen, only the record of which Endpoint theme they'd configured. A real
+  Webchat theme mechanism is the next version's job; when it lands, a file in
+  `assets/themes/webchat/` registers itself with no edit to either list.
 - **Discovered ids are appended, never prepended,** because `pickTheme()` falls back to the FIRST
   entry — position is what makes a theme the endpoint's default (see §Panel styles for the same
   rule on `panelStyle`). A dropped-in file must not silently become what every unset demo gets.
@@ -121,9 +125,27 @@ write and `pick()` silently falls back to `solid`, so a dropped value would get 
 drag-resize handler, which no SE would think of as a config change. Add or alias; never delete.
 
 In `overlay`, the extension supplies only a transparent iframe and sizes it from messages the demo
-posts: `CDS_SIZE` (collapsed launcher size) and `CDS_OPEN` (open state + desired size), relayed up
-through `panel.js`. The collapsed iframe must hug the launcher, or an invisible rectangle swallows
-clicks meant for the customer's page.
+posts: `CDS_SIZE` (collapsed launcher size), `CDS_OPEN` (open state + desired size) and `CDS_MOVE`
+(a drag offset), relayed up through `panel.js`. The collapsed iframe must hug the launcher, or an
+invisible rectangle swallows clicks meant for the customer's page.
+
+That hug is also why **every overlay template needs `html.cds-overlay body { overflow: hidden }`**.
+The closed card stays mounted (so a call and the conversation survive a minimize) and its parked
+transform sits below the launcher the frame was measured for — invisible at `opacity: 0`, but still
+counted in scroll extent. Without the rule the collapsed frame scrolls, and a scrollbar in a 72px
+iframe eats 15px of the width the launcher needs: the launcher renders visibly cut off on the
+customer's page. Halo shipped without it on both voice templates and did exactly that.
+
+**Halo can be dragged**, for a customer page with its own furniture in the corner it wants — the same
+problem the Cognigy widgets have, solved the same way. The panel can't move itself (the extension
+owns the frame), so `Shell.tsx` posts `CDS_MOVE` and `content.js` applies it to the frame as
+`translate` — the same property the two Cognigy host pages use, and deliberately not in the frame's
+transition list, so the offset lands on the same frame as the cursor while width/height keep their
+open/close animation. Grab the card's top 52px or the collapsed launcher; the `.cds-grip` corner is
+excluded, or resizing would move the panel too. Position is stored under its own key
+(`cds:panelpos:v1:`) separate from size (`cds:panel:v2:`) — resetting one shouldn't discard the
+other, and each has its own double-click reset. **Both templates carry this**, and they are byte-
+identical, so edit one and copy it over; existing demos need **Sync** before they see it.
 
 ## Chat UI — Cognigy Webchat v3 (default) or the built-in chat
 
@@ -147,6 +169,30 @@ cosmetic passed to `initWebchat` — no colours, no logo, no style preset. Cogni
 launcher, window, teaser and close button, and everything about how it looks is configured on the
 Webchat v3 Endpoint. This is the whole point of the mode: the demo should be indistinguishable from the
 customer's own deployment. Resist adding options here; they belong on the Endpoint.
+
+**The panel can be dragged.** A customer site can park its own furniture in the corner Cognigy pins
+to (forthepeople.com has a "TEXT US" tab against the right edge, over the panel) and no stacking
+trick reliably beats a widget in the browser's top layer — so `webchat3.js` lets the SE move it
+instead. Drag the open window by its top 52px, or drag the collapsed launcher; movement under 4px is
+still delivered as a normal click, so the chat stays usable and the launcher still opens. Double-click
+the same strip resets it. The offset is `--cds-drag-x/y` on `<html>`, **not** an inline style, because
+the widget rebuilds its subtree on every open/close; it's a `transform`, so Cognigy's own anchoring is
+untouched and `getBoundingClientRect()` still reports the moved box, which is what keeps the clip
+tracking it. Saved per demo in `localStorage`, keyed by path, the same way Halo's resize is. Overlay
+only — in `solid` the extension paints a drawer behind the widget and a moved widget would just look
+detached from it.
+
+**One exception — the `custom` theme.** `demo.json`'s `theme.custom.colors` / `theme.custom.customColors`
+map 1:1 onto Cognigy's own `settings.colors` / `settings.customColors` and are merged into `initWebchat`
+by `webchat3.js`. That is an SE hand-authoring one demo's own escape hatch — the same one WebRTC's Custom
+has through tokens/css — not Demo Studio choosing a look for Webchat demos generally, so the rule above
+still holds for the other ten themes. The gate lives in `server.js`'s `sendWebchat3Host()`, **not** in
+`sanitize()`: sanitize is pure and runs on every read, so clearing these for a non-Custom preset would
+delete an SE's hand-edit the moment they previewed a different theme. Every other theme sends `{}` and
+boots byte-identically to before this existed. There is no dashboard UI for it — like every other Custom
+slot in this app, it is hand-edited in `demo.json` or vibe-coded through the demo's project folder. And
+because `store.update()` shallow-merges, edit the file directly or Save the whole form: a partial
+`PUT /api/demos/:id` carrying only `theme.preset` wipes `theme.custom` (already true of tokens/css).
 
 ### Why the frame is full-viewport and clipped
 
@@ -197,6 +243,14 @@ All verified against 3.49.0 — re-check on upgrade:
   overrides the `followme` we pass, silently breaking Cognigy Live Follow.
 - The widget uses **no shadow DOM**, so the host page's own stylesheet can reach it.
 - `disableToggleButton` lives at `settings.widgetSettings` — we deliberately leave it off.
+- **`settings.colors` takes exactly six fields** — `primaryColor`, `secondaryColor`, `chatInterfaceColor`,
+  `botMessageColor`, `userMessageColor`, `textLinkColor` — and **`settings.customColors` exactly three**:
+  `deleteButtonColor`, `cancelButtonColor`, `deleteAllConversationIconColor`. This is the authoritative
+  copy of that list (the `custom` theme above feeds it; `demo-schema.js` points here rather than keeping
+  a second copy to drift). Nothing else is read: the widget takes every one as `settings?.colors?.x`, so
+  a misspelled key is silently ignored rather than erroring. Both lists came out of the pinned bundle's
+  own defaults object and its live render sites, not the public docs — re-derive them on upgrade with
+  `grep -oE 'colors\?\.[A-Za-z0-9_]+' node_modules/@cognigy/webchat/dist/webchat.js | sort -u`.
 
 ## Simulated mode
 
@@ -219,8 +273,18 @@ migration from the older `~/CognigyDemoStudio` location.
   its window 2147483646). Anything lower paints *underneath* the customer's own bot. The z-indexes
   inside the shadow root are 1/2/3 and only order siblings there. `keepInFront()` re-asserts this and
   re-attaches a detached host, but **never moves a still-attached one** — that would re-attach the
-  panel iframe and reload the demo mid-conversation. Nothing beats Chrome's top layer
-  (`dialog.showModal()`, popover); the occlusion probe logs a warning when that happens.
+  panel iframe and reload the demo mid-conversation.
+- **The host is also promoted into the top layer**, as a `popover="manual"`, because the maximum
+  z-index is not actually a win: a page parking its own widget at the same 2147483647 (OneTrust does)
+  beats us on **DOM order**, since equal z-index is resolved by who comes last. `showPopover()` fixes
+  that without the thing `keepInFront()` may never do — it changes paint order *without moving the
+  element*, so the iframe is not re-attached (measured: promotion leaves the demo's load count at 1,
+  a re-append takes it to 2). `manual`, not `auto`, or an outside click would light-dismiss the panel.
+  Entirely best-effort: `all:initial` on the host already neutralises the UA popover styling,
+  including the `display:none` a closed popover would otherwise get, so any failure lands back on the
+  plain max-z-index behaviour. It is not absolute — a page that shows its own top-layer element after
+  us takes the layer back until `keepInFront()` re-asserts, and that only runs on a DOM mutation it
+  observes. The occlusion probe still logs a warning when something covers us.
 - **`requestAnimationFrame` never fires in a hidden tab**, so anything that must survive the SE
   switching tabs needs a timer fallback. Both `content.js` (`keepInFront`) and
   `apps/studio/service/webchat3.js` (measuring) have their own `soon()` for this; both were caught

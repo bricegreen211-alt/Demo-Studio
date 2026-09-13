@@ -132,8 +132,7 @@ try {
     else warn("Claude Desktop", "not registered — run:  npm run mcp:register");
   }
 
-  const skillFile = path.join(os.homedir(), ".claude", "skills", "demo-studio", "SKILL.md");
-  if (fs.existsSync(skillFile)) ok("Skill installed", skillFile);
+  if (fs.existsSync(mcp.SKILL_DEST)) ok("Skill installed", mcp.SKILL_DEST);
   else warn("Skill not installed", "run:  npm run mcp:register");
 } catch (err) {
   warn("Could not check MCP bridge status", String(err.message || err));

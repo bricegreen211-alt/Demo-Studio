@@ -14,11 +14,34 @@
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
+  /*
+   * Every /api/ call goes through here, so this is also where a non-JSON reply
+   * has to be made legible. It is nearly always one thing: Express's own HTML
+   * 404 for a route the running service does not have.
+   *
+   * That happens on a normal `git pull`. The dashboard is served live from
+   * disk, so a new page appears the moment you refresh, but the service only
+   * loads its routes at startup — a newer page then calls an endpoint the older
+   * process has never heard of. Parsing that HTML as JSON used to surface as
+   * "Unexpected token '<'", which says nothing about restarting anything.
+   */
   var api = function (path, options) {
     return fetch(path, options).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-        return j;
+      return r.text().then(function (body) {
+        var j = null;
+        try { j = body ? JSON.parse(body) : {}; } catch (e) { /* not JSON - handled below */ }
+        if (j) {
+          if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+          return j;
+        }
+        if (r.status === 404) {
+          throw new Error("The running Demo Studio service doesn't have " + path + " yet. " +
+            "That happens after an update: the dashboard reloads from disk but the service " +
+            "only picks up changes on restart. Quit Demo Studio (menu bar / system tray -> " +
+            "Quit) and start it again.");
+        }
+        throw new Error("The service answered HTTP " + r.status + " with something that isn't JSON. " +
+          "Run npm run doctor, and check the service window for an error.");
       });
     });
   };
@@ -897,36 +920,203 @@
        .catch(function (err) { rcToast(String(err.message || err), false); });
   });
 
-  $("obSaveBtn").addEventListener("click", function () {
-    api("/api/settings", putJson({
-      outbound: { endpointUrl: $("obEndpoint").value.trim(), endpointKey: $("obKey").value.trim() }
-    })).then(function (s) { settings = s; rcToast("Agent flow connection saved.", true); })
+  /*
+   * One saved object for both paths, so switching modes never silently drops
+   * the other one's settings — an SE who tries Voice Gateway and goes back to
+   * the flow should find their endpoint still there.
+   */
+  function obSettingsBody() {
+    return {
+      outbound: {
+        mode: obMode,
+        endpointUrl: $("obEndpoint").value.trim(),
+        endpointKey: $("obKey").value.trim(),
+        vgBaseUrl: $("obVgBase").value.trim(),
+        vgAccountSid: $("obVgAccount").value.trim(),
+        vgApiKey: $("obVgKey").value.trim(),
+        vgApplicationSid: $("obVgApp").value.trim(),
+        vgFrom: $("obVgFrom").value.trim(),
+        vgTrunk: $("obVgTrunk").value.trim()
+      }
+    };
+  }
+  function saveOutbound() {
+    api("/api/settings", putJson(obSettingsBody()))
+      .then(function (s2) { settings = s2; rcToast("Outbound connection saved.", true); })
       .catch(function (err) { rcToast(String(err.message || err), false); });
+  }
+  $("obSaveBtn").addEventListener("click", saveOutbound);
+  $("obSaveBtnFlow").addEventListener("click", saveOutbound);
+
+  var obMode = "flow";
+  function paintObMode(mode) {
+    obMode = mode === "vg" ? "vg" : "flow";
+    $("obVgPane").hidden = obMode !== "vg";
+    $("obFlowPane").hidden = obMode !== "flow";
+    Array.prototype.forEach.call(document.querySelectorAll(".ob-mode button"), function (b) {
+      var on = b.getAttribute("data-mode") === obMode;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    /*
+     * Say which path Call will actually take, next to the button that takes it.
+     * The two modes look identical from here and behave completely differently
+     * — one rings a phone, the other just runs the flow as text — and reading
+     * that off a segmented control further up the page is easy to skip.
+     */
+    var hint = $("obQuickHint");
+    if (hint) {
+      hint.innerHTML = obMode === "vg"
+        ? "Voice Gateway dials this number directly. Nothing is saved."
+        : "Posts to your Agent flow, which has to place the call itself — Demo Studio won't dial. " +
+          "Switch to <b>Voice Gateway</b> above to have it dial. Nothing is saved.";
+      hint.classList.toggle("warn-text", obMode !== "vg");
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".ob-mode button"), function (b) {
+    b.addEventListener("click", function () { paintObMode(b.getAttribute("data-mode")); saveOutbound(); });
   });
 
   function trigger(c, channel) {
     var label = channel === "voice" ? "call" : channel;
     rcToast("Triggering outbound " + label + " to " + esc(c.name) + "…", true);
     api("/api/contacts/" + c.id + "/trigger", postJson({ channel: channel }))
-      .then(function (res) {
-        rcToast(CDSIcons.svg("check", 15) + " Outbound " + label + " triggered — session <code>" + esc(res.sessionId) + "</code>" +
-          (res.flowReply ? "<br>Flow says: " + esc(res.flowReply) : ""), true);
-      })
-      .catch(function (err) {
-        rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
-          "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed.", false);
-      });
+      .then(showTriggerResult(label))
+      .catch(showTriggerError);
+  }
+
+  /* One renderer for both the saved-contact and the quick-call paths. */
+  function showTriggerResult(label) {
+    return function (res) {
+      if (res.ok === false) {
+        rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(res.error || "")) +
+          obDebug(res.debug), false, true);
+        return;
+      }
+      var body;
+      if (res.via === "vg") {
+        body = CDSIcons.svg("check", 15) + " Voice Gateway accepted the call to " + esc(res.contact) +
+          (res.callSid ? " — session <code>" + esc(res.callSid) + "</code>" : "") +
+          (res.callId ? " call <code>" + esc(res.callId) + "</code>" : "") +
+          "<br><span class='ob-hint'>The phone should ring now. What the agent says once it is answered " +
+          "is up to the flow behind your Application SID.</span>";
+      } else {
+        body = CDSIcons.svg("check", 15) + " Outbound " + esc(label) + " triggered — session <code>" +
+          esc(res.sessionId) + "</code>";
+        if (res.flowReply) body += "<br>Flow says: " + esc(res.flowReply);
+        body += "<br><span class='ob-hint'>Demo Studio triggered the flow. Placing the " + esc(label) +
+          " is the flow's job — a reply here means it ran, not that a phone rang. If none did, the flow " +
+          "needs to call the Voice Gateway Calls API, or switch to <b>Voice Gateway</b> above and let " +
+          "Demo Studio dial.</span>";
+      }
+      rcToast(body + obDebug(res.debug), true, true);
+    };
+  }
+
+  function showTriggerError(err) {
+    // Config errors never reach the network, so there is no debug block to
+    // show — just point at the half of the form that is actually in play.
+    rcToast(CDSIcons.svg("close", 15) + " Trigger failed: " + esc(String(err.message || err)) +
+      (obMode === "vg"
+        ? "<br>Check the Voice Gateway fields above."
+        : "<br>Check the Flow REST Endpoint above and that your Agent flow is deployed."),
+      false, true);
+  }
+
+  function quickCall() {
+    var number = $("obQuickNumber").value.trim();
+    if (!number) { rcToast("Enter a telephone number to call.", false); $("obQuickNumber").focus(); return; }
+    var name = $("obQuickName").value.trim();
+    rcToast("Calling " + esc(name || number) + "…", true);
+    api("/api/outbound/quick", postJson({ number: number, name: name, channel: "voice" }))
+      .then(showTriggerResult("call"))
+      .catch(showTriggerError);
+  }
+  $("obQuickCall").addEventListener("click", quickCall);
+  // Enter in either field dials — this is the control used mid-demo.
+  ["obQuickNumber", "obQuickName"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); quickCall(); }
+    });
+  });
+
+  var lastDebugText = "";
+
+  function copyToClipboard(text) {
+    // Electron denies a scripted navigator.clipboard write (its permission
+    // handler only grants microphone), so the native bridge comes first.
+    if (window.cds && window.cds.copyText) return Promise.resolve(window.cds.copyText(text));
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return Promise.reject(new Error("no clipboard"));
+  }
+
+  /* What went out and what came back, collapsed until asked for. */
+  function obDebug(d) {
+    if (!d) return "";
+    var head = "POST " + esc(d.endpoint) +
+      "<br>Endpoint Key: " + (d.keySent ? "sent" : "not sent") +
+      (d.status != null ? "<br>HTTP " + esc(d.status) : "<br>no response") +
+      " · " + esc(d.ms) + " ms" +
+      (d.outputs != null ? " · " + esc(d.outputs) + " output" + (d.outputs === 1 ? "" : "s") : "");
+    var sent = JSON.stringify(d.request, null, 2);
+    var got = d.response && d.response.trim() ? d.response : "(empty body)";
+    try { got = JSON.stringify(JSON.parse(d.response), null, 2); } catch (e) { /* leave raw */ }
+    /*
+     * Stash the plain-text version for the Copy button. "Send me the trace" is
+     * otherwise a select-and-scroll through two JSON blocks in a toast, which
+     * is enough friction that the trace does not get sent and the same guessing
+     * continues. The API key never reaches here — debug carries keySent, not
+     * the key.
+     */
+    lastDebugText = [
+      "POST " + d.endpoint,
+      "Endpoint Key: " + (d.keySent ? "sent" : "not sent"),
+      (d.status != null ? "HTTP " + d.status : "no response") + " · " + d.ms + " ms" +
+        (d.outputs != null ? " · " + d.outputs + " outputs" : ""),
+      "", "--- sent ---", sent,
+      "", "--- received ---", got
+    ].join("\n");
+
+    return "<details class='ob-debug'><summary>What was sent and received" +
+      "<button type='button' class='ob-copy' id='obCopyDebug'>Copy</button></summary>" +
+      "<div class='ob-debug-head'>" + head + "</div>" +
+      "<div class='ob-debug-label'>Sent</div><pre>" + esc(sent) + "</pre>" +
+      "<div class='ob-debug-label'>Received</div><pre>" + esc(got) + "</pre>" +
+      "</details>";
   }
 
   var toastTimer = null;
-  function rcToast(html, ok) {
+  /*
+   * `sticky` keeps a result up until it is dismissed. A trigger result is the
+   * thing being read and compared against the flow in another window, and a
+   * 7-second timer takes it away mid-sentence.
+   */
+  function rcToast(html, ok, sticky) {
     var el = $("obToast");
     el.className = "ob-toast " + (ok ? "ok" : "err");
-    el.innerHTML = html;
+    el.innerHTML = html +
+      (sticky ? '<button type="button" class="ob-toast-x" aria-label="Dismiss">&times;</button>' : "");
     el.hidden = false;
     clearTimeout(toastTimer);
+    if (sticky) {
+      var x = el.querySelector(".ob-toast-x");
+      if (x) x.addEventListener("click", function () { el.hidden = true; });
+      var copy = el.querySelector("#obCopyDebug");
+      if (copy) {
+        copy.addEventListener("click", function (ev) {
+          ev.preventDefault();   // inside <summary>, which would otherwise toggle
+          ev.stopPropagation();
+          copyToClipboard(lastDebugText).then(function () {
+            copy.textContent = "Copied";
+            setTimeout(function () { copy.textContent = "Copy"; }, 1600);
+          }).catch(function () { copy.textContent = "Select it manually"; });
+        });
+      }
+      return;
+    }
     toastTimer = setTimeout(function () { el.hidden = true; }, 7000);
   }
+
 
   /* ── tabs ── */
 
@@ -983,6 +1173,14 @@
         }
         $("obEndpoint").value = (settings.outbound && settings.outbound.endpointUrl) || "";
         $("obKey").value = (settings.outbound && settings.outbound.endpointKey) || "";
+        var ob = settings.outbound || {};
+        $("obVgBase").value = ob.vgBaseUrl || "";
+        $("obVgAccount").value = ob.vgAccountSid || "";
+        $("obVgKey").value = ob.vgApiKey || "";
+        $("obVgApp").value = ob.vgApplicationSid || "";
+        $("obVgFrom").value = ob.vgFrom || "";
+        $("obVgTrunk").value = ob.vgTrunk || "";
+        paintObMode(ob.mode || "flow");
         renderGwList();
         renderGwOptions();
         loadContacts();

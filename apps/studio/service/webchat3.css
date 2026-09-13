@@ -65,6 +65,78 @@ html.cds-drawer.cds-side-left [data-cognigy-webchat-root] [data-cognigy-webchat]
   left: 0 !important; right: auto !important;
 }
 
+/* ---------- Panel Side: left ---------- */
+
+/*
+ * Cognigy anchors both of its pieces to the right edge: the toggle button at
+ * right: 20px, and (from 576px up, where the window stops being full-screen)
+ * the window at right: 20px. Nothing in initWebchat's options moves them —
+ * layout is not part of the settings surface, only colours and labels are.
+ *
+ * But the widget already ships the mirrored pair itself, for right-to-left
+ * locales:
+ *
+ *   button[data-cognigy-webchat-toggle]:dir(rtl) { left: 20px; right: unset; }
+ *   [data-cognigy-webchat]:dir(rtl)              { right: auto; left: 20px; }
+ *
+ * So these two properties are the ones Cognigy itself flips to put the widget
+ * on the left, which makes them the safe pair to drive from the demo form's
+ * Side setting. Setting dir="rtl" to get the same effect would be the wrong
+ * tool — it would also reverse the message layout and right-align every line
+ * of an English demo.
+ *
+ * Layout only, on the two documented attribute selectors, exactly like the
+ * drawer rules above — no colours, no internal class names. Specificity beats
+ * the widget's own rules without !important, so the drawer block above (which
+ * does use !important) still wins in "solid", where the panel is flush to the
+ * edge rather than inset by 20px.
+ *
+ * Nothing on the extension side needs to change: webchat3.js measures wherever
+ * Cognigy actually painted, so the clip follows the widget to the left on its
+ * own. Below 576px the window is full-screen and has no edge to flip, which is
+ * why only the toggle is moved outside the media query.
+ */
+html.cds-side-left [data-cognigy-webchat-root] button[data-cognigy-webchat-toggle] {
+  left: 20px;
+  right: auto;
+}
+
+@media screen and (min-width: 576px) {
+  html.cds-side-left [data-cognigy-webchat-root] [data-cognigy-webchat] {
+    left: 20px;
+    right: auto;
+  }
+}
+
+/* ---------- dragged position ---------- */
+
+/*
+ * Set by webchat3.js when the SE drags the panel, so it can be moved out from
+ * under a customer site's own furniture — see "Drag to reposition" there for
+ * why that beats fighting over z-index.
+ *
+ * `translate` rather than left/top: it composites, so a drag stays smooth, and
+ * it leaves Cognigy's own anchoring completely intact — remove the variables
+ * and the widget is exactly where it always was. Deliberately NOT `transform`,
+ * even though nothing contends for it here today: webrtc.css's own left-side
+ * rule pins that property to none !important on its widget, and a drag written
+ * as a transform silently lost to it. Same property in both files, so the next
+ * person only has to learn this once. Both pieces move together, or closing a
+ * moved window would drop the launcher back under whatever the panel was moved
+ * away from.
+ *
+ * Lives on <html> because the widget rebuilds its subtree on every open and
+ * close; an inline transform would not survive the first toggle. Default 0,
+ * so this rule is inert until something is actually dragged.
+ *
+ * getBoundingClientRect() reports the transformed box, so webchat3.js's clip
+ * measurement follows the widget with no extra bookkeeping.
+ */
+html [data-cognigy-webchat-root] [data-cognigy-webchat],
+html [data-cognigy-webchat-root] button[data-cognigy-webchat-toggle] {
+  translate: var(--cds-drag-x, 0px) var(--cds-drag-y, 0px);
+}
+
 /* ---------- failure card ---------- */
 
 #cds-fallback {

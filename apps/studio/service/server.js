@@ -236,9 +236,17 @@ function createApp() {
     if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
     if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
     if (body.outbound && typeof body.outbound === "object") {
+      const ob = body.outbound;
       patch.outbound = {
-        endpointUrl: String(body.outbound.endpointUrl || "").slice(0, 500),
-        endpointKey: String(body.outbound.endpointKey || "").slice(0, 300)
+        mode: ob.mode === "vg" ? "vg" : "flow",
+        endpointUrl: String(ob.endpointUrl || "").slice(0, 500),
+        endpointKey: String(ob.endpointKey || "").slice(0, 300),
+        vgBaseUrl: String(ob.vgBaseUrl || "").slice(0, 300),
+        vgAccountSid: String(ob.vgAccountSid || "").slice(0, 120),
+        vgApiKey: String(ob.vgApiKey || "").slice(0, 400),
+        vgApplicationSid: String(ob.vgApplicationSid || "").slice(0, 120),
+        vgFrom: String(ob.vgFrom || "").slice(0, 40),
+        vgTrunk: String(ob.vgTrunk || "").slice(0, 120)
       };
     }
     ok(res, settingsStore.write(patch));
@@ -316,6 +324,19 @@ function createApp() {
   app.delete("/api/contacts/:id", (req, res) => {
     try { outbound.remove(req.params.id); ok(res, { ok: true }); } catch (err) { fail(res, err); }
   });
+  /*
+   * Quick call — dial a number without saving it as a contact. Same paths and
+   * the same debug block as a saved contact; only where the number came from
+   * differs.
+   */
+  app.post("/api/outbound/quick", async (req, res) => {
+    try {
+      const b = req.body || {};
+      ok(res, await outbound.trigger(settingsStore.read(),
+        { number: b.number, name: b.name }, b.channel || "voice"));
+    } catch (err) { fail(res, err); }
+  });
+
   app.post("/api/contacts/:id/trigger", async (req, res) => {
     try {
       ok(res, await outbound.trigger(settingsStore.read(), req.params.id, (req.body || {}).channel || "voice"));
@@ -380,7 +401,7 @@ function createApp() {
       extensionLastSeen: lastSeen,
       // Fast, file-only checks (see register-mcp.js) — no CLI spawned, so this
       // never slows down a Settings page load the way `claude mcp get` would.
-      mcp: { code: mcpRegister.codeStatus(), desktop: mcpRegister.desktopStatus() }
+      mcp: { code: mcpRegister.codeStatus(), desktop: mcpRegister.desktopStatus(), skillPath: mcpRegister.SKILL_DEST }
     });
   });
 
@@ -442,6 +463,7 @@ function createApp() {
     "webchat3.js": "application/javascript; charset=utf-8",
     "webrtc.css": "text/css; charset=utf-8",
     "webrtc.js": "application/javascript; charset=utf-8",
+    "drag-widget.js": "application/javascript; charset=utf-8",
     "audio-panel.js": "application/javascript; charset=utf-8"
   };
 
@@ -484,6 +506,21 @@ function createApp() {
    * helper the templates use.
    */
   function sendWebchat3Host(res, cfg) {
+    /*
+     * The Custom slot is the ONLY theme that contributes anything to this
+     * widget. The nine named Webchat presets are CognigyWindowThemeBuilder
+     * names applied on the Endpoint (see CLAUDE.md §Themes) — composing options
+     * for one here would be Demo Studio overriding the very thing the SE
+     * configured in Cognigy.
+     *
+     * Load-bearing, do not "simplify" away: sanitize() does NOT clear
+     * theme.custom for other presets — it passes it through, exactly like
+     * tokens/css — because it is pure and runs on every read, so zeroing it
+     * would delete an SE's hand-edited colours the moment they previewed a
+     * different theme. That makes this gate the only thing standing between
+     * leftover custom colours and a demo the SE has since switched to Bloom.
+     */
+    const custom = (cfg.theme && cfg.theme.preset) === "custom" && cfg.theme.custom;
     const data = {
       name: cfg.name || "",
       endpoint: normalize.chatEndpoint((cfg.cognigy || {}).chatEndpoint),
@@ -493,6 +530,11 @@ function createApp() {
       panelStyle: cfg.panelStyle || "solid",
       panelSide: cfg.panelSide === "left" ? "left" : "right",
       panelWidth: cfg.panelWidth || 0,
+      // Cognigy's own settings.colors / settings.customColors, forwarded
+      // verbatim by webchat3.js. Empty for every other theme, which is what
+      // keeps those byte-identical to before this existed.
+      themeColors: (custom && custom.colors) || {},
+      themeCustomColors: (custom && custom.customColors) || {},
       debug: settingsStore.read().showDiagnostics !== false
     };
     // Escaping "<" makes a </script> breakout impossible.

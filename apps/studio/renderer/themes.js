@@ -9,10 +9,8 @@
  * there is nothing to add here.
  *
  * The table in this file is what remains after that: the entries that have no
- * file and never will. Cognigy Default composes to nothing on purpose, Custom
- * lives in demo.json, and the nine Webchat presets are
- * CognigyWindowThemeBuilder names styled on the Endpoint — Demo Studio ships no
- * CSS for any of them, so nothing on disk could describe them. It is also what
+ * file and never will. Cognigy Default composes to nothing on purpose and Custom
+ * lives in demo.json, so nothing on disk could describe either. It is also what
  * paints before the fetch lands, and if the fetch fails.
  *
  * Kept as a separate script (no build step in this dashboard) so the picker and
@@ -39,21 +37,32 @@
   };
 
   /*
-   * Webchat themes are the presets CognigyWindowThemeBuilder already ships.
-   * They are CSS applied to Cognigy's real v3 widget — not a replacement for
-   * it — so picking one never changes which chat renders.
+   * Custom means something different on Webchat, so the tile has to say so.
+   * Everywhere else it is CSS tokens over a theme Demo Studio draws; on Webchat
+   * the widget is Cognigy's and untouchable by CSS from here, so Custom is its
+   * own colour options (theme.custom.colors) handed to initWebchat instead.
+   * "Starts as a copy of the selected theme" would be doubly wrong there — the
+   * only other theme is Cognigy Default, which is a copy of nothing.
    */
-  var WEBCHAT = [
-    { id: "aurora",    name: "Aurora",    note: "Blurple, soft gradients.",        swatch: ["#5865f2", "#404eed", "#f6f6fe"] },
-    { id: "tech",      name: "Tech",      note: "Emerald on slate, dev-tool feel.", swatch: ["#10b981", "#1e293b", "#f1f5f9"] },
-    { id: "bloom",     name: "Bloom",     note: "Violet and pink, friendly.",       swatch: ["#8b5cf6", "#ec4899", "#faf5ff"] },
-    { id: "hibiscus",  name: "Hibiscus",  note: "Coral red, editorial.",            swatch: ["#e11d48", "#881337", "#fff1f2"] },
-    { id: "trailhead", name: "Trailhead", note: "Forest green and cream.",          swatch: ["#166534", "#84cc16", "#fefce8"] },
-    { id: "minimal",   name: "Minimal",   note: "Monochrome, no gradients, sharp.", swatch: ["#111827", "#6b7280", "#ffffff"] },
-    { id: "nebula",    name: "Nebula",    note: "Purple to magenta, cosmic.",       swatch: ["#7c3aed", "#d946ef", "#1e1b4b"] },
-    { id: "sunset",    name: "Sunset",    note: "Warm orange to pink header.",      swatch: ["#f97316", "#ec4899", "#fff7ed"] },
-    { id: "ivory",     name: "Ivory",     note: "Cream and ink, luxury editorial.", swatch: ["#f5f0e6", "#1c1917", "#a8a29e"] }
-  ];
+  var CUSTOM_NOTE = {
+    "webchat": "Cognigy's widget in your own colours, hand-edited in demo.json."
+  };
+
+  /*
+   * Webchat: Cognigy Default and Custom, which listFor() adds around this list.
+   *
+   * Aurora, Tech, Bloom, Hibiscus, Trailhead, Minimal, Nebula, Sunset and Ivory
+   * were removed. They were CognigyWindowThemeBuilder preset NAMES whose styling
+   * lives on the Endpoint, so Demo Studio composed nothing for any of them —
+   * nine tiles with swatches and descriptions that all rendered identically to
+   * Cognigy Default. A tile that promises a look and delivers the default one is
+   * worse than no tile, which is the same call made for Bar, Pill and Card below.
+   *
+   * Empty rather than deleted: a theme dropped into assets/themes/webchat/ still
+   * merges in here through mergedFor(), so the real theme mechanism the next
+   * version builds has somewhere to land with no edit to this file.
+   */
+  var WEBCHAT = [];
 
   /*
    * WebRTC shells. Live transcript is a separate toggle, not three more themes,
@@ -73,10 +82,9 @@
   /*
    * Combined layouts. Cognigy Default here means BOTH of Cognigy's own widgets.
    *
-   * "nebula" also exists in the Webchat list above — a CognigyWindowThemeBuilder
-   * preset — and is an entirely different theme applied by an entirely different
-   * mechanism. The theme FILES are namespaced by endpoint for exactly this
-   * reason; the ids only have to be unique within a list.
+   * Theme FILES are namespaced by endpoint, so the same id can mean entirely
+   * different things on two endpoints and be applied by entirely different
+   * mechanisms; ids only have to be unique within one list.
    */
   /*
    * Combined layouts. One design, plus Custom.
@@ -143,6 +151,10 @@
    */
   function listFor(template) {
     var themes = mergedFor(template);
+    // Same tile, endpoint-specific sentence where Custom does a different job.
+    var custom = CUSTOM_NOTE[template]
+      ? Object.assign({}, CUSTOM_ENTRY, { note: CUSTOM_NOTE[template] })
+      : CUSTOM_ENTRY;
     /*
      * The combination has no Cognigy Default — it would mean both of Cognigy's
      * own widgets stacked, and nothing mounts them yet. Offering it would be a
@@ -150,7 +162,7 @@
      * packages/shared/demo-schema.js, which is the source of truth.
      */
     if (template === "webchat-webrtc") {
-      return themes.concat([{ rule: true }, CUSTOM_ENTRY]);
+      return themes.concat([{ rule: true }, custom]);
     }
     /*
      * WebRTC used to lead with Halo and put Cognigy Default below the rule,
@@ -164,7 +176,14 @@
      * it); only where it's shown in the LIST changes here, falling through to
      * the same Default-first order every other endpoint uses.
      */
-    return [DEFAULT_ENTRY, { rule: true }].concat(themes, [{ rule: true }, CUSTOM_ENTRY]);
+    /*
+     * With no themes between them the two rules would stack into a double
+     * divider — which is exactly the Webchat case now that its presets are
+     * gone, and would be any endpoint's case before its first theme file is
+     * dropped in. One rule, one gap.
+     */
+    if (!themes.length) return [DEFAULT_ENTRY, { rule: true }, custom];
+    return [DEFAULT_ENTRY, { rule: true }].concat(themes, [{ rule: true }, custom]);
   }
 
   function get(id, template) {

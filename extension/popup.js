@@ -19,6 +19,30 @@
 
   document.getElementById("version").textContent = "v" + chrome.runtime.getManifest().version;
 
+  /*
+   * One shape for every outcome: the verdict on its own line, then the
+   * detail. Text nodes rather than innerHTML for anything that comes from a
+   * demo name or the tab's hostname — neither is ours to trust as markup.
+   */
+  function verdict(line, detail, name) {
+    mapped.textContent = "";
+    var v = document.createElement("span");
+    v.className = "verdict";
+    v.textContent = line;
+    var d = document.createElement("span");
+    d.className = "detail";
+    if (name) {
+      var b = document.createElement("b");
+      b.textContent = name;
+      d.appendChild(b);
+      d.appendChild(document.createTextNode(" " + detail));
+    } else {
+      d.textContent = detail;
+    }
+    mapped.appendChild(v);
+    mapped.appendChild(d);
+  }
+
   function currentTab(cb) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       cb(tabs && tabs[0] ? tabs[0] : null);
@@ -75,9 +99,19 @@
     });
 
     currentTab(function (tab) {
+      /*
+       * Gate on the PROTOCOL, not just on there being a hostname. chrome:// URLs
+       * have one — new URL("chrome://newtab").hostname is "newtab" — so testing
+       * the hostname alone sends that off to /api/resolve and reports back "no
+       * demo has newtab as its Website", which is nonsense to read on a new tab.
+       * Only http(s) is a website a demo could be mapped to.
+       */
       var host = "";
-      try { host = new URL(tab.url).hostname; } catch (e) {}
-      if (!host) { mapped.textContent = "No website in this tab."; return; }
+      try {
+        var u = new URL(tab.url);
+        if (u.protocol === "http:" || u.protocol === "https:") host = u.hostname;
+      } catch (e) { /* no URL at all on some internal tabs */ }
+      if (!host) { verdict("Website Not Matched", "This tab isn't a website."); return; }
       fetch(API + "/api/resolve?host=" + encodeURIComponent(host))
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -91,19 +125,21 @@
              * really does, and make clearing it one click.
              */
             mapped.className = "row mapped warn";
-            mapped.innerHTML = "<b></b> is forced on <b>every site</b>, not just its own." +
-              '<button type="button" id="clearOverride">Use website mapping instead</button>';
-            mapped.querySelector("b").textContent = data.demo.name;
+            verdict("Forced on every site",
+                    "\u2014 shows on every site, not just its own.", data.demo.name);
+            mapped.insertAdjacentHTML("beforeend",
+              '<button type="button" id="clearOverride">Match by website instead</button>');
             mapped.querySelector("#clearOverride").addEventListener("click", function () {
               override.value = "";
               override.dispatchEvent(new Event("change"));
             });
           } else if (data.demo) {
-            mapped.innerHTML = "This site shows <b></b>";
-            mapped.querySelector("b").textContent = data.demo.name;
+            mapped.className = "row mapped ok";
+            verdict("Website Match", "\u2014 this tab shows it.", data.demo.name);
           } else {
-            mapped.textContent = "No demo mapped to " + host +
-              ". Set that demo's Website in Demo Studio, or force one below.";
+            verdict("Website Not Matched",
+                    "No demo has " + host + " as its Website. Add it in Demo Studio, " +
+                    "or force a demo below.");
           }
         })
         .catch(function () { mapped.textContent = ""; });

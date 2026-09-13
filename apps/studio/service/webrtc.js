@@ -124,6 +124,7 @@
     clearTimeout(failTimer);
     log("widget rendered");
     startMeasuring();
+    startDragging();
   }
 
   /* ---------------------------------------------------------------- *
@@ -168,6 +169,13 @@
     return requestAnimationFrame(fn);
   }
   function cancelSoon(id) { cancelAnimationFrame(id); clearTimeout(id); }
+
+  /*
+   * Set by startMeasuring so dragging can force a measurement on every move —
+   * otherwise the widget would slide but the clip, which is what the customer
+   * can actually see and click, would trail it by up to the 400ms interval.
+   */
+  var remeasure = function () {};
 
   function startMeasuring() {
     var lastKey = "";
@@ -224,6 +232,7 @@
       });
     }
 
+    remeasure = measure;
     measure();
     var r0 = root();
     if (r0) new MutationObserver(measure).observe(r0, {
@@ -236,6 +245,35 @@
     // The widget keeps animating for a few hundred ms after its DOM settles,
     // and this is also the safety net if a mutation is ever missed.
     setInterval(measure, 400);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Drag to reposition
+   *
+   * The mechanism lives in drag-widget.js, shared with webchat3.js — see the
+   * long note there. This is only the part specific to the click-to-call
+   * widget: what can be grabbed.
+   *
+   * Overlay only, for the same reason as Webchat: in "solid" the extension
+   * paints a drawer behind this page and a widget that slid off it would look
+   * detached from its own frame.
+   * ---------------------------------------------------------------- */
+
+  function startDragging() {
+    if (!window.CDSDrag) return;   // asset missing; everything else still works
+    window.CDSDrag.enable({
+      enabled: cfg.panelStyle !== "solid",
+      remeasure: function () { remeasure(); },
+      log: log,
+      /*
+       * Grabbable anywhere, unlike Webchat's window. This widget is a compact
+       * pill with a couple of buttons and no transcript to select text in, so
+       * there is nothing a whole-surface grab would get in the way of — and
+       * the shared 4px threshold already lets every real click through to the
+       * call and hang-up buttons untouched.
+       */
+      targets: function () { return [{ el: root() }]; }
+    });
   }
 
   /* ---------------------------------------------------------------- *
