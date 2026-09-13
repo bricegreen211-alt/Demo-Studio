@@ -8,11 +8,34 @@
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
+  /*
+   * Every /api/ call goes through here, so this is also where a non-JSON reply
+   * has to be made legible. It is nearly always one thing: Express's own HTML
+   * 404 for a route the running service does not have.
+   *
+   * That happens on a normal `git pull`. The dashboard is served live from
+   * disk, so a new page appears the moment you refresh, but the service only
+   * loads its routes at startup — a newer page then calls an endpoint the older
+   * process has never heard of. Parsing that HTML as JSON used to surface as
+   * "Unexpected token '<'", which says nothing about restarting anything.
+   */
   var api = function (path, options) {
     return fetch(path, options).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-        return j;
+      return r.text().then(function (body) {
+        var j = null;
+        try { j = body ? JSON.parse(body) : {}; } catch (e) { /* not JSON - handled below */ }
+        if (j) {
+          if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+          return j;
+        }
+        if (r.status === 404) {
+          throw new Error("The running Demo Studio service doesn't have " + path + " yet. " +
+            "That happens after an update: the dashboard reloads from disk but the service " +
+            "only picks up changes on restart. Quit Demo Studio (menu bar / system tray -> " +
+            "Quit) and start it again.");
+        }
+        throw new Error("The service answered HTTP " + r.status + " with something that isn't JSON. " +
+          "Run npm run doctor, and check the service window for an error.");
       });
     });
   };
