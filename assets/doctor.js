@@ -41,19 +41,35 @@ head("Folders");
 const docs = paths.resolveDocumentsDir();
 if (docs === os.homedir()) {
   warn("Documents folder", docs + " — couldn't find a Documents folder, using your home folder");
+} else if (process.platform === "win32" && docs !== path.join(os.homedir(), "Documents")) {
+  // resolveDocumentsDir only leaves <home>\Documents when that folder is itself
+  // a junction into the OneDrive sync root.
+  warn("Documents folder", docs + " — your Documents folder redirects into OneDrive, so demos go here instead");
 } else {
   ok("Documents folder", docs);
 }
 
 if (process.env.CDS_DATA_DIR) ok("CDS_DATA_DIR override", process.env.CDS_DATA_DIR);
 
-// Runs the one-time move from the old <home>/CognigyDemoStudio location.
+// Runs the one-time move from wherever demos used to live — including the
+// OneDrive-redirected Documents folder earlier versions resolved to.
 let moved = null;
 try { moved = paths.migrateLegacyData(); } catch (err) { bad("Moving your old demos folder", String(err.message || err)); }
 if (moved) ok("Moved your demos", moved.from + "  →  " + moved.to);
 
 ok("Your demos", paths.DATA_ROOT);
 ok("The app", paths.REPO_ROOT);
+
+// The thing that brings OneDrive to its knees: node_modules is thousands of
+// files, and the builder rewrites each demo's dist/ on every single save.
+if (paths.isInOneDrive(paths.REPO_ROOT)) {
+  warn("The app is inside OneDrive", "node_modules will be synced file by file — move this folder to " +
+       (process.platform === "win32" ? "C:\\Users\\<you>\\Documents\\Demo-Studio" : "~/Documents/Demo-Studio") +
+       ", then re-run:  npm install");
+}
+if (paths.isInOneDrive(paths.DATA_ROOT)) {
+  warn("Your demos are inside OneDrive", "every rebuild re-syncs the demo — point CDS_DATA_DIR at a local folder");
+}
 
 // The data folder has to be creatable and writable, or nothing works.
 try {

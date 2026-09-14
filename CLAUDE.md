@@ -261,10 +261,26 @@ badged **SIM** in the UI. Preserve both properties if you touch this.
 
 ## Data lives outside the app
 
-`~/Documents/CognigyDemoStudio/` (resolved via
-[`paths.js`](apps/studio/service/paths.js) — Electron's known-folder API on Windows, so OneDrive
-redirection works). Override with `CDS_DATA_DIR`. App updates never touch demos. There's a one-time
-migration from the older `~/CognigyDemoStudio` location.
+`~/Documents/CognigyDemoStudio/`, resolved by [`paths.js`](apps/studio/service/paths.js). Override
+with `CDS_DATA_DIR`. App updates never touch demos.
+
+**On Windows this deliberately ignores Electron's known-folder API** and uses `%USERPROFILE%\Documents`
+literally. OneDrive's Known Folder Move repoints the Documents known folder at
+`<home>\OneDrive\Documents`, and the data root is the worst possible thing to put in a sync root:
+every demo carries its own template copy and [`builder.js`](apps/studio/service/builder.js)'s watcher
+rewrites `dist/` on **every file save**, so the sync client never settles. This was reported as
+OneDrive saturating and crashing on a work machine. The same reasoning applies to the app checkout
+itself — `node_modules` is thousands of files — which is why `INSTALL.md` insists on a literal path
+and `doctor.js` warns when either folder resolves inside OneDrive (`paths.isInOneDrive`, which
+follows junctions and matches business roots like `OneDrive - Contoso`).
+
+If `%USERPROFILE%\Documents` is *itself* a junction into the sync root — some KFM setups leave it
+that way — resolution falls back to `%LOCALAPPDATA%`, which never syncs.
+
+`migrateLegacyData()` moves demos once from any previous location: the OneDrive-redirected Documents
+folder earlier versions resolved to, the literal `<home>\OneDrive\Documents` (so `npm run service`,
+which has no Electron API to ask, migrates too), and the original `~/CognigyDemoStudio`. First one
+that exists wins; `CDS_DATA_DIR` and an already-populated new root both short-circuit it.
 
 ## Gotchas already paid for
 

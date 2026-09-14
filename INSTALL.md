@@ -58,17 +58,24 @@ Pick whichever of these feels more comfortable — both end with the same folder
 2. Unzip it into your **Documents** folder, so it sits with the rest of your files and doesn't
    get cleared out:
    - **macOS**: `~/Documents/Demo-Studio`
-   - **Windows**: `Documents\Demo-Studio` (i.e. `C:\Users\<you>\Documents\Demo-Studio`)
+   - **Windows**: `C:\Users\<you>\Documents\Demo-Studio`
 
    Don't run it from inside the zip, and avoid the Downloads folder.
+
+   > **Windows — don't let this land in OneDrive.** If your company uses OneDrive, the **Documents**
+   > shortcut in the File Explorer sidebar points at `C:\Users\<you>\OneDrive\Documents`, not the
+   > folder above. Installing there gives OneDrive the app's `node_modules` folder — thousands of
+   > small files it will try to sync forever. Paste `C:\Users\<you>\Documents` into the File
+   > Explorer address bar to be sure you're in the local one. Step 2's `npm run doctor` checks this
+   > for you and says so if you got it wrong.
 
 **Option B — `git clone` (if you already have git, or the app told you it's installed)**
 
 Open a terminal (see Step 2 below for how) and run:
 
 ```bash
-cd ~/Documents          # macOS
-cd %USERPROFILE%\Documents   # Windows (PowerShell: cd $HOME\Documents)
+cd ~/Documents                 # macOS
+cd $HOME\Documents             # Windows PowerShell — the LOCAL Documents, not OneDrive\Documents
 
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git
 cd Demo-Studio
@@ -273,8 +280,12 @@ When someone ships changes, here's the whole routine. Steps 3 and 4 are the ones
 
 Demos live in your Documents folder — `~/Documents/CognigyDemoStudio` (macOS) or
 `C:\Users\<you>\Documents\CognigyDemoStudio` (Windows) — a completely separate folder from the app.
-If you used an earlier version that stored them directly in your home folder, they're moved there
-automatically the first time you start this version; nothing is lost. Updating, reinstalling, or even deleting the project
+On Windows that is deliberately the **local** Documents folder, never `OneDrive\Documents`: each demo
+is rebuilt every time you save a file, and a sync client can't keep up with that. `npm run doctor`
+prints the exact folder being used on your machine.
+
+If you used an earlier version that stored demos somewhere else — directly in your home folder, or in
+`OneDrive\Documents` — they're moved for you the first time you start this version; nothing is lost. Updating, reinstalling, or even deleting the project
 folder leaves them alone. **Settings → Back up & move demos → Export** writes them all to one
 file if you want a backup before a big change.
 
@@ -306,6 +317,7 @@ Newly created demos always start from the current templates, so this only applie
 | Launcher doesn't appear on the customer site | Check the extension popup: is a demo mapped to this website? Set the demo's **Website** field, or pick it manually in the popup. |
 | Microphone doesn't work in a voice demo | Grant microphone access when your OS/browser prompts. macOS: check **System Settings → Privacy & Security → Microphone**. Windows: check **Settings → Privacy & security → Microphone**. |
 | "Port 41700 is being used by another program" | Something else on your machine has claimed the port Demo Studio needs. Close it and start Demo Studio again. If Demo Studio itself is already running, it will tell you so and point you at the menu-bar / tray icon. |
+| **OneDrive syncs constantly, or keeps crashing** (Windows) | The app or your demos ended up inside OneDrive. Run `npm run doctor` — it names whichever one it is. Quit Demo Studio, move the project folder to `C:\Users\<you>\Documents\Demo-Studio`, then run `npm install` and `npm run doctor` there. Your demos move themselves the next time the app starts; you don't need to copy anything by hand. |
 | The extension pill says **Needs reloading** | The extension is older than the app. Open `chrome://extensions`, click the reload arrow on Cognigy Demo Studio, then refresh any customer tab. |
 
 ---
