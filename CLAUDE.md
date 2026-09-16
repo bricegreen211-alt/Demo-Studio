@@ -320,6 +320,33 @@ that exists wins; `CDS_DATA_DIR` and an already-populated new root both short-ci
 - `@cognigy/click-to-call-sdk` is **pinned exactly**. Don't bump it casually, and never right
   before a customer demo.
 
+## Versioning and releases
+
+**Three files carry a version** — `package.json`, `extension/manifest.json`, `mcp-server/package.json`
+— and all three were edited by hand until `mcp-server` was missed and sat a release behind through
+1.1.0 with nothing noticing. `package.json` is the source of truth; the other two are written from it:
+
+```bash
+npm run version:check          # do all three agree?  (npm run doctor also checks)
+npm run version:set 1.2.0      # write it everywhere
+npm run version:set 1.2.0 --tag  # ...then commit "Version 1.2.0" and tag v1.2.0
+```
+
+`set-version.js` substitutes the version with a targeted replace rather than JSON round-tripping, so
+hand-formatting survives. `extension/manifest.json` gets the numeric core only — Chrome rejects a
+prerelease suffix outright and the extension won't load.
+
+**Releasing:** update [CHANGELOG.md](CHANGELOG.md) first (it's the only record of what shipped —
+there are no release notes anywhere else), then `npm run version:set <v> --tag`, then push with
+`git push && git push origin v<v>`. Mark anything template-side **(Sync)** in the changelog: those
+entries don't reach an existing demo until the SE clicks Sync, and leaving that implicit is what
+makes an update look like it did nothing.
+
+**The version the app reports is read once, at startup** (`server.js` requires `package.json` at
+module load). A copy left running through a `git pull` reports the old version and serves the old
+code. The extension reports its manifest version on every heartbeat, so the two disagree — and
+`app.js` now names *which* side is behind rather than always blaming the extension.
+
 ## Running and checking
 
 ```bash

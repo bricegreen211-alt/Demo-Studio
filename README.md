@@ -74,7 +74,11 @@ stopped.
 
 ### Updating
 
-Quit the app first, then:
+**[CHANGELOG.md](CHANGELOG.md) lists what's in each release.**
+
+**Quit the app first** — this is the step people skip. Demo Studio reads its version and its code
+once, when it starts, so a copy left running through a `git pull` keeps serving the old build. Quit
+it from the menu bar / system tray icon (**Quit (stops all demos)**), not just by closing the window.
 
 ```bash
 git pull
@@ -92,6 +96,12 @@ Two things an update never breaks: your demos live in `~/Documents/CognigyDemoSt
 project folder, so they're untouched; and if an older demo doesn't pick up a new feature, hit
 **Sync** on its row to refresh its code (your previous source is backed up first, its settings are
 kept).
+
+**Check it worked:** **Settings → About** should show the version at the top of
+[CHANGELOG.md](CHANGELOG.md), and the extension card should say **Installed** rather than warning
+that the two disagree. If it says **Restart Demo Studio**, the app was left running — quit and start
+it again. If it says **Needs reloading**, the extension is the one behind. Entries marked **(Sync)**
+in the changelog only reach demos you've synced.
 
 ### Uninstalling
 

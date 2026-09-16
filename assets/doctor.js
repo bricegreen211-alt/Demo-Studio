@@ -105,6 +105,18 @@ const webchatBundle = path.join(paths.REPO_ROOT, "node_modules", "@cognigy", "we
 if (fs.existsSync(webchatBundle)) ok("Cognigy Webchat v3", "widget bundle present");
 else bad("Cognigy Webchat v3 bundle missing", "run:  npm install");
 
+// Three files carry a version and they drifted once already (mcp-server sat a
+// release behind through 1.1.0). A mismatch shows up as the app and the
+// extension disagreeing in Settings, which reads like a broken install.
+try {
+  const v = require("./set-version.js").check();
+  if (v.ok) ok("Version", v.expected + " — package.json, extension and mcp-server agree");
+  else warn("Versions disagree", v.versions.map((x) => (x.version || "?") + " " + x.label).join(",  ") +
+            " — run:  npm run version:set " + (v.expected || "<version>"));
+} catch (err) {
+  warn("Could not check versions", String(err.message || err));
+}
+
 const iconDir = path.join(paths.EXTENSION_ROOT, "icons");
 if (fs.existsSync(path.join(iconDir, "icon128.png"))) ok("Extension icons");
 else warn("Extension icons missing", "run:  node assets/make-icons.js");
