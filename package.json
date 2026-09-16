@@ -13,7 +13,9 @@
     "build:audio": "node assets/build-audio-clean.js",
     "seed:samples": "node assets/seed-samples.js",
     "seed:test-sites": "node assets/seed-test-sites.js",
-    "doctor": "node assets/doctor.js"
+    "doctor": "node assets/doctor.js",
+    "version:set": "node assets/set-version.js",
+    "version:check": "node assets/set-version.js --check"
   },
   "dependencies": {
     "@cognigy/click-to-call-sdk": "0.0.7",

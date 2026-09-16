@@ -41,19 +41,35 @@ head("Folders");
 const docs = paths.resolveDocumentsDir();
 if (docs === os.homedir()) {
   warn("Documents folder", docs + " — couldn't find a Documents folder, using your home folder");
+} else if (process.platform === "win32" && docs !== path.join(os.homedir(), "Documents")) {
+  // resolveDocumentsDir only leaves <home>\Documents when that folder is itself
+  // a junction into the OneDrive sync root.
+  warn("Documents folder", docs + " — your Documents folder redirects into OneDrive, so demos go here instead");
 } else {
   ok("Documents folder", docs);
 }
 
 if (process.env.CDS_DATA_DIR) ok("CDS_DATA_DIR override", process.env.CDS_DATA_DIR);
 
-// Runs the one-time move from the old <home>/CognigyDemoStudio location.
+// Runs the one-time move from wherever demos used to live — including the
+// OneDrive-redirected Documents folder earlier versions resolved to.
 let moved = null;
 try { moved = paths.migrateLegacyData(); } catch (err) { bad("Moving your old demos folder", String(err.message || err)); }
 if (moved) ok("Moved your demos", moved.from + "  →  " + moved.to);
 
 ok("Your demos", paths.DATA_ROOT);
 ok("The app", paths.REPO_ROOT);
+
+// The thing that brings OneDrive to its knees: node_modules is thousands of
+// files, and the builder rewrites each demo's dist/ on every single save.
+if (paths.isInOneDrive(paths.REPO_ROOT)) {
+  warn("The app is inside OneDrive", "node_modules will be synced file by file — move this folder to " +
+       (process.platform === "win32" ? "C:\\Users\\<you>\\Documents\\Demo-Studio" : "~/Documents/Demo-Studio") +
+       ", then re-run:  npm install");
+}
+if (paths.isInOneDrive(paths.DATA_ROOT)) {
+  warn("Your demos are inside OneDrive", "every rebuild re-syncs the demo — point CDS_DATA_DIR at a local folder");
+}
 
 // The data folder has to be creatable and writable, or nothing works.
 try {
@@ -88,6 +104,18 @@ else bad("node_modules missing", "run:  npm install");
 const webchatBundle = path.join(paths.REPO_ROOT, "node_modules", "@cognigy", "webchat", "dist", "webchat.js");
 if (fs.existsSync(webchatBundle)) ok("Cognigy Webchat v3", "widget bundle present");
 else bad("Cognigy Webchat v3 bundle missing", "run:  npm install");
+
+// Three files carry a version and they drifted once already (mcp-server sat a
+// release behind through 1.1.0). A mismatch shows up as the app and the
+// extension disagreeing in Settings, which reads like a broken install.
+try {
+  const v = require("./set-version.js").check();
+  if (v.ok) ok("Version", v.expected + " — package.json, extension and mcp-server agree");
+  else warn("Versions disagree", v.versions.map((x) => (x.version || "?") + " " + x.label).join(",  ") +
+            " — run:  npm run version:set " + (v.expected || "<version>"));
+} catch (err) {
+  warn("Could not check versions", String(err.message || err));
+}
 
 const iconDir = path.join(paths.EXTENSION_ROOT, "icons");
 if (fs.existsSync(path.join(iconDir, "icon128.png"))) ok("Extension icons");

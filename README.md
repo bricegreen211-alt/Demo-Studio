@@ -28,7 +28,12 @@ instructions (no developer background assumed). The section below is the short v
 ## Getting started
 
 Clone the project into your **Documents** folder (`~/Documents/Demo-Studio`, or
-`%USERPROFILE%\Documents\Demo-Studio` on Windows) — that's what the app assumes.
+`C:\Users\<you>\Documents\Demo-Studio` on Windows) — that's what the app assumes.
+
+> **Windows:** type that path literally. Don't use the **Documents** shortcut in the File Explorer
+> sidebar — if OneDrive is set up on your machine it points at `OneDrive\Documents`, and installing
+> there hands `node_modules` (thousands of files) to the sync client. `npm run doctor` warns you if
+> the app ends up inside OneDrive. See [INSTALL.md](INSTALL.md#step-1--get-the-code).
 
 ```bash
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git
@@ -69,7 +74,11 @@ stopped.
 
 ### Updating
 
-Quit the app first, then:
+**[CHANGELOG.md](CHANGELOG.md) lists what's in each release.**
+
+**Quit the app first** — this is the step people skip. Demo Studio reads its version and its code
+once, when it starts, so a copy left running through a `git pull` keeps serving the old build. Quit
+it from the menu bar / system tray icon (**Quit (stops all demos)**), not just by closing the window.
 
 ```bash
 git pull
@@ -87,6 +96,55 @@ Two things an update never breaks: your demos live in `~/Documents/CognigyDemoSt
 project folder, so they're untouched; and if an older demo doesn't pick up a new feature, hit
 **Sync** on its row to refresh its code (your previous source is backed up first, its settings are
 kept).
+
+**Check it worked:** **Settings → About** should show the version at the top of
+[CHANGELOG.md](CHANGELOG.md), and the extension card should say **Installed** rather than warning
+that the two disagree. If it says **Restart Demo Studio**, the app was left running — quit and start
+it again. If it says **Needs reloading**, the extension is the one behind. Entries marked **(Sync)**
+in the changelog only reach demos you've synced.
+
+### Uninstalling
+
+Deleting the project folder isn't the whole job — `npm install` also wrote launchers, a login item
+and a Claude registration outside it. In order:
+
+1. **Turn off start-at-login in the app** (Settings), while it still runs — cleaner than removing
+   the login item by hand afterwards. Then quit from the menu bar / tray icon.
+2. **Remove the extension** at `chrome://extensions` (or `edge://extensions`) → **Remove** on the
+   Cognigy Demo Studio card. It was loaded unpacked, so deleting files on disk doesn't remove it.
+3. **Unregister the Claude plug-in:** `claude mcp remove demo-studio`, and if you use Claude
+   Desktop, delete the `demo-studio` key under `mcpServers` in its config file (see the table).
+4. **Delete the leftovers** below, then **delete the project folder** itself — that takes
+   `node_modules` with it.
+
+| | macOS | Windows |
+|---|---|---|
+| Desktop launcher | `~/Desktop/Cognigy Demo Studio.app` | `%USERPROFILE%\Desktop\Cognigy Demo Studio.lnk` |
+| Applications / Start Menu launcher | `~/Applications/Cognigy Demo Studio.app` | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Cognigy Demo Studio.lnk` |
+| Start-at-login | System Settings → General → Login Items → remove "Cognigy Demo Studio" | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Cognigy Demo Studio.lnk` |
+| Claude Desktop config | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Claude skill | `~/.claude/skills/demo-studio/` | `%USERPROFILE%\.claude\skills\demo-studio\` |
+
+**Your demos are not in the project folder and none of the above removes them.** They're in
+`~/Documents/CognigyDemoStudio/` (`C:\Users\<you>\Documents\CognigyDemoStudio` on Windows) —
+`demos/`, `settings.json`, `contacts.json` — which is the same separation that makes
+[an update safe](INSTALL.md#your-demos-are-never-touched-by-an-update). Delete that folder
+separately, and only if you actually want your demos gone.
+
+### Moving the app instead of removing it
+
+Moving the folder — off OneDrive, or onto a different drive — is not an uninstall. Quit the app,
+move the folder, then in its new location:
+
+```bash
+npm install
+npm run doctor
+```
+
+`npm install` regenerates the launchers and re-points the Claude registration (both embed absolute
+paths, which is why they aren't in git), and `doctor` prints where everything landed. Your demos
+move themselves the first time the app starts from the new location — nothing to delete, nothing
+to copy by hand.
 
 ## Day to day
 

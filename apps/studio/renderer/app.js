@@ -1007,6 +1007,26 @@
 
   /* ---------------- settings ---------------- */
 
+  /*
+   * Which of two versions is newer? -1 / 0 / 1, and null when either isn't a
+   * plain numeric version. Used to say WHICH side is behind: reporting every
+   * mismatch as a stale extension sent SEs to chrome://extensions when the
+   * actual fix was restarting Demo Studio, which reads its version once at
+   * startup and keeps serving old code until you do.
+   */
+  function cmpVersion(a, b) {
+    if (!a || !b) return null;
+    var pa = String(a).split("-")[0].split(".");
+    var pb = String(b).split("-")[0].split(".");
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var na = parseInt(pa[i] || "0", 10);
+      var nb = parseInt(pb[i] || "0", 10);
+      if (isNaN(na) || isNaN(nb)) return null;
+      if (na !== nb) return na > nb ? 1 : -1;
+    }
+    return 0;
+  }
+
   function fmtDate(iso) {
     if (!iso) return "unknown";
     var d = new Date(iso);
@@ -1047,13 +1067,27 @@
       var steps = $("extSteps");
       if (a.extensionConnected && a.extensionStale) {
         // Loud, because the symptom otherwise looks like "the update did
-        // nothing" rather than "the extension was never reloaded".
+        // nothing" rather than "one half of this was never restarted".
+        var appBehind = cmpVersion(a.extensionVersion, a.version) === 1;
+        var versions = "The extension is running version <b>" + a.extensionVersion +
+          "</b> but Demo Studio is <b>" + a.version + "</b>. ";
         pill.className = "pill warn";
-        pill.textContent = "Needs reloading";
         banner.hidden = false;
-        banner.innerHTML = "The extension is running version <b>" + a.extensionVersion +
-          "</b> but Demo Studio is <b>" + a.version + "</b>. Open <b>chrome://extensions</b>, click " +
-          "the reload arrow on Cognigy Demo Studio, then refresh any customer tab you have open.";
+        if (appBehind) {
+          // Demo Studio reads its version from package.json once, at startup,
+          // so a copy left running through a `git pull` reports the old one
+          // and serves the old code with it. Reloading the extension here
+          // fixes nothing.
+          pill.textContent = "Restart Demo Studio";
+          banner.innerHTML = versions +
+            "Demo Studio is the one behind — it was left running through an update. Quit it from the " +
+            "menu bar / system tray icon (<b>Quit (stops all demos)</b>) and start it again.";
+        } else {
+          pill.textContent = "Needs reloading";
+          banner.innerHTML = versions +
+            "Open <b>chrome://extensions</b>, click the reload arrow on Cognigy Demo Studio, then " +
+            "refresh any customer tab you have open.";
+        }
         steps.hidden = true;
       } else if (a.extensionConnected) {
         pill.className = "pill ok";
