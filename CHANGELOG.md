@@ -19,12 +19,21 @@ and `mcp-server/package.json` are written from it by `npm run version:set`, so a
 
 ### Fixed
 
-- **Windows: demos and the app no longer land in OneDrive.** The data root followed OneDrive's Known
-  Folder Move into `<home>\OneDrive\Documents`, which meant the sync client saw every demo rebuild —
-  and demos rebuild on every file save. On a work machine this saturated OneDrive and crashed it.
-  Demos now go to `%USERPROFILE%\Documents` literally, and move themselves there once on first start.
-  macOS is unchanged. `npm run doctor` warns if either the app folder or the data folder is inside
-  OneDrive.
+- **Demos and the app no longer land in OneDrive — on Windows *and* macOS.** The data root followed
+  OneDrive's Known Folder Move into the sync root, which meant the sync client saw every demo
+  rebuild — and demos rebuild on every file save. On a work machine this saturated OneDrive and
+  crashed it. Known Folder Move does this on both platforms by different mechanisms, so both are
+  handled:
+  - **Windows** — the Documents known folder is repointed at `<home>\OneDrive\Documents`. Demos now
+    go to `%USERPROFILE%\Documents` literally, falling back to `%LOCALAPPDATA%` if even that is a
+    junction into the sync root.
+  - **macOS** — `~/Documents` is replaced by a *symlink* into
+    `~/Library/CloudStorage/OneDrive-<tenant>/Documents`, and there is no local Documents left to
+    use. Demos go to `~/Library/Application Support/CognigyDemoStudio` instead.
+
+  Existing demos move themselves out of OneDrive once, on first start, from any of these locations.
+  `npm run doctor` warns if either the app folder or the data folder is still inside OneDrive, and
+  says where to move it.
 - **The "Needs reloading" banner named the wrong culprit.** Any version difference was reported as a
   stale extension, so pulling an update without restarting Demo Studio told you to reload the
   extension — which fixes nothing. It now says which side is actually behind.

@@ -41,10 +41,12 @@ head("Folders");
 const docs = paths.resolveDocumentsDir();
 if (docs === os.homedir()) {
   warn("Documents folder", docs + " — couldn't find a Documents folder, using your home folder");
-} else if (process.platform === "win32" && docs !== path.join(os.homedir(), "Documents")) {
-  // resolveDocumentsDir only leaves <home>\Documents when that folder is itself
-  // a junction into the OneDrive sync root.
-  warn("Documents folder", docs + " — your Documents folder redirects into OneDrive, so demos go here instead");
+} else if (paths.isInOneDrive(path.join(os.homedir(), "Documents"))) {
+  // Known Folder Move: a junction on Windows, a symlink on macOS. Either way
+  // Documents is inside the sync root, so demos go somewhere local instead.
+  warn("Documents folder", docs);
+  warn("  why not Documents?", "your Documents folder redirects into OneDrive — demos there would be " +
+       "re-synced on every rebuild, so they go to the folder above instead");
 } else {
   ok("Documents folder", docs);
 }
@@ -63,9 +65,14 @@ ok("The app", paths.REPO_ROOT);
 // The thing that brings OneDrive to its knees: node_modules is thousands of
 // files, and the builder rewrites each demo's dist/ on every single save.
 if (paths.isInOneDrive(paths.REPO_ROOT)) {
-  warn("The app is inside OneDrive", "node_modules will be synced file by file — move this folder to " +
-       (process.platform === "win32" ? "C:\\Users\\<you>\\Documents\\Demo-Studio" : "~/Documents/Demo-Studio") +
-       ", then re-run:  npm install");
+  // Don't suggest Documents without checking it: under Known Folder Move that
+  // IS the sync root, which is how a second copy ends up in there.
+  const docsIsSynced = paths.isInOneDrive(path.join(os.homedir(), "Documents"));
+  const suggestion = process.platform === "win32"
+    ? (docsIsSynced ? "C:\\Users\\<you>\\Demo-Studio" : "C:\\Users\\<you>\\Documents\\Demo-Studio")
+    : (docsIsSynced ? "~/Developer/Demo-Studio" : "~/Documents/Demo-Studio");
+  warn("The app is inside OneDrive", "node_modules is ~500 MB of small files and will be synced one by one — " +
+       "move this folder to " + suggestion + ", then run:  npm install");
 }
 if (paths.isInOneDrive(paths.DATA_ROOT)) {
   warn("Your demos are inside OneDrive", "every rebuild re-syncs the demo — point CDS_DATA_DIR at a local folder");

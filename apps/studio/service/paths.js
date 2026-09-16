@@ -45,15 +45,25 @@ function isInOneDrive(dir) {
 /*
  * Where should the user's own files go?
  *
- * On Windows: %USERPROFILE%\Documents LITERALLY, deliberately NOT Electron's
- * known-folder API. OneDrive's Known Folder Move repoints the Documents known
- * folder at <home>/OneDrive/Documents, and putting the data root there is what
- * kills OneDrive on a work machine: every demo carries its own template copy
- * and the builder rewrites dist/ on every single file save, so the sync client
- * never stops. KFM normally leaves the original folder behind, but not always,
- * so create it.
+ * Documents, unless Documents is inside OneDrive — which on a corporate machine
+ * it very often is. Putting the data root in a sync root is what kills OneDrive:
+ * every demo carries its own template copy and the builder rewrites dist/ on
+ * every single file save, so the sync client never stops.
  *
- * On macOS: the known folder is right, and there's no redirection to dodge.
+ * Known Folder Move does this on BOTH platforms, by different mechanisms:
+ *
+ *   Windows  the Documents known folder is repointed at <home>\OneDrive\Documents,
+ *            so we use %USERPROFILE%\Documents literally and never ask the API.
+ *            KFM usually leaves that original folder behind; create it if not.
+ *
+ *   macOS    ~/Documents is replaced by a SYMLINK into
+ *            ~/Library/CloudStorage/OneDrive-<tenant>/Documents, and
+ *            app.getPath("documents") follows it straight back in. The literal
+ *            path is no escape here — there is no local Documents left — so we
+ *            fall back to Application Support, which is never synced.
+ *
+ * Both fallbacks are the platform's own "local app data" location, and both are
+ * printed by `npm run doctor` so the SE can find their demos.
  */
 function resolveDocumentsDir() {
   const home = os.homedir();
@@ -68,10 +78,15 @@ function resolveDocumentsDir() {
     return process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
   }
 
-  const docs = knownDocumentsDir();
-  if (docs) return docs;
-  const fallback = path.join(home, "Documents");
-  try { if (fs.statSync(fallback).isDirectory()) return fallback; } catch (e) { /* next */ }
+  for (const dir of [knownDocumentsDir(), path.join(home, "Documents")]) {
+    if (!dir) continue;
+    try { if (!fs.statSync(dir).isDirectory()) continue; } catch (e) { continue; }
+    if (isInOneDrive(dir)) continue;   // KFM symlinked it into the sync root
+    return dir;
+  }
+
+  // Every Documents candidate is inside OneDrive, or there isn't one.
+  if (process.platform === "darwin") return path.join(home, "Library", "Application Support");
   return home; // last resort — never fail to start over a missing folder
 }
 
@@ -88,17 +103,46 @@ const SHARED_ROOT = path.join(REPO_ROOT, "packages", "shared");
  * migrateLegacyData; the first one that exists is moved and wins.
  */
 function legacyDataRoots() {
+  const home = os.homedir();
   const roots = [];
-  const known = knownDocumentsDir();
+
   // The OneDrive-redirected Documents folder we used to resolve to. Only the
-  // app sees this one...
+  // app can ask for this one...
+  const known = knownDocumentsDir();
   if (known) roots.push(path.join(known, "CognigyDemoStudio"));
-  // ...so spell out the usual redirect target as well, or `npm run service`
-  // would silently start empty on a machine the app would have migrated.
-  roots.push(path.join(os.homedir(), "OneDrive", "Documents", "CognigyDemoStudio"));
+
+  // ...so spell out the redirect targets as well, or `npm run service` — which
+  // has no Electron API to ask — starts empty on a machine the app would have
+  // migrated. On macOS ~/Documents IS the symlink into the sync root, so the
+  // literal path is the one that finds the demos.
+  roots.push(path.join(home, "Documents", "CognigyDemoStudio"));
+  roots.push(path.join(home, "OneDrive", "Documents", "CognigyDemoStudio"));
+
+  // macOS parks each tenant's sync root under Library/CloudStorage —
+  // "OneDrive-NiCELtd", "OneDrive-Contoso". Covers the case where KFM is on but
+  // the ~/Documents symlink has since been removed or repointed.
+  const cloud = path.join(home, "Library", "CloudStorage");
+  try {
+    for (const entry of fs.readdirSync(cloud)) {
+      if (/^onedrive/i.test(entry)) roots.push(path.join(cloud, entry, "Documents", "CognigyDemoStudio"));
+    }
+  } catch (e) { /* no CloudStorage: not a Mac, or no cloud providers signed in */ }
+
   // Older still: straight off the home folder.
   roots.push(LEGACY_DATA_ROOT);
-  return roots;
+
+  // Several of these resolve to the same place on a given machine.
+  return roots.filter((r, i) => roots.indexOf(r) === i);
+}
+
+/**
+ * Same folder as DATA_ROOT? Compared through symlinks: on macOS the candidate
+ * ~/Documents/CognigyDemoStudio and the real location are the same directory
+ * under two names, and moving one onto the other would destroy it.
+ */
+function sameDir(a, b) {
+  const real = (p) => { try { return fs.realpathSync(p); } catch (e) { return path.resolve(p); } };
+  return real(a) === real(b);
 }
 
 /*
@@ -114,8 +158,8 @@ function migrateLegacyData() {
   if (fs.existsSync(DATA_ROOT)) return null;          // already using the new home
 
   for (const from of legacyDataRoots()) {
-    if (path.resolve(from) === path.resolve(DATA_ROOT)) continue; // that IS the new home
-    if (!fs.existsSync(from)) continue;                           // nothing there to move
+    if (!fs.existsSync(from)) continue;        // nothing there to move
+    if (sameDir(from, DATA_ROOT)) continue;    // that IS the new home, under another name
 
     fs.mkdirSync(path.dirname(DATA_ROOT), { recursive: true });
     try {

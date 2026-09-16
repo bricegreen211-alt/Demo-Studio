@@ -30,10 +30,17 @@ instructions (no developer background assumed). The section below is the short v
 Clone the project into your **Documents** folder (`~/Documents/Demo-Studio`, or
 `C:\Users\<you>\Documents\Demo-Studio` on Windows) — that's what the app assumes.
 
-> **Windows:** type that path literally. Don't use the **Documents** shortcut in the File Explorer
-> sidebar — if OneDrive is set up on your machine it points at `OneDrive\Documents`, and installing
-> there hands `node_modules` (thousands of files) to the sync client. `npm run doctor` warns you if
-> the app ends up inside OneDrive. See [INSTALL.md](INSTALL.md#step-1--get-the-code).
+> **If your company uses OneDrive, check where Documents actually points first.** On a work machine
+> it is often redirected into the sync root, and installing there hands `node_modules` — ~500 MB of
+> small files — to the sync client. On Windows type `C:\Users\<you>\Documents` literally rather than
+> using the Documents shortcut in the Explorer sidebar. On macOS run `ls -ld ~/Documents`: if it
+> prints an `->` arrow into `Library/CloudStorage/OneDrive-…`, put the project somewhere else
+> entirely — `~/Developer/Demo-Studio` is a good home. `npm run doctor` checks this and tells you.
+> See [INSTALL.md](INSTALL.md#step-1--get-the-code).
+>
+> **Keep exactly one copy.** Whichever folder ran `npm install` last owns the launcher icon, and the
+> extension is loaded from whichever folder you picked in `chrome://extensions` — two copies means
+> the app and the extension can silently run different versions.
 
 ```bash
 git clone https://github.com/bricegreen211-alt/Demo-Studio.git

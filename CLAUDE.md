@@ -264,8 +264,13 @@ badged **SIM** in the UI. Preserve both properties if you touch this.
 `~/Documents/CognigyDemoStudio/`, resolved by [`paths.js`](apps/studio/service/paths.js). Override
 with `CDS_DATA_DIR`. App updates never touch demos.
 
-**On Windows this deliberately ignores Electron's known-folder API** and uses `%USERPROFILE%\Documents`
-literally. OneDrive's Known Folder Move repoints the Documents known folder at
+**Known Folder Move is handled on both platforms, and they need different answers.** On Windows the
+Documents known folder is repointed, so this deliberately ignores Electron's known-folder API and uses
+`%USERPROFILE%\Documents` literally. On macOS `~/Documents` is replaced by a *symlink* into
+`~/Library/CloudStorage/OneDrive-<tenant>/Documents` — `app.getPath` follows it, and there is no local
+Documents left to fall back to — so the data root becomes `~/Library/Application Support`. Confirmed on
+a NiCE work Mac, where `ls -ld ~/Documents` showed the symlink. Don't assume "OneDrive problem" means
+"Windows problem"; it cost a release here. OneDrive's Known Folder Move repoints the Documents known folder at
 `<home>\OneDrive\Documents`, and the data root is the worst possible thing to put in a sync root:
 every demo carries its own template copy and [`builder.js`](apps/studio/service/builder.js)'s watcher
 rewrites `dist/` on **every file save**, so the sync client never settles. This was reported as
@@ -275,7 +280,9 @@ and `doctor.js` warns when either folder resolves inside OneDrive (`paths.isInOn
 follows junctions and matches business roots like `OneDrive - Contoso`).
 
 If `%USERPROFILE%\Documents` is *itself* a junction into the sync root — some KFM setups leave it
-that way — resolution falls back to `%LOCALAPPDATA%`, which never syncs.
+that way — resolution falls back to `%LOCALAPPDATA%`, which never syncs. `isInOneDrive()` realpaths
+first, so it sees through both the junction and the macOS symlink, and matches tenant roots
+(`OneDrive-NiCELtd`, `OneDrive - Contoso`) as well as plain `OneDrive`.
 
 `migrateLegacyData()` moves demos once from any previous location: the OneDrive-redirected Documents
 folder earlier versions resolved to, the literal `<home>\OneDrive\Documents` (so `npm run service`,
