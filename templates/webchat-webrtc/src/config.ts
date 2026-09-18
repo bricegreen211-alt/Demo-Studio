@@ -14,7 +14,7 @@ export interface DemoConfig {
   launcherText: string;
   showLauncherText: boolean;
   launcherSize: string;
-  /** Uploaded launcher art, relative to the demo folder. "" = use the picker. */
+  /** Uploaded launcher art, as a base64 data URL. "" = use the picker. */
   launcherImage: string;
   agentName: string;
   welcomeMessage: string;

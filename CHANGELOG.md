@@ -15,9 +15,39 @@ and `mcp-server/package.json` are written from it by `npm run version:set`, so a
 
 ---
 
-## Unreleased
+## 1.2.0 — 2026-09-18
 
 ### Fixed
+
+- **Remote Control hijacked the Logs pop-out.** Its pop-out test matched `popout=1` anywhere in the
+  URL, so opening the log stream in its own window booted Remote Control into it, renamed the window
+  and drew its own surface over the logs. Each pop-out now matches only its own page.
+
+- **"+ New Folder" and "Duplicate" did nothing in the desktop app.** Both, on Demo Experiences
+  *and* Remote Control, asked for the name with the browser's `prompt()` — which Electron does not
+  implement, so the click died silently. Delete kept working because `confirm()` *is* implemented,
+  which is what made it look random. They now use Demo Studio's own dialog. Renaming a folder was
+  broken the same way and is fixed with them.
+- **The launcher icon you picked was not always the one the customer saw.** "Voice Wave" drew a
+  waveform on the picker tile, animated bars in Panel style, and a **telephone handset** in Halo —
+  and since Voice Wave is the default for WebRTC, most voice demos showed the wrong one. It is a
+  waveform everywhere now, and the handset has become its own **Phone** option. "Chat Bubble" had no
+  case at all in Panel style and quietly fell back to the AI Orb; AI Spark lost its dark disc in
+  Halo. Both fixed. **(Sync** for the Halo side — the icons live in the demo's own copy of the
+  template.**)**
+- **The microphone gear was unreachable on voice demos.** Noise suppression, the noise gate, echo
+  cancellation and auto gain were behind **Settings → Show demo diagnostics**, which is off by
+  default before a customer call — so most SEs never found them, on Cognigy Default or on Halo. The
+  gear now always shows on a WebRTC demo, on every theme, and no longer depends on diagnostics. Chat
+  demos have no microphone to control and stay as they were; Remote Control is unchanged.
+- **The gear sat in the wrong corner on Halo.** Only Cognigy Default's host page ever positioned it,
+  so on a demo that draws its own voice UI it pinned to the top-right of the frame — which in
+  Overlay style is a box no bigger than the launcher, putting it on top of the mark. It now follows
+  the launcher, and the panel once that opens.
+- **Folder names no longer collide by case.** "Banking" and "banking" became two folders sitting
+  next to each other; a clashing name is now reported instead of silently doing nothing.
+- **A folder that failed to save no longer stays on screen.** It was added to the list before the
+  save, and a failure was neither undone nor reported.
 
 - **Demos and the app no longer land in OneDrive — on Windows *and* macOS.** The data root followed
   OneDrive's Known Folder Move into the sync root, which meant the sync client saw every demo
@@ -40,6 +70,50 @@ and `mcp-server/package.json` are written from it by `npm run version:set`, so a
 
 ### Added
 
+- **A Logs page**, in the sidebar before Settings, for troubleshooting a demo while it's still
+  happening. It opens on the Project you used last and the newest conversations, with nothing to
+  type. Each conversation is a row — who ran it, which Flow, when, how many turns, its channel, and
+  an error count — so you don't need a Session ID to find the one that went wrong. **Logs** buttons
+  on every demo and voice gateway row jump straight there with the Project already worked out.
+  Every filter — Project, Flow, User ID, Session ID and the time window — sits on one row at the
+  top, and each row carries the **date and time** so a 12-hour window that straddles midnight still
+  reads correctly. Flow, User ID and Session ID each suggest the values the API has just confirmed
+  exist and carry an **✕** to clear back to all — Cognigy matches all three exactly, so a forgotten
+  one reads as "nothing ran". **Reset** clears every filter and draws a line under everything
+  already logged so the next test starts on an empty screen; nothing is deleted, and
+  **Show everything** puts it back.
+- **A live log dock**, opened from the rail button above Appearance or from **Raw logs** on the
+  Logs page. It is a fixed panel down the right of the *whole app*, not part of the Logs page:
+  open it, go back to Remote Control or a Demo Experience to make the agent do the thing, and
+  watch Cognigy's log arrive next to what you're driving. It keeps tailing across navigation and
+  stops only when you close it. Its own controls sit at the top — Project, **Log levels and
+  limits**, and **Reset** — because from Remote Control the Logs page isn't on screen to reach
+  them. It opens on **Raw log**; the **Conversation** tab pins one transcript, chosen there or by
+  clicking a row on the Logs page.
+- A failed conversation is now visible instead of blank. Conversations reads `error` and `fatal`
+  alongside `info`, because a call that died before it said anything has only error entries — and
+  those are the ones carrying the Flow name. Such a session used to render as
+  "unknown flow &middot; 0 turns" with no error count, which is exactly the one you're hunting for.
+- **Copy or download just the conversation.** A timestamped `User:` / `Agent:` transcript and
+  nothing else — no ids, no log levels, no metadata — ready to paste into a ticket or send to a
+  customer. Cognigy keeps logs for only about 24 hours, so this is the way to keep one. It also
+  de-duplicates: Cognigy logs every utterance two or three times (once per channel, once
+  canonically, once more at debug level), and a naive copy repeats every line.
+- **Settings → Cognigy API**, which the Logs page runs on. If you already use the Cognigy MCP server
+  with Claude, Demo Studio finds that key and offers to import it so you never paste a 128-character
+  string. The key is stored on this machine, is never sent to the dashboard, and is deliberately
+  **left out of Export** — unlike the Voice Gateway and Endpoint keys, which Export has always
+  carried in clear.
+- **Upload your own launcher mark.** The Upload tile in the demo form's Launcher group was greyed
+  out and dropped whatever you picked. It works, and the form now states what it wants: PNG, SVG,
+  JPG or WebP, square, 128×128 or larger, under 512 KB. The image is stored in the demo's
+  `demo.json`, so it survives Sync and Rebuild, and it shows in both panel styles.
+- **A Launcher colour picker**, next to the launcher icons, for the circle's background and its
+  glow. It applies on refresh — no rebuild and **no Sync**, including on demos built before this
+  release. "Reset to theme" puts it back.
+- **A Phone launcher icon.**
+- **Duplicate a voice gateway** on Remote Control → Voice Agent, the same as duplicating a demo. The
+  copy keeps its endpoint and its folder.
 - **`npm run version:set <version>`** writes one version into all three manifests and tags the commit.
 - **Uninstalling** and **Moving the app instead of removing it** sections in the README. `npm install`
   writes launchers, a login item and a Claude registration outside the project folder; none of that

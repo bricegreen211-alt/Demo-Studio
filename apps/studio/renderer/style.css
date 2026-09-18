@@ -277,6 +277,8 @@ body {
   transition: background .12s, color .12s;
 }
 .rail-btn:hover { background: var(--rail-hover); color: var(--rail-ink); }
+/* The live log dock is either running or not — the rail has to say which. */
+.rail-btn[aria-pressed="true"] { background: var(--rail-hover); color: var(--rail-accent, var(--rail-ink)); }
 .rail-btn:focus-visible { outline: 2px solid var(--rail-accent); outline-offset: 2px; }
 
 /* Segmented control (Appearance). Reuses the pill language of .rc-tabs. */
@@ -375,6 +377,17 @@ body {
 .launcher-name { font-size: 11px; color: var(--soft); text-align: center; line-height: 1.3; }
 .launcher-tile.on .launcher-name { color: var(--ink); font-weight: 600; }
 
+/* Launcher colour. The swatch drives .launcher-art's gradient through an
+   inline --primary on each tile, so the picker previews the real colour
+   rather than the dashboard's own accent. */
+.launcher-color { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.launcher-color label { font-size: 13px; color: var(--ink); }
+.launcher-color input[type="color"] {
+  width: 40px; height: 28px; padding: 2px; flex: 0 0 auto; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+}
+.launcher-color .soft { font-size: 12px; }
+
 /* ── collapsed rail ───────────────────────────────────────────────────────
    Redefining --sidebar-w is the whole trick: #sidebar's width, #content's
    margin and .ob-toast's offset already all read it, so one variable moves
@@ -389,7 +402,7 @@ body {
 html[data-rail="mini"] { --sidebar-w: var(--sidebar-w-mini); }
 
 #sidebar { transition: width .18s ease; }
-#content { transition: margin-left .18s ease; }
+#content { transition: margin-left .18s ease, margin-right .18s ease; }
 
 html[data-rail="mini"] .side-brand { padding: 18px 0 20px; }
 /* No symbol-only lockup exists in the brand package, so the stacked one is
@@ -489,6 +502,186 @@ main { max-width: 1200px; margin: 0 auto; padding: 26px 26px; }
 .demo-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .demo-actions button { font-size: 12px; padding: 6px 10px; }
 .empty { text-align: center; padding: 70px 0; font-size: 16px; }
+
+/* ── Logs ─────────────────────────────────────────────────────────────────
+   Almost everything here is borrowed: session rows are .demo-row, the
+   transcript is .rc-halo's own bubbles, the tabs are .rc-tabs. Only the
+   filter row, the raw-log line and the docked panel need anything of their
+   own. */
+.logs-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Raw logs is a toggle for the dock, not a command, so it has to look
+   pressed while the dock is open. */
+.logs-tools .ghost.on {
+  background: var(--primary-soft); border-color: var(--primary); color: var(--primary-deep);
+}
+
+/* The Reset line. Quiet, but it has to be there — a page hiding older
+   conversations and not saying so looks like a page with nothing on it. */
+.log-since {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 12px; padding: 8px 12px; border-radius: 9px;
+  background: var(--primary-soft); color: var(--primary-deep); font-size: 12.5px;
+}
+.linkish {
+  background: none; border: 0; padding: 0; font: inherit; color: inherit;
+  text-decoration: underline; cursor: pointer;
+}
+
+/* One filter row, Project first. Wraps rather than scrolls — an SE on a
+   1280px laptop should still see every filter without hunting. */
+.logs-filters {
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+  margin: -6px 0 16px;
+}
+.logs-filter { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--soft); }
+.logs-filter select, .logs-filter input {
+  padding: 7px 10px; font: inherit; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink);
+}
+.logs-filter select:focus, .logs-filter input:focus { outline: none; border-color: var(--primary); }
+.logs-filter select { min-width: 190px; }
+.logs-filter input { width: 148px; }
+.logs-filter .seg { padding: 2px; }
+.logs-filter .seg-btn { padding: 5px 10px; }
+
+/* The ✕ inside Flow / User ID / Session ID. Cognigy matches these exactly, so
+   a forgotten value reads as "nothing ran" — clearing one has to be a single
+   obvious click, not a select-all-and-delete. */
+.logs-field { position: relative; display: inline-flex; align-items: center; }
+.logs-field input { padding-right: 28px; }
+.field-clear {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--soft); cursor: pointer;
+}
+.field-clear:hover { background: var(--surface-4); color: var(--ink); }
+.field-clear:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* ── the live log dock ──────────────────────────────────────────────────
+   A fixed column down the right of the WHOLE app, outside every view, so an
+   SE can drive Remote Control or a demo with the log still arriving beside
+   it. #content is pushed over rather than overlaid: a panel that covers the
+   thing you are driving solves nothing. */
+:root { --dock-w: 420px; }
+#logDock {
+  position: fixed; top: 0; right: 0; bottom: 0; width: var(--dock-w);
+  z-index: 15; display: flex; flex-direction: column;
+  padding: 14px 16px; gap: 10px;
+  background: var(--surface); border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px -20px rgba(0, 0, 0, .5);
+}
+body.dock-open #content { margin-right: var(--dock-w); }
+
+.dock-head { display: flex; align-items: center; gap: 8px; }
+.dock-title { font-size: 14px; font-weight: 650; letter-spacing: -.2px; }
+/* Is it actually reading? Lit while the tail is running. */
+.dock-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); flex: none; }
+.dock-dot.on { background: var(--teal); box-shadow: 0 0 8px var(--teal-soft-2); }
+.dock-btn { margin-left: auto; padding: 5px 10px; font-size: 12px; }
+.dock-pick { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--soft); }
+.dock-pick select {
+  padding: 7px 10px; font: inherit; font-size: 12.5px; max-width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+/* Levels and limits, at the top of the panel: they change what is below them,
+   and from Remote Control the Logs page is not on screen to reach them. */
+.drawer.dock-drawer { margin: 0; border-top: 0; padding-top: 0; }
+.dock-drawer .drawer-body { padding-top: 8px; }
+.dock-drawer .btn-row { flex-wrap: wrap; gap: 6px 14px; }
+.dock-drawer .check { font-size: 12.5px !important; }
+.dock-drawer .drawer-body p { font-size: 12px; }
+#logDock .rc-tabs { margin-bottom: 0; }
+#logDock .rc-tabs button { font-size: 12.5px; padding: 6px 12px; }
+#logDock .log-since { margin: 0; padding: 6px 10px; font-size: 12px; }
+/* Only this scrolls — the controls above stay put while the log grows. */
+.dock-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.dock-body .empty { padding: 40px 0; font-size: 14px; }
+.dock-gate { padding: 30px 0; text-align: center; }
+.dock-gate .soft { display: block; margin-bottom: 12px; line-height: 1.5; }
+
+/* A raw line has a third of the width here, so it WRAPS instead of ellipsing:
+   the tail of the line is the utterance and the flow name, which is the part
+   worth reading. */
+.dock-body .log-row { flex-wrap: wrap; row-gap: 1px; }
+.dock-body .log-msg { flex: 1 1 auto; min-width: 0; }
+.dock-body .log-extra { flex: 1 1 100%; white-space: normal; overflow: visible; }
+
+/* One scrollbar, not two. The transcript card caps itself at 320px because on
+   the Logs page it sits inside a list; in the dock it IS the content. */
+.dock-body .rc-halo { margin: 0; border: 0; box-shadow: none; background: none; }
+.dock-body .rc-halo .cds-tt { margin-left: 0; margin-right: 0; }
+.dock-body .rc-halo .cds-scroll { max-height: none; padding-left: 0; padding-right: 0; }
+
+/* Clicking a row picks which conversation the dock shows. */
+#logSessions .demo-row-main { cursor: pointer; }
+#logSessions .demo-row.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+
+/* Narrow: the dock keeps its width down, the main panel gives up the rest. */
+@media (max-width: 1180px) { :root { --dock-w: 340px; } }
+@media (max-width: 860px) {
+  /* Nowhere left to split — the dock overlays rather than crushing both. */
+  body.dock-open #content { margin-right: 0; }
+}
+
+.log-rows { display: flex; flex-direction: column; gap: 1px; }
+.log-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.log-row:nth-child(odd) { background: var(--surface-4); }
+.log-time { color: var(--soft); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.log-lvl {
+  flex: 0 0 auto; min-width: 42px; text-align: center;
+  border-radius: 4px; padding: 1px 5px; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: .03em; font-weight: 600;
+  background: var(--surface-3); color: var(--soft);
+}
+.log-lvl-error .log-lvl, .log-lvl-fatal .log-lvl { background: var(--pink-soft); color: var(--pink); }
+.log-lvl-warn .log-lvl { background: var(--warn-soft); color: var(--warn-text); }
+.log-lvl-info .log-lvl { background: var(--primary-soft); color: var(--primary-deep); }
+.log-msg { flex: 0 0 auto; color: var(--ink); }
+.log-extra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The transcript panel sits under its session row, so it should not carry
+   .rc-halo's own top margin into the gap. */
+#logSessions .rc-halo { margin: 2px 0 10px; }
+#logSessions .rc-halo .cds-tt { padding-top: 12px; }
+
+/* Logs pop-out. Nothing opens one any more — the log is docked — but
+   #logs&popout=1 still loads in a browser tab, and there the dock IS the
+   page. body.popout hides .rc-tabs for Remote Control's widget-only view;
+   the dock still needs its own. */
+body.logs-popout #content { display: none; }
+body.logs-popout #logDock { width: 100%; border-left: 0; box-shadow: none; }
+body.logs-popout #logDock .rc-tabs { display: flex; }
+body.popout .logs-filters { display: none; }
+body.popout #logSessions .rc-halo .cds-scroll { max-height: 220px; }
+/*
+ * Narrow window: stack the row so the FLOW NAME gets the full width. At
+ * 560px the four action buttons squeezed it to "C…", which is useless —
+ * the flow name is the single most diagnostic thing on the row.
+ */
+body.popout #logSessions .demo-row { flex-wrap: wrap; row-gap: 8px; }
+body.popout #logSessions .demo-row-main { flex: 1 1 100%; flex-wrap: wrap; row-gap: 2px; }
+body.popout #logSessions .demo-actions { margin-left: 0; }
+/* With the dock open the conversation rows lose its width, and the flow name
+   is the most diagnostic thing on a row — stack rather than squeeze it to
+   "C…", the same treatment the narrow-window rule below applies. */
+@media (max-width: 1400px) {
+  body.dock-open #logSessions .demo-row { flex-wrap: wrap; row-gap: 8px; }
+  body.dock-open #logSessions .demo-row-main { flex: 1 1 100%; flex-wrap: wrap; row-gap: 2px; }
+  body.dock-open #logSessions .demo-actions { margin-left: 0; }
+}
+@media (max-width: 900px) {
+  #logSessions .demo-row { flex-wrap: wrap; row-gap: 8px; }
+  #logSessions .demo-row-main { flex: 1 1 100%; flex-wrap: wrap; row-gap: 2px; }
+  #logSessions .demo-actions { margin-left: 0; }
+  .logs-filter select, .logs-filter input { min-width: 0; width: 100%; }
+  .logs-filter, .logs-field { flex: 1 1 160px; }
+}
 .empty .soft { margin-top: 8px; font-size: 13.5px; }
 
 /* ── buttons ─────────────────────────────────────────────── */
@@ -759,6 +952,8 @@ body.popout #rc-widget-shell { height: 100vh; max-height: 100vh; border-radius: 
 }
 .modal-card h3 { margin-bottom: 14px; font-size: 16px; font-weight: 600; }
 .modal-actions { margin-top: 16px; text-align: right; }
+.modal-actions button + button { margin-left: 8px; }
+.modal-card .setting-field { margin-top: 4px; }
 .pf-verdict { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
 .pf-verdict.ok { color: var(--ok-text); }
 .pf-verdict.bad { color: var(--pink); }

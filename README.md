@@ -306,6 +306,86 @@ this body:
 In your flow, branch on `data.trigger == "outboundDemo"` / `data.channel`, then place the call. The
 first text output your flow returns is shown back to you as confirmation.
 
+### Dialer parameters — field reference
+
+The exact names behind the Outbound Trigger form and the **Call a number** dialer, for anyone
+scripting against `settings.json` directly or reading a support bundle.
+
+**Voice Gateway path** (`outbound.mode: "vg"`) — every field maps straight onto a
+`settings.json` → `outbound` key:
+
+| Form label            | `settings.json` key   | Sent to the Calls API as                     |
+|------------------------|------------------------|-----------------------------------------------|
+| API Base URL            | `vgBaseUrl`            | the request host (`{base}/v1/Accounts/…/Calls`) |
+| Account SID             | `vgAccountSid`         | the `Accounts/{sid}` path segment              |
+| API Key                 | `vgApiKey`             | `Authorization: Bearer {key}` header — never written to Export |
+| Application SID         | `vgApplicationSid`     | `application_sid`                              |
+| From (caller ID)        | `vgFrom`               | `from`                                         |
+| Carrier / trunk         | `vgTrunk`              | `to.trunk` (only included if set)              |
+
+The full POST body Demo Studio sends:
+
+```json
+{
+  "application_sid": "…",
+  "from": "+1555…",
+  "callerName": "Jane Doe",
+  "to": { "type": "phone", "number": "+1555…", "trunk": "optional" },
+  "tag": { "trigger": "outboundDemo", "contactPhone": "+1555…", "contactName": "Jane Doe" }
+}
+```
+
+`tag` is what lets your flow greet the right person — Voice Gateway is dialling, not Cognigy, so
+there is no `data` payload on this path; `tag` is the only place the contact's name and number ride
+along for the flow to read.
+
+**Agent flow path** (`outbound.mode: "flow"`) — two fields, `endpointUrl` and `endpointKey`
+(sent as the `x-cognigy-endpoint-key` header), POSTing the JSON body shown above in
+*Outbound Trigger — what your flow receives*.
+
+**Call a number** (`obQuickNumber` / `obQuickName` in the dashboard) is a one-off dial — phone and
+an optional name, nothing saved. **+ Add Contact** (`obcName` / `obcPhone` / `obcSms` / `obcEmail`)
+is the same dial, saved to a reusable row.
+
+## Logs
+
+The sidebar's **Logs** page reads your Cognigy organisation's own logs, for troubleshooting a demo
+while it's still happening — no Cognigy admin console tab needed.
+
+**One-time setup** — **Settings → Cognigy API**: an API base URL (pick your region) and a **user
+API key** from Cognigy › My Profile › API Keys. This is not a flow Endpoint Key and not the Voice
+Gateway key — mixing those up is the most common reason **Test connection** fails. The key is
+stored on this machine, never sent to the dashboard, and deliberately left out of Export. If you
+already use the Cognigy MCP server with Claude, **Import from my Claude MCP config** finds that key
+so you never paste a 128-character string by hand.
+
+**Using the Logs page:**
+
+- It opens on the Project you used last and the newest **conversations** — one row per session
+  (who ran it, which Flow, when, how many turns, its channel, an error count), not one row per log
+  line, so you rarely need a Session ID to find the one that broke.
+- **Filters** — Project, Flow, User ID, Session ID, and a time **Window** (1h / 6h / 12h). Flow,
+  User ID and Session ID each suggest values the API has just confirmed exist, and carry an **✕**
+  to clear back to "any" — Cognigy matches all three **exactly and case-sensitively**, so a
+  forgotten value is the single most common reason the page looks empty.
+- Each row's **Transcript** expands a clean, de-duplicated conversation inline; **Copy** and
+  **Download** produce a timestamped `User:` / `Agent:` text file with no ids or log levels —
+  ready to paste into a ticket. Cognigy keeps logs for roughly 24 hours, so this is how you keep
+  one longer. **Copy ID** grabs the raw session ID.
+- **Reset** clears every filter and draws a line under everything already logged, so the next test
+  you run starts on an empty screen instead of buried under the last four. Nothing is deleted —
+  **Show everything** puts it all back.
+
+**The live log dock** — a fixed panel down the right of the *whole app*, not just the Logs page.
+Open it from the **Raw logs** button on the Logs page, or from the rail button above Appearance in
+the sidebar (works from any page). The point of it: open the dock, then go drive **Remote Control**
+or a **Demo Experience** to make the agent do the thing, and watch Cognigy's raw log arrive next to
+what you're actually testing — it keeps tailing across navigation and stops only when you close it.
+Its own **Project** picker, **Log levels and limits** (Info / Error checked by default; tick
+Warning or Debug for more), and **Reset** live at the top of the dock, because from Remote Control
+the Logs page isn't on screen to reach them. It opens on **Raw log**; the **Conversation** tab pins
+one transcript, chosen from its own dropdown or by clicking a row on the Logs page.
+
 ## Claude Plug-in
 
 Once you have a real Agent, Flow, or Endpoint, Claude can create or update a Demo Experience and a

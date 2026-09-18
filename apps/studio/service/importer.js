@@ -67,6 +67,15 @@ function exportAll(store, settings) {
     app: APP_ID,
     exportedAt: new Date().toISOString(),
     demos,
+    /*
+     * Whitelisted, not spread. `settings.cognigy` is deliberately absent: it
+     * holds an org-wide management API key that can read and write every
+     * Project, and this file gets mailed between machines.
+     *
+     * NOTE: `outbound` below already carries endpointKey and vgApiKey in
+     * clear, and has since export existed. That is a separate pre-existing
+     * problem — not made worse here, but not fixed here either.
+     */
     settings: {
       folders: settings.folders || [],
       gateways: settings.gateways || [],

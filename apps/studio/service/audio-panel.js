@@ -15,11 +15,17 @@
  * MediaStreamAudioDestinationNode, so there is no replaceTrack, no SDP
  * renegotiation and no audio drop.
  *
- * VISIBILITY: the demo renders on the customer's site and is usually
- * screen-shared, so the gear follows showDiagnostics — the switch SEs already
- * flip before a customer call. With diagnostics off nothing renders and no
- * host element exists; only the hotkey stays armed, so a room that turns noisy
- * mid-call is still recoverable.
+ * VISIBILITY: on a VOICE demo the gear always renders, on every theme, with
+ * no regard for showDiagnostics. It used to follow that switch, on the
+ * reasoning that a demo is customer-facing and usually screen-shared — but the
+ * practical effect was that an SE with diagnostics off (the default before a
+ * customer call) had no way to reach the denoiser or the gain short of a
+ * hotkey nothing advertises. It is 26px at 35% opacity until hovered.
+ *
+ * On a chat-only demo there is no microphone to control, so nothing renders —
+ * that is what `voice` in __CDS_AUDIO__ decides, keyed on the TEMPLATE rather
+ * than the theme, because Cognigy Default and Halo are the same microphone.
+ * The hotkey stays armed either way.
  */
 (function () {
   "use strict";
@@ -101,16 +107,48 @@
     host.__wrap = wrap;
     document.documentElement.appendChild(host);
     place();
+    startTracking();
     draw();
+  }
+
+  /*
+   * Where the gear parks when webrtc.js is not driving it — i.e. any demo that
+   * draws its own voice UI (Halo, and anything vibe-coded from it). Without
+   * this the gear pinned to the frame's top-right corner, which in `overlay`
+   * is a box only as big as the launcher, so it landed on top of the mark.
+   *
+   * Halo keeps its card MOUNTED while closed, parked below the launcher at
+   * opacity 0 (that is what lets a call survive a minimize), so "is there a
+   * card element" is not the question — "is it actually showing" is.
+   */
+  function demoTarget() {
+    var card = document.querySelector(".cds-shell-card, .cds-card, .cds-panel");
+    if (card) {
+      var cs = getComputedStyle(card);
+      var cr = card.getBoundingClientRect();
+      if (parseFloat(cs.opacity) > 0.1 && cs.visibility !== "hidden" && cr.width > 1 && cr.height > 1) return cr;
+    }
+    var l = document.querySelector(".cds-launcher");
+    if (l) {
+      var lr = l.getBoundingClientRect();
+      if (lr.width > 1 && lr.height > 1) return lr;
+    }
+    return null;
   }
 
   function place() {
     if (!host) return;
     var w = host.__wrap;
-    if (anchorRect) {
-      // Driven by webrtc.js, which knows where Cognigy's widget actually is.
-      w.style.top = Math.max(4, anchorRect.top - 32) + "px";
-      w.style.left = Math.max(4, anchorRect.right - 26) + "px";
+    // anchorRect is webrtc.js, which knows where Cognigy's own widget is.
+    var r = anchorRect || demoTarget();
+    if (r) {
+      /*
+       * Clamped to the viewport as well as offset from the target: in `overlay`
+       * the viewport IS the frame the extension sized to the demo, so anything
+       * outside it is invisible and unclickable rather than merely off-centre.
+       */
+      w.style.top = Math.min(Math.max(4, r.top - 32), Math.max(4, window.innerHeight - 30)) + "px";
+      w.style.left = Math.min(Math.max(4, r.right - 26), Math.max(4, window.innerWidth - 30)) + "px";
       w.style.right = "auto";
       w.style.bottom = "auto";
     } else {
@@ -120,6 +158,41 @@
       w.style.bottom = "auto";
     }
     orient();
+  }
+
+  /*
+   * Follow the demo's own UI as it opens, closes, resizes and is dragged.
+   * Cognigy Default needs none of this — webrtc.js re-anchors on its own
+   * measuring loop — so this stops the moment anchor() is called.
+   *
+   * requestAnimationFrame never fires in a hidden tab, and an SE switching tabs
+   * mid-call is routine, so it falls back to a timer exactly like webrtc.js and
+   * content.js do.
+   */
+  function soon(fn) {
+    return document.visibilityState === "hidden"
+      ? setTimeout(fn, 250)
+      : requestAnimationFrame(fn);
+  }
+
+  var tracking = 0, trackKey = "", trackStopped = false;
+  function track() {
+    // Retire on handover to webrtc.js, on teardown, or while hidden.
+    if (anchorRect || trackStopped || !host || host.style.display === "none") { tracking = 0; return; }
+    var r = demoTarget();
+    var key = r ? [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)].join(",") : "";
+    if (key !== trackKey) { trackKey = key; place(); }
+    tracking = soon(track);
+  }
+  function startTracking() {
+    /*
+     * Only a demo voice surface has a launcher or card to follow. Remote
+     * Control loads this file straight from index.html with no __CDS_AUDIO__
+     * at all, so CFG.voice is undefined there and the loop never starts —
+     * its gear keeps the fixed corner placement it has always had.
+     */
+    if (tracking || anchorRect || CFG.voice !== true) return;
+    tracking = soon(track);
   }
 
   /*
@@ -315,14 +388,14 @@
 
   /* ── public surface, driven by webrtc.js ─────────────────────────────── */
 
-  function show() { build(); host.style.display = ""; }
+  function show() { build(); host.style.display = ""; startTracking(); }
   function hide() { if (host) { open = false; stopMeter(); host.style.display = "none"; } }
 
   window.CDSAudioPanel = {
     show: show,
     hide: hide,
     /** Place the gear next to Cognigy's widget, which webrtc.js measures. */
-    anchor: function (rect) { anchorRect = rect; place(); },
+    anchor: function (rect) { anchorRect = rect; place(); },   // retires track()
     /**
      * The gear's own bounds, for webrtc.js to union into the clip rect it
      * reports. Without that union the gear is cropped away on Cognigy Default
@@ -356,9 +429,13 @@
     isOpen: function () { return open; }
   };
 
-  // Diagnostics off: render nothing, but stay reachable. A room that goes
-  // noisy mid-call shouldn't mean reopening Studio Settings.
-  if (CFG.panel !== false && CFG.diagnostics) build();
+  /*
+   * Voice surfaces get the gear outright. `voice` is undefined on a page served
+   * by an older build of the service, so fall back to the old diagnostics rule
+   * rather than rendering a gear on a chat demo.
+   */
+  var wantsGear = CFG.voice === undefined ? CFG.diagnostics : CFG.voice;
+  if (CFG.panel !== false && wantsGear) build();
 
   window.addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "A" || e.key === "a")) {
@@ -369,5 +446,5 @@
       draw();
     }
   });
-  window.addEventListener("pagehide", stopMeter);
+  window.addEventListener("pagehide", function () { trackStopped = true; stopMeter(); });
 })();

@@ -536,7 +536,9 @@
 
     var size = SIZES[demo.launcherSize] || SIZES.medium;
     var side = demo.panelSide === "left" ? "left" : "right";
-    var primary = (demo.theme && demo.theme.primaryColor) || "#3694fc";
+    // The form's own Launcher colour wins; theme.primaryColor is the older
+    // hand-edited field and stays as the fallback.
+    var primary = demo.launcherColor || (demo.theme && demo.theme.primaryColor) || "#3694fc";
     var panelStyle = demo.panelStyle || "solid";
     var width = Math.max(MIN_W, demo.panelWidth || 420);
 
@@ -554,7 +556,7 @@
     var launcher = document.createElement("button");
     launcher.className = "cds-launcher cds-l-" + demo.launcher + " cds-vstate-idle";
     launcher.setAttribute("aria-label", "Open " + (demo.name || "demo") + " assistant");
-    launcher.innerHTML = launcherInner(demo.launcher);
+    launcher.innerHTML = launcherInner(demo.launcher, demo.launcherImage);
     launcherWrap.appendChild(launcher);
 
     if (demo.showLauncherText && demo.launcherText) {
@@ -676,13 +678,34 @@
   }
 
   /* ---------- launcher markup per style ---------- */
-  function launcherInner(kind) {
+  /*
+   * One branch per value in demo-schema's LAUNCHERS. This is the third of
+   * three renderers for that one key — the others are the dashboard's picker
+   * tiles (app.js LAUNCHER_ART) and the demo's own src/shell/Launcher.tsx —
+   * and they have to agree about what each value looks like. "chat" used to
+   * have no branch at all and silently fell through to the orb.
+   *
+   * `image` is an uploaded data URL and wins over the picked mark, exactly as
+   * it does in Launcher.tsx.
+   */
+  function launcherInner(kind, image) {
+    if (image) return '<img class="cds-launcher-img" src="' + image + '" alt="">';
     if (kind === "ai-spark") {
       return '<span class="cds-spark">✦</span>' +
              '<span class="cds-particle p1"></span><span class="cds-particle p2"></span><span class="cds-particle p3"></span>';
     }
     if (kind === "voice-wave") {
       return '<span class="cds-bars"><i></i><i></i><i></i><i></i><i></i></span>';
+    }
+    if (kind === "phone") {
+      return '<svg class="cds-glyph" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path fill="currentColor" d="M7.5 3.8c.5-.3 1.2-.1 1.5.4l1.7 2.8c.3.5.2 1.1-.2 1.5L9.2 9.8c-.3.3-.4.7-.2 1a9.6 9.6 0 0 0 4.2 4.2c.36.18.78.1 1.04-.2l1.28-1.3c.4-.4 1-.5 1.5-.2l2.8 1.7c.5.3.7 1 .4 1.5l-1 1.7c-.35.6-1.03.9-1.7.8A15.5 15.5 0 0 1 4.7 6.5c-.1-.67.2-1.35.8-1.7l2-1Z"/>' +
+        '</svg>';
+    }
+    if (kind === "chat") {
+      return '<svg class="cds-glyph" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path fill="currentColor" d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H12l-4.6 3.4a.6.6 0 0 1-.95-.48V16.5H4.5A1.5 1.5 0 0 1 3 15V7a1.5 1.5 0 0 1 1.5-1.5Z"/>' +
+        '</svg>';
     }
     // ai-orb (default)
     return '<span class="cds-orb-swirl"></span><span class="cds-orb-shine"></span>';
@@ -704,6 +727,10 @@
         "box-shadow:0 6px 24px color-mix(in srgb," + primary + " 55%, transparent);transition:transform .22s ease, box-shadow .22s ease;animation:cdsPulse 3.4s ease-in-out infinite;}",
       ".cds-launcher:hover{transform:scale(1.1);box-shadow:0 10px 32px color-mix(in srgb," + primary + " 70%, transparent);}",
       "@keyframes cdsPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.045);}}",
+
+      /* Flat glyph marks (phone, chat) and uploaded art */
+      ".cds-glyph{width:52%;height:52%;color:#fff;}",
+      ".cds-launcher-img{width:100%;height:100%;object-fit:cover;}",
 
       /* AI Orb internals */
       ".cds-orb-swirl{position:absolute;inset:-30%;border-radius:50%;" +

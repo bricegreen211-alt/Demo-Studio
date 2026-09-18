@@ -52,7 +52,13 @@
   var settings = null;
   var demos = [];
   var booted = false;
-  var POPOUT = /popout=1/.test(location.hash);
+  /*
+   * Scoped to #remote, not to "popout=1" anywhere in the hash. There is now a
+   * second pop-out in the app (#logs&popout=1) and a bare popout=1 test made
+   * Remote Control boot into it, rename the window and draw its own surface
+   * over the log stream.
+   */
+  var POPOUT = /popout=1/.test(location.hash) && (location.hash || "").split("&")[0] === "#remote";
   var POPOUT_GW = (location.hash.match(/gw=([A-Za-z0-9_-]+)/) || [])[1] || "";
 
   function normVoice(url) {
@@ -85,6 +91,13 @@
     });
     extra.sort(function (a, b) { return a.localeCompare(b); });
     return names.concat(extra);
+  }
+
+  /* Folder names compare case-insensitively — "Banking" and "banking" used to
+     become two folders side by side. */
+  function sameGwFolderName(a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); }
+  function hasGwFolderNamed(name) {
+    return gwFolderNames().some(function (f) { return sameGwFolderName(f, name); });
   }
 
   /* ---------------- folders: drag, rename, delete ---------------- */
@@ -157,19 +170,21 @@
 
   var gwFolderActions = {
     rename: function (name) {
-      var next = prompt("Rename folder:", name);
-      if (next === null) return;
-      next = next.trim().slice(0, 80);
-      if (!next || next === name) return;
-      var merging = gwFolderNames().indexOf(next) >= 0;
-      if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
-      var seen = [];
-      settings.gatewayFolders = gwFolderNames()
-        .map(function (f) { return f === name ? next : f; })
-        .filter(function (f) { if (seen.indexOf(f) >= 0) return false; seen.push(f); return true; });
-      gateways().forEach(function (g) { if (g.folder === name) g.folder = next; });
-      gwCollapsed[next] = gwCollapsed[name];   // carry the open/closed state over
-      afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+      CDSDialog.prompt({ title: "Rename folder", label: "Folder name", value: name, okLabel: "Rename", maxLength: 80 })
+        .then(function (next) {
+          if (next === null) return;
+          next = next.slice(0, 80);
+          if (next === name) return;
+          var merging = sameGwFolderName(next, name) ? false : hasGwFolderNamed(next);
+          if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+          var seen = [];
+          settings.gatewayFolders = gwFolderNames()
+            .map(function (f) { return f === name ? next : f; })
+            .filter(function (f) { if (seen.indexOf(f) >= 0) return false; seen.push(f); return true; });
+          gateways().forEach(function (g) { if (g.folder === name) g.folder = next; });
+          gwCollapsed[next] = gwCollapsed[name];   // carry the open/closed state over
+          afterFolderChange().catch(function (e) { rcToast(e.message, false); });
+        });
     },
     // Deletes the label, never the gateways: they return to the top level.
     delete: function (name) {
@@ -419,6 +434,8 @@
       '<div class="demo-actions">' +
       callControls +
       '<button class="ghost" data-act="edit">Edit</button>' +
+      '<button class="ghost" data-act="duplicate">Duplicate</button>' +
+      '<button class="ghost" data-act="logs" title="Open this gateway\'s Cognigy logs">Logs</button>' +
       '<button class="ghost" data-act="popout" title="Full view with mic/speaker devices — move it off-screen during the demo">' +
       CDSIcons.svg("open_in_new", 15) + ' Pop Out</button>' +
       '<button class="danger" data-act="delete" aria-label="Delete">' + CDSIcons.svg("close", 15) + '</button>' +
@@ -433,6 +450,8 @@
       else if (act === "mute") toggleInlineMute();
       else if (act === "end") endInlineCall();
       else if (act === "edit") showGwForm(g);
+      else if (act === "duplicate") duplicateGw(g);
+      else if (act === "logs") location.hash = "#logs&gw=" + encodeURIComponent(g.id);
       else if (act === "popout") popOut(g);
       else if (act === "delete") deleteGw(g);
     });
@@ -474,6 +493,26 @@
     persistGateways().then(function () { $("gwForm").hidden = true; renderGwList(); renderGwOptions(); });
   });
 
+  /*
+   * No route for this: PUT /api/settings re-sanitizes the whole gateways array
+   * and mints a missing id, which is how gwSaveBtn creates one too. The folder
+   * rides along so a copy lands next to its original.
+   */
+  function duplicateGw(g) {
+    CDSDialog.prompt({ title: "Duplicate gateway", label: "Name for the duplicate", value: g.name + " Copy", okLabel: "Duplicate" })
+      .then(function (name) {
+        if (name === null) return;
+        var copy = Object.assign({}, g, {
+          id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          name: name
+        });
+        settings.gateways = gateways().concat([copy]);
+        persistGateways()
+          .then(function () { renderGwList(); renderGwOptions(); })
+          .catch(function (e) { rcToast(String(e.message || e), false); });
+      });
+  }
+
   function deleteGw(g) {
     if (!confirm('Delete gateway "' + g.name + '"?')) return;
     if (inlineCall && inlineCall.gwId === g.id) endInlineCall();
@@ -509,13 +548,18 @@
   })();
 
   $("gwNewFolderBtn").addEventListener("click", function () {
-    var name = prompt("Folder name:");
-    if (!name || !name.trim()) return;
-    name = name.trim().slice(0, 80);
-    if (gwFolderNames().indexOf(name) < 0) {
-      settings.gatewayFolders = (settings.gatewayFolders || []).concat([name]);
-      persistGateways().then(function () { renderGwList(); renderGwOptions(); });
-    }
+    CDSDialog.prompt({ title: "New folder", label: "Folder name", placeholder: "Banking", okLabel: "Create", maxLength: 80 })
+      .then(function (name) {
+        if (name === null) return;
+        name = name.slice(0, 80);
+        // Saying so beats the old silent no-op, which looked like the button
+        // was dead.
+        if (hasGwFolderNamed(name)) { rcToast('"' + name + '" already exists.', false); return; }
+        settings.gatewayFolders = (settings.gatewayFolders || []).concat([name]);
+        persistGateways()
+          .then(function () { renderGwList(); renderGwOptions(); })
+          .catch(function (e) { rcToast(String(e.message || e), false); });
+      });
   });
 
   /* ── inline Call / Mute / End (SDK, no widget UI) ── */

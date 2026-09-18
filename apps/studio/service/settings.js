@@ -43,6 +43,22 @@ const DEFAULTS = {
     vgBaseUrl: "", vgAccountSid: "", vgApiKey: "",
     vgApplicationSid: "", vgFrom: "", vgTrunk: ""
   },
+  /*
+   * Cognigy.AI management API, for the Logs page. This is the only ORG-WIDE
+   * credential in the app — outbound.endpointKey is one flow's endpoint and
+   * outbound.vgApiKey is a Voice Gateway account; this one can read and write
+   * every Project. Two consequences, both enforced elsewhere and both easy to
+   * undo by accident:
+   *   - server.js redacts apiKey out of GET /api/settings, so the dashboard
+   *     never receives it. Every Cognigy call is proxied by the service.
+   *   - importer.js leaves this block out of Export, which DOES carry the
+   *     other two in clear.
+   * apiKey is a user API key from Cognigy > My Profile > API Keys.
+   */
+  cognigy: { baseUrl: "", apiKey: "" },
+  // Last Project used on the Logs page, so it opens where you left off
+  // instead of asking. Not a credential; just somewhere to put it.
+  logsProjectId: "",
   // Draws a small state badge on the demo and logs verbosely. On by
   // default while Webchat v3 support settles — turn it off in Settings
   // before demoing to a customer.
@@ -86,6 +102,7 @@ function read() {
     // new sub-key existed would keep overriding the whole block with an old
     // shape, and the new key would read as undefined forever.
     merged.audio = Object.assign({}, DEFAULTS.audio, stored.audio || {});
+    merged.cognigy = Object.assign({}, DEFAULTS.cognigy, stored.cognigy || {});
     return merged;
   } catch (e) {
     return JSON.parse(JSON.stringify(DEFAULTS));

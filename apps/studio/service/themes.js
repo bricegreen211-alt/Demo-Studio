@@ -121,6 +121,41 @@ function styleFor(cfg) {
     }
   }
 
+  /*
+   * Launcher colour, per demo.
+   *
+   * It is injected here rather than shipped in the template because this
+   * <style> is composed at REQUEST TIME, so it reaches demos that already
+   * exist with no Sync and no rebuild — the same escape hatch clear-mode.css
+   * uses. The glow is overridden alongside the fill: the template hardcodes a
+   * blue one, so a red launcher would otherwise sit in a blue halo.
+   *
+   * Placed before Custom so a vibe-coded .cds-launcher rule still wins, which
+   * is the ordering rule for this whole function.
+   */
+  const launcherBg = safeValue(cfg && cfg.launcherColor);
+  if (launcherBg) {
+    css += block(":root", { "--cds-launcher-bg": launcherBg });
+    css += ".cds-launcher {\n" +
+           "  background: var(--cds-launcher-bg);\n" +
+           "  box-shadow: 0 8px 24px color-mix(in srgb, var(--cds-launcher-bg) 40%, transparent),\n" +
+           "              0 2px 6px #304d6c20;\n" +
+           "}\n" +
+           /*
+            * AI Spark's dark disc is restated here rather than excluded with
+            * :not(), so it holds on demos whose own styles.css predates it.
+            * Same specificity, later in the block, so it wins — and the picker
+            * tile and the extension both keep the disc too.
+            */
+           ".cds-launcher-ai-spark {\n" +
+           "  background: radial-gradient(circle at 50% 55%, #1e293b, #0f172a);\n" +
+           "}\n" +
+           ".cds-launcher:hover {\n" +
+           "  box-shadow: 0 10px 30px color-mix(in srgb, var(--cds-launcher-bg) 55%, transparent),\n" +
+           "              0 2px 8px #304d6c25;\n" +
+           "}\n";
+  }
+
   css += block(":root", custom.tokens);
   if (custom.css) {
     // Only a closing </style> can escape the block; brace-stripping would

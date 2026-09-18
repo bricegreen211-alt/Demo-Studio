@@ -12,6 +12,8 @@ export interface DemoConfig {
   launcherText: string;
   showLauncherText: boolean;
   launcherSize: string;
+  /** Uploaded launcher art, as a base64 data URL. "" = use the picker. */
+  launcherImage: string;
   agentName: string;
   welcomeMessage: string;
   userId: string;
@@ -28,6 +30,7 @@ const FALLBACK: DemoConfig = {
   launcherText: "",
   showLauncherText: true,
   launcherSize: "medium",
+  launcherImage: "",
   agentName: "AI Assistant",
   welcomeMessage: "",
   userId: "",

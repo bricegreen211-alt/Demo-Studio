@@ -35,6 +35,11 @@
     <nav class="side-nav" id="sideNav"></nav>
     <div class="side-foot">
       <div class="side-tools">
+        <!-- The live log dock, reachable from every page — that is the whole
+             point of it: open it here, then go and drive the demo. -->
+        <button id="dockBtn" class="rail-btn" type="button" aria-pressed="false"
+                title="Live log — a panel down the right that keeps reading Cognigy while you use the rest of the app"
+                aria-label="Live log"></button>
         <button id="themeBtn" class="rail-btn" type="button" title="Appearance"
                 aria-label="Appearance"></button>
         <button id="railBtn" class="rail-btn" type="button" title="Collapse sidebar"
@@ -145,6 +150,15 @@
               <span class="field-legend">Launcher</span>
               <div class="launcher-list" id="launcherList" role="radiogroup" aria-label="Launcher"></div>
               <input type="file" id="launcherFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden />
+              <p class="soft">Upload your own mark: PNG, SVG, JPG or WebP &middot; square &middot;
+                128&times;128 or larger &middot; under 512&nbsp;KB. It is cropped to a circle, so a
+                square image keeps everything you drew.</p>
+              <div class="launcher-color">
+                <label for="f-launcher-color">Launcher colour</label>
+                <input type="color" id="f-launcher-color" value="#087aff" />
+                <button type="button" class="ghost" id="launcherColorReset">Reset to theme</button>
+                <span class="soft" id="launcherColorNote"></span>
+              </div>
             </div>
 
             <label class="check" id="transcriptRow">
@@ -440,6 +454,106 @@
     </section>
   </main>
 
+  <!-- ── Logs ─────────────────────────────────────────────────────
+       Same layout language as Demo Experiences and Remote Control: a
+       .list-head, .rc-tabs, and one .demo-row per thing. A conversation is
+       "a thing" here, which is what makes this readable without learning a
+       new screen.
+
+       The raw log is NOT here: it lives in #logDock, a fixed panel down the
+       right of the whole app, so an SE can drive Remote Control or a demo on
+       this machine and watch the live log arrive beside it. This page is the
+       conversations, and the Raw logs button opens that dock. -->
+  <main id="logsView" hidden>
+    <div class="list-head">
+      <h2>Logs</h2>
+      <div class="logs-tools" id="logTools" hidden>
+        <input id="logFind" class="find" placeholder="Find…" spellcheck="false" autocomplete="off" />
+        <button class="ghost" id="logRefresh" title="Reload now">Refresh</button>
+        <!-- Docked app-wide, not popped out: the SE opens this, then goes
+             back to Remote Control or a demo with the log still running. -->
+        <button class="ghost" id="logRawToggle" aria-pressed="false" aria-controls="logDock"
+                title="Open the live raw log in a panel down the right of the app — it stays there while you use Remote Control or a demo">Raw logs</button>
+        <button class="ghost" id="logReset"
+                title="Clear the screen and every filter, so the next test starts from nothing">Reset</button>
+      </div>
+    </div>
+
+    <!-- Every filter on one row, starting with the Project. Flow, User ID and
+         Session ID each carry an ✕ because Cognigy matches them exactly — a
+         stale value looks like "nothing ran" rather than like a filter. -->
+    <div class="logs-filters" id="logFilters" hidden>
+      <label class="logs-filter">Project
+        <select id="logProject" aria-label="Project"></select>
+      </label>
+      <label class="logs-filter">Flow
+        <span class="logs-field">
+          <input id="logFlow" list="logFlowOptions" placeholder="Any flow" spellcheck="false" autocomplete="off" />
+          <datalist id="logFlowOptions"></datalist>
+          <button type="button" class="field-clear" data-clear="logFlow" hidden
+                  title="Clear — show every flow" aria-label="Clear the flow filter"><span data-ico="close" data-size="14"></span></button>
+        </span>
+      </label>
+      <label class="logs-filter">User ID
+        <span class="logs-field">
+          <input id="logUser" list="logUserOptions" placeholder="Any user" spellcheck="false" autocomplete="off" />
+          <datalist id="logUserOptions"></datalist>
+          <button type="button" class="field-clear" data-clear="logUser" hidden
+                  title="Clear — show every user" aria-label="Clear the user ID filter"><span data-ico="close" data-size="14"></span></button>
+        </span>
+      </label>
+      <label class="logs-filter">Session ID
+        <span class="logs-field">
+          <input id="logSession" list="logSessionOptions" placeholder="Any session" spellcheck="false" autocomplete="off" />
+          <datalist id="logSessionOptions"></datalist>
+          <button type="button" class="field-clear" data-clear="logSession" hidden
+                  title="Clear — show every session" aria-label="Clear the session ID filter"><span data-ico="close" data-size="14"></span></button>
+        </span>
+      </label>
+      <label class="logs-filter">Window
+        <div class="seg" id="logWindowSeg" role="radiogroup" aria-label="Time window">
+          <button type="button" class="seg-btn" data-window="1" role="radio">1h</button>
+          <button type="button" class="seg-btn" data-window="6" role="radio">6h</button>
+          <button type="button" class="seg-btn" data-window="12" role="radio">12h</button>
+        </div>
+      </label>
+    </div>
+
+    <!-- Shown instead of everything else until there is an API key. -->
+    <section class="card" id="logSetup" hidden>
+      <div class="card-head">
+        <div>
+          <h3>Connect the Cognigy API</h3>
+          <p class="card-sub">Logs come from your Cognigy organisation, which needs an API base URL
+            and a user API key. Demo Studio keeps the key on this machine and never sends it to this
+            page.</p>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="logImportMcp" hidden>Import from my Claude MCP config</button>
+        <button class="ghost" id="logGoSettings">Open Settings</button>
+      </div>
+      <p class="soft" id="logSetupHint"></p>
+    </section>
+
+    <div id="logMain" hidden>
+      <!-- After Reset: says so, and offers the way back. Without this the page
+           looks empty for the same reason a stale filter does. -->
+      <p class="log-since" id="logSince" hidden>
+        <span id="logSinceText"></span>
+        <button type="button" class="linkish" id="logSinceAll">Show everything again</button>
+      </p>
+
+      <section id="logConv">
+        <div class="demo-rows" id="logSessions"></div>
+        <div class="empty" id="logEmpty" hidden>
+          <div id="logEmptyTitle">No conversations yet</div>
+          <div class="soft" id="logEmptyHint"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
   <!-- ── Settings ─────────────────────────────────────────────── -->
   <main id="settingsView" hidden>
     <div class="list-head"><h2>Settings</h2></div>
@@ -546,10 +660,48 @@
     <section class="card">
       <div class="card-head">
         <div>
+          <h3>Cognigy API</h3>
+          <p class="card-sub">Powers the <b>Logs</b> page. The key is a <b>user API key</b> from
+            Cognigy &rsaquo; My Profile &rsaquo; API Keys — not a flow Endpoint Key and not the Voice
+            Gateway key. It is stored on this machine, never sent to this page, and deliberately left
+            out of Export.</p>
+        </div>
+        <span class="pill" id="cgPill">Not connected</span>
+      </div>
+      <div class="stack">
+        <label class="setting-field">API base URL
+          <input id="f-cg-base" list="cgRegions" placeholder="https://api-trial-us.cognigy.ai"
+                 spellcheck="false" autocomplete="off" />
+          <datalist id="cgRegions">
+            <option value="https://api-trial.cognigy.ai"></option>
+            <option value="https://api-trial-us.cognigy.ai"></option>
+            <option value="https://api-app.cognigy.ai"></option>
+            <option value="https://api-app-us.cognigy.ai"></option>
+            <option value="https://cognigy-api-na1.nicecxone.com"></option>
+            <option value="https://cognigy-api-eu1.nicecxone.com"></option>
+            <option value="https://cognigy-api-au1.nicecxone.com"></option>
+          </datalist>
+        </label>
+        <label class="setting-field">API key
+          <input id="f-cg-key" type="password" placeholder="Paste a user API key"
+                 spellcheck="false" autocomplete="off" />
+        </label>
+        <div class="btn-row">
+          <button class="primary" id="cgSaveBtn">Save</button>
+          <button class="ghost" id="cgImportBtn" hidden>Import from my Claude MCP config</button>
+          <button class="ghost" id="cgTestBtn">Test connection</button>
+        </div>
+        <p class="soft" id="cgStatus"></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
           <h3>Demo diagnostics</h3>
           <p class="card-sub">Shows a small state badge on the demo and logs verbosely to the browser
-            console, and shows the microphone gear on the widget. Handy when a demo doesn't look right —
-            turn it off before demoing to a customer.</p>
+            console. Handy when a demo doesn't look right — turn it off before demoing to a customer.
+            The microphone gear on a voice demo no longer depends on this.</p>
         </div>
       </div>
       <label class="check"><input type="checkbox" id="f-diagnostics" /> Show demo diagnostics</label>
@@ -752,6 +904,86 @@
 
   </div><!-- /content -->
 
+  <!-- ── Live log dock ────────────────────────────────────────────
+       A fixed panel down the right of the WHOLE app, not part of the Logs
+       page. That is the point: the SE opens it, goes back to Remote Control
+       or a Demo Experience to make the agent do the thing, and watches
+       Cognigy's log arrive next to what they are driving. It keeps tailing
+       across navigation and closes only when they close it.
+
+       Its own controls sit at the top, above the stream, because that is
+       where a control that changes what is below it belongs — and because
+       from Remote Control the Logs page is not on screen to reach them. -->
+  <aside id="logDock" hidden aria-label="Live log">
+    <header class="dock-head">
+      <span class="dock-title">Live log</span>
+      <span class="dock-dot" id="logDockDot" title="Tailing"></span>
+      <button class="ghost dock-btn" id="logDockReset"
+              title="Clear the filters and draw a line under everything already logged, so the next test starts on an empty panel">Reset</button>
+      <button class="icon-btn" id="logDockClose" title="Close the live log"
+              aria-label="Close the live log"><span data-ico="close" data-size="16"></span></button>
+    </header>
+
+    <!-- Project first: opened from Remote Control, this panel is the only
+         thing on screen that knows which Cognigy Project to read. -->
+    <label class="dock-pick">Project
+      <select id="logDockProject" aria-label="Project"></select>
+    </label>
+
+    <!-- Levels and limits, at the top of the panel. -->
+    <details class="drawer dock-drawer" id="logMore">
+      <summary>Log levels and limits</summary>
+      <div class="drawer-body stack">
+        <div>
+          <span class="field-legend">Levels (Raw log)</span>
+          <div class="btn-row" id="logLevels">
+            <label class="check"><input type="checkbox" data-level="info" checked /> Info</label>
+            <label class="check"><input type="checkbox" data-level="error" checked /> Error</label>
+            <label class="check"><input type="checkbox" data-level="warn" /> Warning</label>
+            <label class="check"><input type="checkbox" data-level="debug" /> Debug</label>
+          </div>
+        </div>
+        <p class="soft" id="logCounts"></p>
+        <p class="soft">Cognigy matches Flow, User ID and Session ID <b>exactly</b> and
+          case-sensitively — a partial value returns nothing. Logs are kept for about 24 hours,
+          and the window reaches back at most as far as your cluster allows, so download a
+          transcript to keep one.</p>
+      </div>
+    </details>
+
+    <p class="log-since" id="logDockSince" hidden>
+      <span id="logDockSinceText"></span>
+      <button type="button" class="linkish" id="logDockSinceAll">Show everything</button>
+    </p>
+
+    <!-- Raw log FIRST: it is what the panel is opened for. Conversation is
+         the same turns the Logs page lists, pinned to one session. -->
+    <nav class="rc-tabs" id="logDockTabs">
+      <button id="logTabRaw" class="on">Raw log</button>
+      <button id="logTabConv">Conversation</button>
+    </nav>
+
+    <div class="dock-body">
+      <!-- No API key yet: the dock cannot borrow the Logs page's setup card,
+           because the SE opening this from Remote Control cannot see it. -->
+      <div class="dock-gate" id="logDockGate" hidden>
+        <p class="soft" id="logDockGateText">Demo Studio needs a Cognigy API key to read logs.</p>
+        <button class="ghost" id="logDockSettings">Open Settings</button>
+      </div>
+      <section id="logRaw">
+        <div class="log-rows" id="logEntries"></div>
+        <div class="empty" id="logRawEmpty" hidden>Nothing in this window.</div>
+      </section>
+      <section id="logDockConv" hidden>
+        <label class="dock-pick">Conversation
+          <select id="logDockSession" aria-label="Conversation to show"></select>
+        </label>
+        <div id="logDockTranscript"></div>
+      </section>
+    </div>
+  </aside>
+
+
   <div id="modal" class="modal" hidden>
     <div class="modal-card">
       <h3 id="modalTitle"></h3>
@@ -761,11 +993,17 @@
   </div>
 
   <script src="icons.js"></script>
+  <!-- Electron has no window.prompt(); CDSDialog.prompt() stands in for it. -->
+  <script src="dialog.js"></script>
   <script src="themes.js"></script>
   <script src="/shared/normalize.js"></script>
   <!-- Same reader the demo templates use, so Remote Control and a demo can
        never disagree about what Cognigy just said. -->
   <script src="/shared/voice-transcript.js"></script>
+  <!-- Cognigy log entries -> a clean human/agent transcript. Shared with the
+       service, which serves the .txt download, so the conversation on screen
+       and the one an SE sends a customer can never disagree. -->
+  <script src="/shared/log-transcript.js"></script>
   <script src="vendor/cds-voice-sdk.js"></script>
   <!-- Microphone cleanup. Served by the service rather than sat next to the
        other vendor bundles so the dashboard, the demo pages and Remote
@@ -783,5 +1021,6 @@
   <script src="/_cds/audio-panel.js"></script>
   <script src="app.js"></script>
   <script src="remote.js"></script>
+  <script src="logs.js"></script>
 </body>
 </html>

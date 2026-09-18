@@ -169,6 +169,23 @@ html.cds-overlay body { overflow: hidden; }
 }
 .cds-launcher:hover { transform: scale(1.08); }
 .cds-launcher svg { width: 46%; height: 46%; }
+.cds-launcher-img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Voice Wave — the same five bars the extension's own launcher draws. */
+.cds-launcher-bars {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px; width: 52%; height: 48%;
+}
+.cds-launcher-bars i {
+  flex: 1 1 0; min-width: 3px; max-width: 5px; height: 30%;
+  border-radius: 2px; background: currentColor;
+  animation: cdsLauncherBar 1.15s ease-in-out infinite;
+}
+.cds-launcher-bars i:nth-child(2) { animation-delay: .12s; }
+.cds-launcher-bars i:nth-child(3) { animation-delay: .24s; }
+.cds-launcher-bars i:nth-child(4) { animation-delay: .36s; }
+.cds-launcher-bars i:nth-child(5) { animation-delay: .48s; }
+@keyframes cdsLauncherBar { 0%, 100% { height: 26%; } 50% { height: 78%; } }
 @keyframes cdsLauncherPulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }

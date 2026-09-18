@@ -11,7 +11,7 @@
   "use strict";
 
   var TEMPLATES = ["webchat", "webrtc", "webchat-webrtc"];
-  var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave", "chat"];
+  var LAUNCHERS = ["ai-orb", "ai-spark", "voice-wave", "chat", "phone"];
   var SIDES = ["left", "right"];
   var SIZES = ["small", "medium", "large"];
   /*
@@ -233,6 +233,25 @@
     return allowed.indexOf(value) >= 0 ? value : fallback;
   }
 
+  /*
+   * launcherImage is written straight into an <img src> by the demo and by the
+   * extension, so it is only ever allowed to be one of our own data URLs. The
+   * field used to be a bare String() holding "a path relative to the demo
+   * folder", which is a traversal waiting to happen now that something writes
+   * to it. An SVG inside an <img> cannot run script, so it stays on the list.
+   */
+  var LAUNCHER_IMAGE_RE = /^data:image\/(png|jpeg|svg\+xml|webp);base64,[A-Za-z0-9+/]+=*$/;
+  function safeLauncherImage(value) {
+    var v = String(value || "");
+    return LAUNCHER_IMAGE_RE.test(v) ? v : "";
+  }
+
+  // #rgb, #rrggbb or #rrggbbaa. Anything else falls back to "" = use the theme.
+  function safeHexColor(value) {
+    var v = String(value || "").trim();
+    return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ? v : "";
+  }
+
   function pickPanelStyle(value, fallback) {
     var v = PANEL_STYLE_ALIASES[value] || value;
     return PANEL_STYLES.indexOf(v) >= 0 ? v : fallback;
@@ -255,7 +274,20 @@
       launcherText: "",
       showLauncherText: true,
       launcherSize: "medium",
-      launcherImage: "",       // uploaded launcher art, relative to the demo folder
+      /*
+       * Uploaded launcher art, as a base64 data URL.
+       *
+       * It lives in demo.json rather than as a file in the demo folder because
+       * demo.json is the only per-demo thing that survives everything: it is
+       * read at runtime by the demo (fetch("./demo.json")), Sync preserves it
+       * explicitly (store.js replaceSrc), and a Rebuild regenerates dist/ —
+       * which is where a written file would have had to live to be served.
+       */
+      launcherImage: "",
+      // "" = the theme's own accent. Top-level rather than under theme.*
+      // because the form sends theme: { preset } only and store.update()
+      // shallow-merges, so a field parked there is wiped on the next save.
+      launcherColor: "",
       agentName: "AI Assistant",
       welcomeMessage: "",
       /*
@@ -393,7 +425,8 @@
       launcherText: String(input.launcherText || ""),
       showLauncherText: input.showLauncherText !== false,
       launcherSize: pick(input.launcherSize, SIZES, d.launcherSize),
-      launcherImage: String(input.launcherImage || ""),
+      launcherImage: safeLauncherImage(input.launcherImage),
+      launcherColor: safeHexColor(input.launcherColor),
       agentName: String(input.agentName || d.agentName),
       welcomeMessage: String(input.welcomeMessage || ""),
       // Up to three, trimmed, blanks dropped — an empty box in the form must

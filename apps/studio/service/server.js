@@ -13,6 +13,8 @@ const preflight = require("./preflight");
 const importer = require("./importer");
 const themes = require("./themes");
 const outbound = require("./outbound");
+const cognigyApi = require("./cognigy-api");
+const logTranscript = require("../../../packages/shared/log-transcript");
 const { demoDir } = require("./paths");
 const normalize = require("../../../packages/shared/normalize");
 const schema = require("../../../packages/shared/demo-schema");
@@ -158,6 +160,10 @@ function createApp() {
         chatUi: schema.usesCognigyWidget(demo) ? "webchat3" : "studio",
         launcher: demo.launcher, launcherText: demo.launcherText,
         showLauncherText: demo.showLauncherText, launcherSize: demo.launcherSize,
+        // The extension draws the launcher itself in Panel style, so it needs
+        // the uploaded mark and the colour too — without these an SE's own
+        // logo appeared in Overlay and vanished in Panel.
+        launcherImage: demo.launcherImage, launcherColor: demo.launcherColor,
         agentName: demo.agentName, theme: demo.theme,
         // The extension reads this as "is there anything to show" and refuses
         // to mount the launcher when it's false. A demo served by one of
@@ -171,7 +177,18 @@ function createApp() {
     });
   });
 
-  app.get("/api/settings", (req, res) => ok(res, settingsStore.read()));
+  /*
+   * The management API key is the one thing in here the dashboard must never
+   * receive. Everything Cognigy-facing is proxied by /api/logs/* and
+   * /api/cognigy/*, so the page only needs to know whether a key EXISTS in
+   * order to render "connected" vs "set this up".
+   */
+  function publicSettings() {
+    const s = settingsStore.read();
+    s.cognigy = { baseUrl: (s.cognigy && s.cognigy.baseUrl) || "", apiKeySet: !!(s.cognigy && s.cognigy.apiKey) };
+    return s;
+  }
+  app.get("/api/settings", (req, res) => ok(res, publicSettings()));
   app.put("/api/settings", (req, res) => {
     const body = req.body || {};
     const patch = {};
@@ -233,6 +250,24 @@ function createApp() {
         patch.audio.gateCloseThreshold = patch.audio.gateOpenThreshold;
       }
     }
+    if ("logsProjectId" in body) patch.logsProjectId = String(body.logsProjectId || "").slice(0, 40);
+    /*
+     * An EMPTY apiKey in the patch means "leave it alone", not "clear it" —
+     * the dashboard never receives the key (see publicSettings), so a Save of
+     * the form would otherwise wipe it every time. Clearing is explicit, via
+     * { cognigy: { apiKey: null } }.
+     */
+    if (body.cognigy && typeof body.cognigy === "object") {
+      const cur = settingsStore.read().cognigy || {};
+      const cg = body.cognigy;
+      patch.cognigy = {
+        baseUrl: "baseUrl" in cg
+          ? String(cg.baseUrl || "").trim().replace(/\/+$/, "").slice(0, 300)
+          : cur.baseUrl || "",
+        apiKey: cg.apiKey === null ? ""
+          : (cg.apiKey ? String(cg.apiKey).trim().slice(0, 400) : cur.apiKey || "")
+      };
+    }
     if ("preferredMicId" in body) patch.preferredMicId = String(body.preferredMicId || "");
     if ("preferredSpeakerId" in body) patch.preferredSpeakerId = String(body.preferredSpeakerId || "");
     if (body.outbound && typeof body.outbound === "object") {
@@ -249,7 +284,8 @@ function createApp() {
         vgTrunk: String(ob.vgTrunk || "").slice(0, 120)
       };
     }
-    ok(res, settingsStore.write(patch));
+    settingsStore.write(patch);
+    ok(res, publicSettings());
   });
 
   /* ------------- folders -------------
@@ -340,6 +376,154 @@ function createApp() {
   app.post("/api/contacts/:id/trigger", async (req, res) => {
     try {
       ok(res, await outbound.trigger(settingsStore.read(), req.params.id, (req.body || {}).channel || "voice"));
+    } catch (err) { fail(res, err); }
+  });
+
+  /* ------------- logs (Cognigy management API) ------------- */
+  /*
+   * The dashboard never talks to Cognigy directly — it cannot (CORS) and must
+   * not (the API key lives here, not in the page). Every route below is a thin
+   * proxy over cognigy-api.js.
+   *
+   * A Cognigy result is { ok, data, error, debug }; a false `ok` is a real
+   * answer, not an exception, so it comes back as a 502 with the error text
+   * and the debug block the SE needs. Only missing configuration throws, which
+   * becomes the usual 400.
+   */
+  function relay(res, r) {
+    if (r.ok) return ok(res, { data: r.data, debug: r.debug });
+    return res.status(502).json({ error: r.error, debug: r.debug });
+  }
+  const cognigyCreds = () => cognigyApi.creds(settingsStore.read());
+
+  app.get("/api/cognigy/projects", async (req, res) => {
+    try { relay(res, await cognigyApi.projects(cognigyCreds())); } catch (err) { fail(res, err); }
+  });
+
+  app.get("/api/cognigy/flows", async (req, res) => {
+    try { relay(res, await cognigyApi.flows(cognigyCreds(), String(req.query.projectId || ""))); }
+    catch (err) { fail(res, err); }
+  });
+
+  /*
+   * Does a Claude MCP config already hold a Cognigy base URL + key? Answers
+   * with the URL and a boolean only; the key stays in the service.
+   */
+  app.get("/api/cognigy/discover", (req, res) => {
+    try { ok(res, cognigyApi.discover()); } catch (err) { fail(res, err); }
+  });
+
+  // Copy the discovered pair into settings WITHOUT it passing through the page.
+  app.post("/api/cognigy/discover/import", (req, res) => {
+    try {
+      const f = cognigyApi.findMcpCognigy();
+      if (!f.found) return fail(res, new Error("No Cognigy API key found in a Claude MCP config."));
+      settingsStore.write({ cognigy: { baseUrl: f.baseUrl, apiKey: f.apiKey } });
+      ok(res, { baseUrl: f.baseUrl, source: f.source, apiKeySet: true });
+    } catch (err) { fail(res, err); }
+  });
+
+  /*
+   * Which Project does a demo (or a gateway) belong to? An Endpoint URL carries
+   * a URL token, not a project id, so the only way across is to ask Cognigy for
+   * the org's endpoints and match on it. Best-effort: a miss is not an error,
+   * it just means the SE picks the Project themselves.
+   */
+  app.get("/api/cognigy/resolve", async (req, res) => {
+    try {
+      let endpointUrl = "";
+      if (req.query.demo) {
+        // A missing demo folder is a plain miss here, not an error worth
+        // surfacing — readDemo throws ENOENT with an absolute path in it.
+        let d = null;
+        try { d = store.readDemo(String(req.query.demo)); } catch (e) { d = null; }
+        if (!d) return ok(res, { projectId: "", reason: "That demo no longer exists." });
+        endpointUrl = (d.cognigy && (d.cognigy.chatEndpoint || d.cognigy.voiceEndpoint)) || "";
+      } else if (req.query.gw) {
+        const gw = (settingsStore.read().gateways || []).find((g) => g.id === String(req.query.gw));
+        endpointUrl = (gw && gw.endpointUrl) || "";
+      }
+      if (!endpointUrl || String(endpointUrl).trim().toLowerCase() === "mock") {
+        return ok(res, { projectId: "", reason: "This demo has no live Cognigy endpoint." });
+      }
+      const split = normalize.splitEndpoint(normalize.chatEndpoint(endpointUrl) || endpointUrl);
+      const token = (split && split.urlToken) || "";
+      if (!token) return ok(res, { projectId: "", reason: "Could not read a token from the endpoint URL." });
+
+      const r = await cognigyApi.resolveProjectByToken(cognigyCreds(), token);
+      if (!r.ok) return relay(res, r);
+      ok(res, {
+        projectId: r.data.projectId || "",
+        projectName: r.data.projectName || "",
+        reason: r.data.projectId ? "" : "No Cognigy Endpoint in this organisation matches that URL token."
+      });
+    } catch (err) { fail(res, err); }
+  });
+
+  /*
+   * The feed. Returns the raw entries AND a per-conversation rollup, because
+   * the page renders one row per session and an SE almost never knows a
+   * session id up front. Grouping is done here, with the same shared module
+   * that builds the transcript, so the turn count on a row can never disagree
+   * with the transcript it opens.
+   */
+  function logFilters(q) {
+    return {
+      userId: String(q.userId || "").trim(),
+      flowName: String(q.flowName || "").trim(),
+      sessionId: String(q.sessionId || "").trim(),
+      type: String(q.type || "").split(",").map((t) => t.trim()).filter(Boolean),
+      window: q.window,
+      next: String(q.next || "")
+    };
+  }
+
+  app.get("/api/logs", async (req, res) => {
+    try {
+      const projectId = String(req.query.projectId || "");
+      const r = await cognigyApi.tail(cognigyCreds(), projectId, logFilters(req.query));
+      if (!r.ok) return relay(res, r);
+      ok(res, {
+        items: r.data.items,
+        nextCursor: r.data.nextCursor,
+        sessions: logTranscript.sessions(r.data.items),
+        debug: r.debug
+      });
+    } catch (err) { fail(res, err); }
+  });
+
+  app.get("/api/logs/count", async (req, res) => {
+    try {
+      relay(res, await cognigyApi.count(cognigyCreds(), String(req.query.projectId || ""), logFilters(req.query)));
+    } catch (err) { fail(res, err); }
+  });
+
+  /*
+   * The transcript download. A plain text file, one turn per line, and nothing
+   * else — no ids, no levels, no metadata. Served with Content-Disposition
+   * rather than assembled in the renderer, which is how /api/export already
+   * works and means no Blob and no new Electron save-dialog bridge.
+   */
+  app.get("/api/logs/transcript.txt", async (req, res) => {
+    try {
+      const projectId = String(req.query.projectId || "");
+      const filters = logFilters(req.query);
+      // info carries both canonical message types; debug/warn add only noise.
+      filters.type = ["info"];
+      const r = await cognigyApi.tail(cognigyCreds(), projectId, filters);
+      if (!r.ok) return res.status(502).json({ error: r.error, debug: r.debug });
+
+      const lines = logTranscript.readEntries(r.data.items, { sessionId: filters.sessionId });
+      const agentName = String(req.query.agentName || "Agent").slice(0, 80);
+      const header = filters.sessionId ? "Session " + filters.sessionId : "";
+      const body = logTranscript.toText(lines, { agentName, header });
+
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const name = "transcript-" + (filters.sessionId ? filters.sessionId.slice(0, 18) + "-" : "") + stamp + ".txt";
+      res.set("Content-Type", "text/plain; charset=utf-8");
+      res.set("Content-Disposition", 'attachment; filename="' + name + '"');
+      res.set("Cache-Control", "no-store");
+      res.send(body || "No conversation turns in this window.\n");
     } catch (err) { fail(res, err); }
   });
 
@@ -582,7 +766,7 @@ function createApp() {
     const themeStyle = themes.styleFor(cfg);
     // Both go in <head>: the audio patch has to be installed before
     // /_cds/webrtc-widget.js in <body> boots JsSIP and asks for the mic.
-    html = html.replace("</head>", themeStyle + audioTags() + "</head>");
+    html = html.replace("</head>", themeStyle + audioTags(cfg) + "</head>");
     res.set("Cache-Control", "no-store");
     res.set("Content-Type", "text/html; charset=utf-8");
     return res.send(html);
@@ -599,16 +783,20 @@ function createApp() {
    * would silently skip vibe-coded ones. The patch is inert until something
    * asks for a microphone, so a chat-only demo pays a few KB and no CPU.
    *
-   * audio-panel.js (the gear) always loads but renders nothing unless
-   * diagnostics are on; it still arms its hotkey, which is what lets an SE
-   * reach the gate mid-call on a demo they'd already cleaned up for a customer.
+   * audio-panel.js (the gear) always loads. On a VOICE demo it renders
+   * unconditionally — an SE needs the denoiser and gain within reach on any
+   * machine, and gating it behind Settings > Show demo diagnostics meant most
+   * SEs never found it at all. On a chat-only demo there is no microphone to
+   * control, so `voice` is false and it stays hidden (the hotkey still arms).
    */
-  function audioTags() {
+  function audioTags(cfg) {
     const st = settingsStore.read();
     const data = Object.assign({}, st.audio, {
       base: "/_cds/audio/",
       debug: st.showDiagnostics !== false,
-      diagnostics: st.showDiagnostics !== false
+      diagnostics: st.showDiagnostics !== false,
+      // Template, not theme: Cognigy Default and Halo are the same microphone.
+      voice: cfg ? (cfg.template === "webrtc" || cfg.template === "webchat-webrtc") : false
     });
     // Escaping "<" makes a </script> breakout impossible, same as the config
     // blobs above.
@@ -693,7 +881,7 @@ function createApp() {
        * was a theme or a panel stylesheet to add. Every demo index gets the
        * audio layer, which is what makes it theme-proof and template-proof.
        */
-      const tags = themeStyle + audioTags() +
+      const tags = themeStyle + audioTags(demoCfg) +
         sheets.map((f) => '<link rel="stylesheet" href="/_cds/' + f + '">').join("");
       html = html.includes("</head>") ? html.replace("</head>", tags + "</head>") : html + tags;
       res.set("Cache-Control", "no-store");

@@ -141,14 +141,16 @@
 
   var folderActions = {
     rename: function (name) {
-      var next = prompt("Rename folder:", name);
-      if (next === null) return;
-      next = next.trim().slice(0, 80);
-      if (!next || next === name) return;
-      var merging = allFolderNames().indexOf(next) >= 0;
-      if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
-      collapsedFolders[next] = collapsedFolders[name];   // carry the open/closed state over
-      api("/api/folders/rename", postJson({ from: name, to: next })).then(loadList).catch(alertErr);
+      CDSDialog.prompt({ title: "Rename folder", label: "Folder name", value: name, okLabel: "Rename", maxLength: 80 })
+        .then(function (next) {
+          if (next === null) return;
+          next = next.slice(0, 80);
+          if (next === name) return;
+          var merging = sameFolderName(next, name) ? false : hasFolderNamed(next);
+          if (merging && !confirm('"' + next + '" already exists.\n\nRenaming will merge the two folders. Continue?')) return;
+          collapsedFolders[next] = collapsedFolders[name];   // carry the open/closed state over
+          api("/api/folders/rename", postJson({ from: name, to: next })).then(loadList).catch(alertErr);
+        });
     },
     delete: function (name) {
       var count = allDemos.filter(function (d) { return d.folder === name; }).length;
@@ -159,6 +161,17 @@
       api("/api/folders/delete", postJson({ name: name })).then(loadList).catch(alertErr);
     }
   };
+
+  /*
+   * Folder names are compared case-insensitively. "Banking" and "banking" used
+   * to become two folders sitting next to each other in the list.
+   */
+  function sameFolderName(a, b) {
+    return String(a).toLowerCase() === String(b).toLowerCase();
+  }
+  function hasFolderNamed(name) {
+    return allFolderNames().some(function (f) { return sameFolderName(f, name); });
+  }
 
   function renderFolderOptions() {
     var dl = $("folderOptions");
@@ -252,6 +265,7 @@
       '<button class="primary" data-act="launch">Launch</button>' +
       '<button class="ghost" data-act="edit">Edit</button>' +
       '<button class="ghost" data-act="duplicate">Duplicate</button>' +
+      '<button class="ghost" data-act="logs" title="Open this demo\'s Cognigy logs">Logs</button>' +
       '<button class="ghost" data-act="preflight">Preflight</button>' +
       '<button class="ghost" data-act="sync" title="Refresh this demo\'s code from the current template (your source is backed up)">Sync</button>' +
       '<button class="danger" data-act="delete">Delete</button>' +
@@ -293,15 +307,22 @@
   $("findInput").addEventListener("input", renderList);
 
   $("newFolderBtn").addEventListener("click", function () {
-    var name = prompt("Folder name:");
-    if (!name || !name.trim()) return;
-    name = name.trim().slice(0, 80);
-    if (allFolderNames().indexOf(name) >= 0) { renderList(); return; }
-    folders.push(name);
-    api("/api/settings", putJson({ folders: folders })).then(function () {
-      renderList();
-      renderFolderOptions();
-    });
+    CDSDialog.prompt({ title: "New folder", label: "Folder name", placeholder: "Banking", okLabel: "Create", maxLength: 80 })
+      .then(function (name) {
+        if (name === null) return;
+        name = name.slice(0, 80);
+        // Saying so beats the old silent re-render, which looked like the
+        // button had done nothing at all.
+        if (hasFolderNamed(name)) { alertErr(new Error('"' + name + '" already exists.')); return; }
+        var next = folders.concat([name]);
+        // Commit to local state only once the save lands, or a failed PUT
+        // leaves a folder on screen that does not exist on disk.
+        api("/api/settings", putJson({ folders: next })).then(function () {
+          folders = next;
+          renderList();
+          renderFolderOptions();
+        }).catch(alertErr);
+      });
   });
 
   var actions = {
@@ -313,12 +334,20 @@
     },
     edit: function (d) { openEdit(d.id); },
     duplicate: function (d) {
-      var name = prompt("Name for the duplicate:", d.name + " Copy");
-      if (name === null) return;
-      api("/api/demos/" + d.id + "/duplicate", postJson({ name: name })).then(function (res) {
-        openEdit(res.demo.id);
-      }).catch(alertErr);
+      CDSDialog.prompt({ title: "Duplicate demo", label: "Name for the duplicate", value: d.name + " Copy", okLabel: "Duplicate" })
+        .then(function (name) {
+          if (name === null) return;
+          api("/api/demos/" + d.id + "/duplicate", postJson({ name: name })).then(function (res) {
+            openEdit(res.demo.id);
+          }).catch(alertErr);
+        });
     },
+    /*
+     * Straight to this demo's logs with its Project already resolved. The
+     * point of the deep link is that an SE who just watched something go
+     * wrong doesn't then have to work out which Cognigy Project it was in.
+     */
+    logs: function (d) { location.hash = "#logs&demo=" + encodeURIComponent(d.id); },
     preflight: function (d) { runPreflight(d); },
     sync: function (d) {
       if (!confirm('Update "' + d.name + '" to the current template?\n\n' +
@@ -413,17 +442,30 @@
     theme: "cognigy-default",
     launcher: "ai-orb",
     launcherImage: "",
+    launcherColor: "",
     side: "right",
     panelStyle: "overlay",
     startingBehavior: "greeting"
   };
 
+  /*
+   * One entry per value in demo-schema's LAUNCHERS. THREE renderers draw these
+   * — this picker, the demo's own src/shell/Launcher.tsx (overlay/Halo) and
+   * extension/content.js's launcherInner() (Panel style) — and they have to
+   * agree. voice-wave used to be a waveform here and a telephone handset in
+   * Halo, so the tile lied about what the customer would see.
+   */
   var LAUNCHER_ART = {
     "ai-orb":     { name: "AI Orb",      cls: "",      icon: "blur_on" },
     "ai-spark":   { name: "AI Spark",    cls: "spark", icon: "auto_awesome" },
     "voice-wave": { name: "Voice Wave",  cls: "",      icon: "graphic_eq" },
-    "chat":       { name: "Chat Bubble", cls: "",      icon: "chat" }
+    "chat":       { name: "Chat Bubble", cls: "",      icon: "chat" },
+    "phone":      { name: "Phone",       cls: "",      icon: "call" }
   };
+
+  /* Upload limits. Stated in the form too — see index.html's Launcher group. */
+  var LAUNCHER_IMAGE_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+  var LAUNCHER_IMAGE_MAX = 512 * 1024;
 
   var THEME_SUB = {
     "webchat": "Cognigy Default leaves the widget exactly as the Endpoint styles it. Custom overrides its colours from demo.json.",
@@ -460,26 +502,34 @@
   }
 
   function renderLauncherList() {
+    /*
+     * .launcher-art paints a gradient from --primary, which is the DASHBOARD's
+     * accent. Overriding it per tile from the demo's own launcher colour is
+     * what makes this a preview rather than a generic swatch.
+     */
+    // Hex-checked rather than esc()'d: this lands in an attribute, and esc()
+    // does not escape quotes. sanitize() enforces the same shape server-side.
+    var hex = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(form.launcherColor) ? form.launcherColor : "";
+    var swatch = hex ? ' style="--primary:' + hex + '"' : "";
     var tiles = Object.keys(LAUNCHER_ART).map(function (id) {
       var a = LAUNCHER_ART[id];
       var on = form.launcher === id && !form.launcherImage;
       return '<button type="button" class="launcher-tile' + (on ? " on" : "") + '"' +
         ' role="radio" aria-checked="' + (on ? "true" : "false") + '" data-launcher="' + id + '">' +
-        '<span class="launcher-art ' + a.cls + '">' + CDSIcons.svg(a.icon, 20) + '</span>' +
+        '<span class="launcher-art ' + a.cls + '"' + (a.cls === "spark" ? "" : swatch) + '>' +
+          CDSIcons.svg(a.icon, 20) +
+        '</span>' +
         '<span class="launcher-name">' + esc(a.name) + '</span>' +
       '</button>';
     });
     /*
      * The upload tile shows the uploaded art once there is one, so the picker
-     * reflects what the demo will actually draw.
-     *
-     * Disabled until the upload route exists. A control that opens a file
-     * picker and then silently drops the file is the same bug the Template
-     * radios had — it looks like it worked. Better to say so.
+     * reflects what the demo will actually draw. Clicking it reopens the file
+     * picker, so a mark can be swapped without first selecting another icon.
      */
     var upOn = !!form.launcherImage;
     tiles.push('<button type="button" class="launcher-tile' + (upOn ? " on" : "") + '"' +
-      ' disabled title="Not wired up yet — the upload route is next."' +
+      ' title="PNG, SVG, JPG or WebP · square · under 512 KB"' +
       ' role="radio" aria-checked="' + (upOn ? "true" : "false") + '" data-launcher="__upload">' +
       '<span class="launcher-art upload">' +
         (upOn ? '<img src="' + esc(form.launcherImage) + '" alt="" />' : CDSIcons.svg("add_photo_alternate", 18)) +
@@ -487,6 +537,11 @@
       '<span class="launcher-name">' + (upOn ? "Your image" : "Upload") + '</span>' +
     '</button>');
     $("launcherList").innerHTML = tiles.join("");
+
+    var hasColor = !!form.launcherColor;
+    $("f-launcher-color").value = form.launcherColor || "#087aff";
+    $("launcherColorReset").hidden = !hasColor;
+    $("launcherColorNote").textContent = hasColor ? "" : "Using the theme's own colour.";
   }
 
   function paintSeg(id, attr, value) {
@@ -544,6 +599,7 @@
     form.theme = (d && d.theme && d.theme.preset) || "cognigy-default";
     form.launcher = (d && d.launcher) || "ai-orb";
     form.launcherImage = (d && d.launcherImage) || "";
+    form.launcherColor = (d && d.launcherColor) || "";
     form.side = d ? d.panelSide : "right";
     form.panelStyle = d ? (d.panelStyle || "overlay") : "overlay";
     form.startingBehavior = (d && d.startingBehavior) || "greeting";
@@ -585,6 +641,7 @@
       panelWidth: parseInt($("f-width").value, 10) || 0,
       launcher: form.launcher,
       launcherImage: form.launcherImage,
+      launcherColor: form.launcherColor,
       launcherText: $("f-label").value.trim(),
       showLauncherText: $("f-showlabel").checked,
       agentName: $("f-agent").value.trim() || "AI Assistant",
@@ -628,9 +685,50 @@
     var tile = e.target.closest("[data-launcher]");
     if (!tile) return;
     var v = tile.getAttribute("data-launcher");
-    if (v === "__upload") return $("launcherFile").click();
+    if (v === "__upload") {
+      // Clear it first, or picking the same file twice fires no change event.
+      $("launcherFile").value = "";
+      return $("launcherFile").click();
+    }
     form.launcher = v;
-    form.launcherImage = "";
+    form.launcherImage = "";   // a built-in mark replaces an uploaded one
+    syncForm();
+  });
+
+  /*
+   * Uploaded launcher art is read straight into a base64 data URL and kept in
+   * demo.json. Nothing is written to the demo folder: dist/ is regenerated by
+   * every Rebuild, and demo.json is the one per-demo file Sync preserves.
+   * sanitize() re-checks the result server-side — this is the friendly half.
+   */
+  $("launcherFile").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    if (LAUNCHER_IMAGE_TYPES.indexOf(file.type) < 0) {
+      alertErr(new Error("That file is a " + (file.type || "unknown type") +
+        ". Launcher art has to be a PNG, SVG, JPG or WebP."));
+      return;
+    }
+    if (file.size > LAUNCHER_IMAGE_MAX) {
+      alertErr(new Error("That image is " + Math.round(file.size / 1024) + " KB. " +
+        "Launcher art has to be under 512 KB — it is drawn at 74px, so it never needs to be large."));
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      form.launcherImage = String(reader.result || "");
+      syncForm();
+    };
+    reader.onerror = function () { alertErr(new Error("That file could not be read.")); };
+    reader.readAsDataURL(file);
+  });
+
+  $("f-launcher-color").addEventListener("input", function () {
+    form.launcherColor = this.value;
+    syncForm();
+  });
+  $("launcherColorReset").addEventListener("click", function () {
+    form.launcherColor = "";
     syncForm();
   });
 
@@ -1036,6 +1134,65 @@
     });
   }
 
+  /* ---------------- Cognigy API (Settings, for the Logs page) ---------------- */
+
+  /*
+   * The key is never sent to this page — GET /api/settings reports
+   * { baseUrl, apiKeySet } only. So the field renders EMPTY with a
+   * "already set" placeholder rather than a row of fake dots, and an empty
+   * box on Save means "leave it alone", which is what the service does.
+   */
+  function paintCognigy(cg) {
+    var set = !!cg.apiKeySet;
+    $("f-cg-base").value = cg.baseUrl || "";
+    $("f-cg-key").value = "";
+    $("f-cg-key").placeholder = set ? "Already set — type to replace it" : "Paste a user API key";
+    var pill = $("cgPill");
+    pill.textContent = set && cg.baseUrl ? "Connected" : "Not connected";
+    pill.classList.toggle("ok", set && !!cg.baseUrl);
+    api("/api/cognigy/discover").then(function (d) {
+      $("cgImportBtn").hidden = !d.found;
+      if (d.found && !set) $("cgStatus").textContent = "Found a Cognigy key in " + d.source + ".";
+    }).catch(function () {});
+  }
+
+  function saveCognigy(patch, status) {
+    return api("/api/settings", putJson({ cognigy: patch })).then(function (st) {
+      paintCognigy(st.cognigy || {});
+      $("cgStatus").textContent = status || "Saved.";
+    }).catch(function (err) { $("cgStatus").textContent = String(err.message || err); });
+  }
+
+  $("cgSaveBtn").addEventListener("click", function () {
+    var key = $("f-cg-key").value.trim();
+    var patch = { baseUrl: $("f-cg-base").value.trim() };
+    if (key) patch.apiKey = key;
+    saveCognigy(patch);
+  });
+
+  $("cgImportBtn").addEventListener("click", function () {
+    var b = this;
+    b.disabled = true;
+    api("/api/cognigy/discover/import", postJson({})).then(function (r) {
+      $("cgStatus").textContent = "Imported from " + r.source + ".";
+      return api("/api/settings");
+    }).then(function (st) { paintCognigy(st.cognigy || {}); })
+      .catch(function (err) { $("cgStatus").textContent = String(err.message || err); })
+      .then(function () { b.disabled = false; });
+  });
+
+  // A real call, because "saved" and "works" are different things.
+  $("cgTestBtn").addEventListener("click", function () {
+    var b = this;
+    b.disabled = true;
+    $("cgStatus").textContent = "Testing…";
+    api("/api/cognigy/projects").then(function (r) {
+      var n = (r.data || []).length;
+      $("cgStatus").textContent = "Connected — " + n + (n === 1 ? " Project" : " Projects") + " visible.";
+    }).catch(function (err) { $("cgStatus").textContent = String(err.message || err); })
+      .then(function () { b.disabled = false; });
+  });
+
   function loadSettings() {
     api("/api/settings").then(function (st) {
       $("f-diagnostics").checked = st.showDiagnostics !== false;
@@ -1048,6 +1205,7 @@
       $("followMeStatus").textContent = fm === "followme"
         ? "Live Follow will track this conversation."
         : 'Using "' + fm + '" — Live Follow only tracks "followme".';
+      paintCognigy(st.cognigy || {});
     }).catch(function () {});
 
     api("/api/about").then(function (a) {
@@ -1279,6 +1437,17 @@
       applyRail(!railMini);
       saveAppearance({ sidebarCollapsed: railMini });
     });
+    /*
+     * The live log dock. It belongs on the rail rather than on the Logs page
+     * because the moment it is useful the SE is somewhere else — Remote
+     * Control, or a demo — watching what Cognigy logs about what they just
+     * did. logs.js owns the panel; this is only the way in.
+     */
+    var dockBtn = $("dockBtn");
+    dockBtn.innerHTML = CDSIcons.svg("receipt_long", 18);
+    dockBtn.addEventListener("click", function () {
+      if (window.CDSLogs) window.CDSLogs.toggleDock();
+    });
     $("themeSeg").addEventListener("click", function (e) {
       var b = e.target.closest("[data-theme-choice]");
       if (!b) return;
@@ -1326,13 +1495,20 @@
       onShow: function () { if (window.CDSRemote) window.CDSRemote.show(); }
     },
     {
+      id: "logs", hash: "#logs", label: "Logs", icon: "receipt_long",
+      view: "logsView",
+      // Deep links carry the demo/gateway to resolve a Project from, e.g.
+      // #logs&demo=acme — hashOpts() reads them off the hash.
+      onShow: function () { if (window.CDSLogs) window.CDSLogs.show(window.CDSLogs.hashOpts()); }
+    },
+    {
       id: "settings", hash: "#settings", label: "Settings", icon: "settings",
       view: "settingsView", onShow: loadSettings
     }
   ];
 
   // Every <main> the router owns; showView() reveals one and hides the rest.
-  var VIEWS = ["listView", "editView", "remoteView", "settingsView"];
+  var VIEWS = ["listView", "editView", "remoteView", "logsView", "settingsView"];
 
   function showView(id) {
     for (var i = 0; i < VIEWS.length; i++) $(VIEWS[i]).hidden = VIEWS[i] !== id;
@@ -1353,6 +1529,9 @@
   function route() {
     // The meter holds a live microphone; nothing but the Settings view should.
     stopAudioMeter();
+    // Same reason, different resource: the Logs page polls Cognigy every few
+    // seconds, and route() is the only place that knows we've left it.
+    if (window.CDSLogs) window.CDSLogs.pauseTail();
     var hash = (location.hash || "#demos").split("&")[0];
     var item = NAV[0];
     for (var i = 0; i < NAV.length; i++) if (NAV[i].hash === hash) item = NAV[i];

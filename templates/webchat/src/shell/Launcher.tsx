@@ -54,8 +54,29 @@ function OrbIcon() {
   );
 }
 
+/*
+ * Voice Wave — five bars, the same mark the dashboard's picker tile
+ * (graphic_eq) and the extension's own launcher draw. This used to render
+ * PhoneIcon, so "Voice Wave" showed a telephone handset and the picker lied
+ * about what the customer would see. Phone is now its own option.
+ */
+function WaveIcon() {
+  return (
+    <span className="cds-launcher-bars" aria-hidden="true">
+      <i /><i /><i /><i /><i />
+    </span>
+  );
+}
+
+/*
+ * One branch per value in demo-schema's LAUNCHERS. Two other renderers draw
+ * the same key — the dashboard's picker tiles (app.js LAUNCHER_ART) and the
+ * extension's solid drawer (content.js launcherInner) — and all three have to
+ * agree, or the tile promises one mark and the customer sees another.
+ */
 function iconFor(launcher: string) {
-  if (launcher === "voice-wave") return <PhoneIcon />;
+  if (launcher === "voice-wave") return <WaveIcon />;
+  if (launcher === "phone") return <PhoneIcon />;
   if (launcher === "ai-spark") return <SparkIcon />;
   if (launcher === "chat") return <ChatIcon />;
   return <OrbIcon />;
@@ -74,7 +95,11 @@ export default function Launcher({ cfg, onClick }: { cfg: DemoConfig; onClick: (
         onClick={onClick}
         aria-label={"Open " + (cfg.agentName || "assistant")}
       >
-        {iconFor(cfg.launcher)}
+        {/* An uploaded mark wins over the picker, so a customer's own logo can
+            stand in for the built-in icons without touching this file. */}
+        {cfg.launcherImage
+          ? <img className="cds-launcher-img" src={cfg.launcherImage} alt="" />
+          : iconFor(cfg.launcher)}
       </button>
     </div>
   );
